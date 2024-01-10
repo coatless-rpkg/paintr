@@ -9,7 +9,7 @@ Authors@R: c(
                    )
             )
 Description: Visualize the contents of different 'R' data structures.
-URL: https://github.com/coatless-rpkg/drawr, http://r-pkg.thecoatlessprofessor.com/drawr/
+URL: https://github.com/coatless-rpkg/drawr, https://r-pkg.thecoatlessprofessor.com/drawr/
 BugReports: https://github.com/coatless-rpkg/drawr/issues
 Depends: R (>= 4.2.0)
 License: GPL (>= 2)

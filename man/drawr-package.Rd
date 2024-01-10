@@ -12,7 +12,7 @@ Visualize the contents of different 'R' data structures.
 Useful links:
 \itemize{
   \item \url{https://github.com/coatless-rpkg/drawr}
-  \item \url{http://r-pkg.thecoatlessprofessor.com/drawr/}
+  \item \url{https://r-pkg.thecoatlessprofessor.com/drawr/}
   \item Report bugs at \url{https://github.com/coatless-rpkg/drawr/issues}
 }
 
