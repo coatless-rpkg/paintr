@@ -2,9 +2,17 @@
 % Please edit documentation in R/matrix.R
 \name{visualize_matrix_data}
 \alias{visualize_matrix_data}
+\alias{visualize_matrix_data_ggplot}
 \title{Visualize Data Inside of a Matrix}
 \usage{
 visualize_matrix_data(
+  data,
+  show_indices = TRUE,
+  highlight_cells = matrix(FALSE, nrow(data), ncol(data)),
+  highlight_color = "lemonchiffon"
+)
+
+visualize_matrix_data_ggplot(
   data,
   show_indices = TRUE,
   highlight_cells = matrix(FALSE, nrow(data), ncol(data)),
@@ -25,6 +33,24 @@ cells should be filled. Default: None.}
 Generate a graph showing the contents of a matrix.
 }
 \examples{
+# Base graphics
+
+# Visualize a 3x3
+mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
+visualize_matrix_data(mat_3x3)
+
+# Disable the indices
+visualize_matrix_data(mat_3x3, show_indices = FALSE)
+
+# Highlight a row
+mat_2x2 = matrix(c(1, 2, 3, 4), nrow = 2)
+mat_2x2_mask = matrix(c(TRUE, TRUE, FALSE, FALSE), nrow = 2)
+visualize_matrix_data(mat_2x2, highlight_cells = mat_2x2_mask)
+
+# Highlight values above 5
+mat_3x5 = matrix(rnorm(15, 5, 2), ncol = 5)
+visualize_matrix_data(mat_3x5, highlight_cells = mat_3x5 > 2) 
+# ggplot2 graphics
 # Visualize a 3x3
 mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
 visualize_matrix_data(mat_3x3)

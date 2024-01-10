@@ -11,10 +11,12 @@ Authors@R: c(
 Description: Visualize the contents of different 'R' data structures.
 URL: https://github.com/coatless-rpkg/drawr, http://r-pkg.thecoatlessprofessor.com/drawr/
 BugReports: https://github.com/coatless-rpkg/drawr/issues
-Depends: R (>= 4.3.0)
+Depends: R (>= 4.2.0)
 License: GPL (>= 2)
 Encoding: UTF-8
 RoxygenNote: 7.2.3
 Roxygen: list(markdown = TRUE)
 Imports: 
     graphics
+Suggests: 
+    ggplot2
