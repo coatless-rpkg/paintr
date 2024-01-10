@@ -10,12 +10,12 @@
     <loc>http://r-pkg.thecoatlessprofessor.com/drawr/index.html</loc>
   </url>
   <url>
+    <loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/draw-matrix.html</loc>
+  </url>
+  <url>
     <loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/drawr-package.html</loc>
   </url>
   <url>
     <loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/index.html</loc>
-  </url>
-  <url>
-    <loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/visualize_matrix_data.html</loc>
   </url>
 </urlset>
