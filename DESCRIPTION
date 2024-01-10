@@ -1,0 +1,20 @@
+Package: drawr
+Title: Create Graphics of 'R' Data Structures
+Version: 0.0.1
+Authors@R: c(
+             person("James Joseph", "Balamuta",
+                    email = "james.balamuta@gmail.com", 
+                    role = c("aut", "cre"),
+                    comment = c(ORCID = "0000-0003-2826-8458")
+                   )
+            )
+Description: Visualize the contents of different 'R' data structures.
+URL: https://github.com/coatless-rpkg/drawr, http://r-pkg.thecoatlessprofessor.com/drawr/
+BugReports: https://github.com/coatless-rpkg/drawr/issues
+Depends: R (>= 4.3.0)
+License: GPL (>= 2)
+Encoding: UTF-8
+RoxygenNote: 7.2.3
+Roxygen: list(markdown = TRUE)
+Imports: 
+    graphics
