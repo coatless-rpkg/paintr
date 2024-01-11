@@ -42,10 +42,13 @@ visualize_matrix_data <- function(data, show_indices = TRUE,
   nrow <- nrow(data)
   ncol <- ncol(data)
   
+  # Remove exterior margin
+  par(mar = c(0.1, 0.1, 2, 0.1))
+  
   # Initialize plot at the origin
   plot.new()
   plot.window(
-    xlim = c(0, ncol + 1), ylim = c(-1, nrow + .5)
+    xlim = c(0, ncol + 1), ylim = c(-.1, nrow + .1)
   )
   
   # TODO: Re-write to remove for loops.
@@ -79,14 +82,22 @@ visualize_matrix_data <- function(data, show_indices = TRUE,
   # Draw a rectangle around all cells in the matrix
   rect(0.5, nrow, ncol + 0.5 , 0, border = "black", lwd = 2)
   
-  # Add text annotation with data object name, dimensions, and data type
-  text(0.5 + 0.5 * ncol, -0.25, 
-       paste(
-         "Data Object:", deparse(substitute(data)),
-         "\nDimensions:", paste(nrow, "rows", ncol, "columns"),
-         "\nData Type:", paste0(class(data), collapse=", ")
-       ),
-       cex = 1.2)
+  # Add title with data object name, dimensions, and data type
+  graph_title = paste0("Data Object: ", deparse(substitute(data)))
+  graph_subtitle = paste0(
+    "Dimensions: ", paste(nrow, "rows", ncol, "columns"), " | ",
+    "Data Type: ", paste0(class(data), collapse=", ")
+  )
+  
+  # Left-align title inside of the margins of text
+  mtext(
+    text = graph_title, 
+    side = 3, line = 1, at = -0.07, adj = 0, cex = 1
+  )
+  mtext(
+    text = graph_subtitle,
+    side = 3, line = 0, at = -0.07, adj = 0, cex = 0.7
+  )
   
 }
 
