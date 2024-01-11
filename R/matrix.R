@@ -18,25 +18,28 @@
 #' 
 #' # Visualize a 3x3
 #' mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
-#' visualize_matrix_data(mat_3x3)
+#' draw_matrix(mat_3x3)
 #' 
 #' # Disable the indices
-#' visualize_matrix_data(mat_3x3, show_indices = FALSE)
+#' draw_matrix(mat_3x3, show_indices = FALSE)
 #' 
 #' # Highlight a row
 #' mat_2x2 = matrix(c(1, 2, 3, 4), nrow = 2)
 #' mat_2x2_mask = matrix(c(TRUE, TRUE, FALSE, FALSE), nrow = 2)
-#' visualize_matrix_data(mat_2x2, highlight_cells = mat_2x2_mask)
+#' draw_matrix(mat_2x2, highlight_cells = mat_2x2_mask)
 #' 
 #' # Highlight values above 5
 #' mat_3x5 = matrix(rnorm(15, 5, 2), ncol = 5)
-#' visualize_matrix_data(mat_3x5, highlight_cells = mat_3x5 > 2) 
-visualize_matrix_data <- function(data, show_indices = TRUE, 
-                                  highlight_cells = matrix(FALSE, nrow(data), ncol(data)), 
-                                  highlight_color = "lemonchiffon") {
+#' draw_matrix(mat_3x5, highlight_cells = mat_3x5 > 2) 
+draw_matrix <- function(
+    data,
+    show_indices = TRUE, 
+    highlight_cells = matrix(FALSE, nrow(data), ncol(data)), 
+    highlight_color = "lemonchiffon"
+  ) {
   
   if (!is.matrix(data)) {
-    message("Please double check the data supplied is of a matrix type.")
+    stop("Please double check the data supplied is of a matrix type.")
   }
   
   nrow <- nrow(data)
@@ -110,29 +113,32 @@ visualize_matrix_data <- function(data, show_indices = TRUE,
 #' 
 #' # Visualize a 3x3
 #' mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
-#' visualize_matrix_data(mat_3x3)
+#' gdraw_matrix(mat_3x3)
 #' 
 #' # View the matrix without indices present
-#' visualize_matrix_data(mat_3x3, show_indices = FALSE)
+#' gdraw_matrix(mat_3x3, show_indices = FALSE)
 #' 
 #' # Highlight a row
 #' mat_2x2 = matrix(c(1, 2, 3, 4), nrow = 2)
 #' mat_2x2_mask = matrix(c(TRUE, TRUE, FALSE, FALSE), nrow = 2)
-#' visualize_matrix_data(mat_2x2, highlight_cells = mat_2x2_mask)
+#' gdraw_matrix(mat_2x2, highlight_cells = mat_2x2_mask)
 #' 
 #' # Highlight values above 5
 #' mat_3x5 = matrix(rnorm(15, 5, 2), ncol = 5)
-#' visualize_matrix_data(mat_3x5, highlight_cells = mat_3x5 > 2) 
-visualize_matrix_data_ggplot <- function(data, show_indices = TRUE, 
-                                         highlight_cells = matrix(FALSE, nrow(data), ncol(data)), 
-                                         highlight_color = "lemonchiffon") {
+#' gdraw_matrix(mat_3x5, highlight_cells = mat_3x5 > 2) 
+gdraw_matrix <- function(
+    data, 
+    show_indices = TRUE, 
+    highlight_cells = matrix(FALSE, nrow(data), ncol(data)), 
+    highlight_color = "lemonchiffon"
+  ) {
   
   if(!requireNamespace("ggplot2", quietly = TRUE)) {
-    message("Please make sure `ggplot2` is installed to use this function.")
+    stop("Please make sure `ggplot2` is installed to use this function.")
   }
   
   if (!is.matrix(data)) {
-    message("Please double-check the data supplied is of a matrix type.")
+    stop("Please double-check the data supplied is of a matrix type.")
   }
   
   nrow <- nrow(data)
