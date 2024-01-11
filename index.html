@@ -71,7 +71,7 @@
 </h1></div>
 <!-- badges: start -->
 
-<p>The goal of drawr is to draw different R data structures on graphics</p>
+<p>The goal of <code>drawr</code> is to draw different <em>R</em> data structures on graphs.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
@@ -92,10 +92,10 @@
 <span><span class="va">mat_3x5</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">15</span>, <span class="fl">0</span>, <span class="fl">4</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Graphic of matrix data structure using base R graphics</span></span>
-<span><span class="fu"><a href="reference/draw-matrix.html">visualize_matrix_data</a></span><span class="op">(</span><span class="va">mat_3x5</span>, highlight_cells <span class="op">=</span> <span class="va">mat_3x5</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/draw-matrix.html">draw_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>, highlight_cells <span class="op">=</span> <span class="va">mat_3x5</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Graphic of matrix data structure using ggplot2 </span></span>
-<span><span class="fu"><a href="reference/draw-matrix.html">visualize_matrix_data_ggplot</a></span><span class="op">(</span><span class="va">mat_3x5</span>, highlight_cells <span class="op">=</span> <span class="va">mat_3x5</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="reference/draw-matrix.html">gdraw_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>, highlight_cells <span class="op">=</span> <span class="va">mat_3x5</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span></span></code></pre></div>
 <p><img src="reference/figures/README-example-1.png" width="100%"><img src="reference/figures/README-example-2.png" width="100%"></p>
 </div>
 </div>
