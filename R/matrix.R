@@ -149,8 +149,10 @@ draw_matrix <- function(
 #' mat_3x5 = matrix(rnorm(15, 5, 2), ncol = 5)
 #' gdraw_matrix(mat_3x5, highlight_cells = mat_3x5 > 2) 
 gdraw_matrix <- function(
-    data, 
-    show_indices = TRUE, 
+    data,
+    show_cell_indices = TRUE, 
+    show_row_indices = FALSE, 
+    show_column_indices = FALSE, 
     highlight_cells = matrix(FALSE, nrow(data), ncol(data)), 
     highlight_color = "lemonchiffon"
   ) {
@@ -166,8 +168,11 @@ gdraw_matrix <- function(
   nrow <- nrow(data)
   ncol <- ncol(data)
   
+  col_ind <- seq_len(ncol)
+  row_ind <- seq_len(nrow)
+  
   # Create a data frame for ggplot
-  df <- expand.grid(row = nrow:1, col = 1:ncol)
+  df <- expand.grid(row = rev(row_ind), col = col_ind)
   df$highlight <- as.vector(highlight_cells)
   df$value <- as.vector(data)
   
@@ -176,23 +181,25 @@ gdraw_matrix <- function(
   g <- ggplot2::ggplot(df) +
     ggplot2::aes(x = col, y = row, label = value, fill = highlight) + 
     ggplot2::geom_tile(color = "black", width = 1, height = 1) +
-    ggplot2::scale_fill_manual(values = c("white", highlight_color)) +
+    ggplot2::scale_fill_manual(values = c("white", highlight_color), na.value="white") +
     ggplot2::geom_rect(
       xmin = 0.5, xmax = ncol(data) + 0.5, 
       ymin = 0.5, ymax = nrow(data) + 0.5, 
-      fill = NA, color = "black", size = 1
+      fill = NA, color = "black", size = .25
     ) + 
     ggplot2::geom_text(
       ggplot2::aes(
-        label = ifelse(is.na(df$value), "NA", df$value)
+        label = ifelse(
+          is.finite(df$value) | is.infinite(df$value) | is.nan(df$value),
+          df$value, "NA"
+        )
       ), 
-      size = 5, color = "black") +
-    # Include the indices
-    ggplot2::geom_text(
-      ggplot2::aes(
-        label = ifelse(show_indices, paste0("[", row, ", ", col, "]"), "")
-      ), 
-      color = "grey", hjust = 0.5, vjust = 0.5, nudge_y = -0.15, size = 3) +
+      size = 5, 
+      color = ifelse(
+        is.finite(df$value), "black", 
+          ifelse(is.infinite(df$value) | is.nan(df$value), "blue", "red")
+      )
+    ) +
     # Provide details on the object plotted
     ggplot2::labs(
       title = paste("Data Object: ", deparse(substitute(data))),
@@ -201,12 +208,39 @@ gdraw_matrix <- function(
            "Data Type: ", paste0(class(data), collapse=", "))
     ) +    
     # Set the limits and breaks of the axes
-    ggplot2::scale_x_continuous(limits = c(0.5, ncol + 0.5), breaks = seq_len(ncol), expand = c(0, 0)) +
-    ggplot2::scale_y_continuous(limits = c(0.5, nrow + 0.5), breaks = seq_len(nrow), expand = c(0, 0)) +
+    ggplot2::scale_x_continuous(limits = c(0, ncol + 1), breaks = seq_len(ncol), expand = c(0, 0)) +
+    ggplot2::scale_y_continuous(limits = c(0, nrow + 1), breaks = seq_len(nrow), expand = c(0, 0)) +
     # Remove everything
     ggplot2::theme_void() + 
     # Disable showing the legend's highlight call.
     ggplot2::theme(legend.position = "none")
   
+  
+  # Include the cell indices
+  if (show_cell_indices) {
+    g <- g + 
+      ggplot2::geom_text(
+        label = paste0("[", nrow - df$row + 1, ", ", df$col, "]"),
+        color = "grey", hjust = 0.5, vjust = 0.5, nudge_y = -0.15, size = 4)
+  }
+  
+  # Add row indices to the left
+  if (show_row_indices) {
+    g <- g + 
+      ggplot2::annotate(
+        geom = "text",
+        label = paste0("[", rev(row_ind), ", ]"), 
+        x = 0.4, y = row_ind, color = "grey", hjust = 1, vjust = 0.5, size = 4)
+  }
+  
+  # Add column indices to the top
+  if (show_column_indices) {
+    g <- g + 
+      ggplot2::annotate(
+        geom = "text",
+        label = paste0("[, ", col_ind, "]"),
+        x = col_ind, y = nrow + 0.65, color = "grey", hjust = 0.5, vjust = 0.5, size = 4)
+  }
+    
   g
 }
