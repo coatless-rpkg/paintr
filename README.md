@@ -1,4 +1,8 @@
 
+- [drawr](#drawr)
+  - [Installation](#installation)
+  - [Example](#example)
+
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
 # drawr
@@ -25,8 +29,10 @@ devtools::install_github("coatless-rpkg/drawr")
 This is a basic example which shows you how to solve a common problem:
 
 ``` r
+# Load the library
 library(drawr)
 
+# Randomly filled matrix
 mat_3x5 = matrix(round(rnorm(15, 0, 4), 2), ncol = 5)
 
 # Graphic of matrix data structure using base R graphics
