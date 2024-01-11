@@ -7,32 +7,32 @@
 \usage{
 draw_matrix(
   data,
-  show_cell_indices = TRUE,
+  show_cell_indices = FALSE,
   show_row_indices = FALSE,
   show_column_indices = FALSE,
-  highlight_cells = matrix(FALSE, nrow(data), ncol(data)),
+  highlight_area = matrix(FALSE, nrow(data), ncol(data)),
   highlight_color = "lemonchiffon"
 )
 
 gdraw_matrix(
   data,
-  show_cell_indices = TRUE,
+  show_cell_indices = FALSE,
   show_row_indices = FALSE,
   show_column_indices = FALSE,
-  highlight_cells = matrix(FALSE, nrow(data), ncol(data)),
+  highlight_area = matrix(FALSE, nrow(data), ncol(data)),
   highlight_color = "lemonchiffon"
 )
 }
 \arguments{
 \item{data}{A object that has the class of \code{matrix}.}
 
-\item{show_cell_indices}{Display cell indices inside the matrix cell, e.g. \verb{[i, j]}. Default: \code{TRUE}}
+\item{show_cell_indices}{Display cell indices inside the matrix cell, e.g. \verb{[i, j]}. Default: \code{FALSE}}
 
 \item{show_row_indices}{Display row indices next to matrix row, e.g. \verb{[i, ]}. Default: \code{FALSE}}
 
 \item{show_column_indices}{Display column indices next to matrix column, e.g. \verb{[, j]}. Default: \code{FALSE}}
 
-\item{highlight_cells}{Matrix of logical values that provide a mask for what
+\item{highlight_area}{Matrix of logical values that provide a mask for what
 cells should be filled. Default: None.}
 
 \item{highlight_color}{Color to use to fill the background of a cell.}
@@ -47,17 +47,18 @@ Generate a graph showing the contents of a matrix.
 mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
 draw_matrix(mat_3x3)
 
-# Disable the indices
-draw_matrix(mat_3x3, show_cell_indices = FALSE)
+# Show the indices
+draw_matrix(mat_3x3, show_cell_indices = TRUE)
 
 # Highlight a row
-mat_2x2 = matrix(c(1, 2, 3, 4), nrow = 2)
-mat_2x2_mask = matrix(c(TRUE, TRUE, FALSE, FALSE), nrow = 2)
-draw_matrix(mat_2x2, highlight_cells = mat_2x2_mask)
+mat_4x4 = matrix(seq_len(16), nrow = 4)
+draw_matrix(
+  mat_4x4, 
+  show_row_indices = TRUE, highlight_area = highlight_rows(mat_4x4, rows = 1))
 
 # Highlight values above 5
-mat_3x5 = matrix(rnorm(15, 5, 2), ncol = 5)
-draw_matrix(mat_3x5, highlight_cells = mat_3x5 > 2) 
+mat_2x4 = matrix(round(rnorm(16, 5, 2), 2), ncol = 4)
+draw_matrix(mat_2x4, highlight_area = mat_2x4 > 2) 
 # ggplot2 graphics ----
 
 # Visualize a 3x3
@@ -65,14 +66,14 @@ mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
 gdraw_matrix(mat_3x3)
 
 # View the matrix without indices present
-gdraw_matrix(mat_3x3, show_cell_indices = FALSE)
+gdraw_matrix(mat_3x3, highlight_area = FALSE)
 
 # Highlight a row
 mat_2x2 = matrix(c(1, 2, 3, 4), nrow = 2)
 mat_2x2_mask = matrix(c(TRUE, TRUE, FALSE, FALSE), nrow = 2)
-gdraw_matrix(mat_2x2, highlight_cells = mat_2x2_mask)
+gdraw_matrix(mat_2x2, highlight_area = mat_2x2_mask)
 
 # Highlight values above 5
-mat_3x5 = matrix(rnorm(15, 5, 2), ncol = 5)
-gdraw_matrix(mat_3x5, highlight_cells = mat_3x5 > 2) 
+mat_3x5 = matrix(round(rnorm(15, 5, 2), 2), ncol = 5)
+gdraw_matrix(mat_3x5, highlight_area = mat_3x5 > 2) 
 }
