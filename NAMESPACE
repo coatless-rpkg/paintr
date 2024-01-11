@@ -2,5 +2,9 @@
 
 export(draw_matrix)
 export(gdraw_matrix)
+importFrom(graphics,mtext)
+importFrom(graphics,par)
+importFrom(graphics,plot.new)
+importFrom(graphics,plot.window)
 importFrom(graphics,rect)
 importFrom(graphics,text)

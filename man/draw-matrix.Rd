@@ -48,7 +48,7 @@ mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
 draw_matrix(mat_3x3)
 
 # Disable the indices
-draw_matrix(mat_3x3, show_indices = FALSE)
+draw_matrix(mat_3x3, show_cell_indices = FALSE)
 
 # Highlight a row
 mat_2x2 = matrix(c(1, 2, 3, 4), nrow = 2)
@@ -65,7 +65,7 @@ mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
 gdraw_matrix(mat_3x3)
 
 # View the matrix without indices present
-gdraw_matrix(mat_3x3, show_indices = FALSE)
+gdraw_matrix(mat_3x3, show_cell_indices = FALSE)
 
 # Highlight a row
 mat_2x2 = matrix(c(1, 2, 3, 4), nrow = 2)

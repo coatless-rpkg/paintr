@@ -12,7 +12,7 @@
 #'                            cells should be filled. Default: None.
 #' @param highlight_color     Color to use to fill the background of a cell. 
 #' 
-#' @importFrom graphics rect text
+#' @importFrom graphics rect text mtext par plot.new plot.window
 #' @rdname draw-matrix
 #' @export
 #' @examples
@@ -23,7 +23,7 @@
 #' draw_matrix(mat_3x3)
 #' 
 #' # Disable the indices
-#' draw_matrix(mat_3x3, show_indices = FALSE)
+#' draw_matrix(mat_3x3, show_cell_indices = FALSE)
 #' 
 #' # Highlight a row
 #' mat_2x2 = matrix(c(1, 2, 3, 4), nrow = 2)
@@ -138,7 +138,7 @@ draw_matrix <- function(
 #' gdraw_matrix(mat_3x3)
 #' 
 #' # View the matrix without indices present
-#' gdraw_matrix(mat_3x3, show_indices = FALSE)
+#' gdraw_matrix(mat_3x3, show_cell_indices = FALSE)
 #' 
 #' # Highlight a row
 #' mat_2x2 = matrix(c(1, 2, 3, 4), nrow = 2)
@@ -156,6 +156,9 @@ gdraw_matrix <- function(
     highlight_cells = matrix(FALSE, nrow(data), ncol(data)), 
     highlight_color = "lemonchiffon"
   ) {
+  
+  # Define a value to avoid using the .data pronoun and incorporate rlang...
+  highlight = value = NULL
   
   if(!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Please make sure `ggplot2` is installed to use this function.")
