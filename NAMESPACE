@@ -2,7 +2,10 @@
 
 export(draw_matrix)
 export(gdraw_matrix)
-export(highlight_matrix)
+export(highlight_columns)
+export(highlight_data)
+export(highlight_locations)
+export(highlight_rows)
 importFrom(graphics,mtext)
 importFrom(graphics,par)
 importFrom(graphics,plot.new)
