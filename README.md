@@ -95,25 +95,9 @@ gdraw_matrix(mat_3x5)
 <img src="man/figures/README-ggplot2-example-1.png" width="100%" />
 
 ``` r
-# Disable showing the cell indices
-gdraw_matrix(mat_3x5, show_cell_indices = FALSE)
-```
 
-<img src="man/figures/README-ggplot2-example-2.png" width="100%" />
-
-``` r
-# Show row and column indices
-gdraw_matrix(
-  mat_3x5, 
-  show_row_indices = TRUE, show_column_indices = TRUE,
-  show_cell_indices = FALSE)
-```
-
-<img src="man/figures/README-ggplot2-example-3.png" width="100%" />
-
-``` r
 # Highlight cells over a specific value
 gdraw_matrix(mat_3x5, highlight_cells = mat_3x5 > 4)
 ```
 
-<img src="man/figures/README-ggplot2-example-4.png" width="100%" />
+<img src="man/figures/README-ggplot2-example-2.png" width="100%" />
