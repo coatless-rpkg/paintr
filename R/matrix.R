@@ -4,11 +4,13 @@
 #' 
 #' Generate a graph showing the contents of a matrix.
 #' 
-#' @param data            A object that has the class of `matrix`. 
-#' @param show_indices    Identify the text index. Default: `TRUE`
-#' @param highlight_cells Matrix of logical values that provide a mask for what
-#'                        cells should be filled. Default: None.
-#' @param highlight_color Color to use to fill the background of a cell. 
+#' @param data                A object that has the class of `matrix`. 
+#' @param show_cell_indices   Display cell indices inside the matrix cell, e.g. `[i, j]`. Default: `TRUE`
+#' @param show_row_indices    Display row indices next to matrix row, e.g. `[i, ]`. Default: `FALSE`
+#' @param show_column_indices Display column indices next to matrix column, e.g. `[, j]`. Default: `FALSE`
+#' @param highlight_cells     Matrix of logical values that provide a mask for what
+#'                            cells should be filled. Default: None.
+#' @param highlight_color     Color to use to fill the background of a cell. 
 #' 
 #' @importFrom graphics rect text
 #' @rdname draw-matrix
@@ -33,7 +35,9 @@
 #' draw_matrix(mat_3x5, highlight_cells = mat_3x5 > 2) 
 draw_matrix <- function(
     data,
-    show_indices = TRUE, 
+    show_cell_indices = TRUE, 
+    show_row_indices = FALSE, 
+    show_column_indices = FALSE, 
     highlight_cells = matrix(FALSE, nrow(data), ncol(data)), 
     highlight_color = "lemonchiffon"
   ) {
@@ -51,7 +55,7 @@ draw_matrix <- function(
   # Initialize plot at the origin
   plot.new()
   plot.window(
-    xlim = c(0, ncol + 1), ylim = c(-.1, nrow + .1)
+    xlim = c(0, ncol + 1), ylim = c(-.1, nrow + .2)
   )
   
   # TODO: Re-write to remove for loops.
@@ -70,18 +74,36 @@ draw_matrix <- function(
       
       # Differentiate between missing and present values
       point_contents <- data[i, j]
-      if (!is.na(point_contents)) {
+      if (is.finite(point_contents) ) {
         text(j, nrow - i + 0.5, data[i, j], cex = 1.25, col = "black")  
+      } else if( is.infinite(point_contents) || is.nan(point_contents) ) {
+        text(j, nrow - i + 0.5, data[i, j], cex = 1.25, col = "blue")  
       } else {
+        # NA
         text(j, nrow - i + 0.5, "NA", cex = 1.25, col = "red")  
       }
       
       # Label each entry inside of the matrix
-      if (show_indices) {
-        text(j, nrow - i + 0.3, paste("[", i, ", ", j, "]", sep = ""), cex = 1, col = "grey")
+      if (show_cell_indices) {
+        text(j, nrow - i + 0.3, paste("[", i, ", ", j, "]", sep = ""), cex = .9, col = "grey")
       }
     }
   }
+  
+  # Add row indices to the left
+  if (show_row_indices) {
+    for (i in seq_len(nrow)) {
+      text(0.25, nrow - i + 0.5, paste("[", i, ", ]", sep = ""), cex = .95, col = "grey")
+    }
+  }
+  
+  # Add column indices to the top
+  if (show_column_indices) {
+    for (j in seq_len(ncol)) {
+      text(j, nrow + 0.15, paste("[ ,", j, "]", sep = ""), cex = .95, col = "grey")
+    }
+  }
+  
   # Draw a rectangle around all cells in the matrix
   rect(0.5, nrow, ncol + 0.5 , 0, border = "black", lwd = 2)
   

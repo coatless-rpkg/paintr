@@ -7,14 +7,18 @@
 \usage{
 draw_matrix(
   data,
-  show_indices = TRUE,
+  show_cell_indices = TRUE,
+  show_row_indices = FALSE,
+  show_column_indices = FALSE,
   highlight_cells = matrix(FALSE, nrow(data), ncol(data)),
   highlight_color = "lemonchiffon"
 )
 
 gdraw_matrix(
   data,
-  show_indices = TRUE,
+  show_cell_indices = TRUE,
+  show_row_indices = FALSE,
+  show_column_indices = FALSE,
   highlight_cells = matrix(FALSE, nrow(data), ncol(data)),
   highlight_color = "lemonchiffon"
 )
@@ -22,7 +26,11 @@ gdraw_matrix(
 \arguments{
 \item{data}{A object that has the class of \code{matrix}.}
 
-\item{show_indices}{Identify the text index. Default: \code{TRUE}}
+\item{show_cell_indices}{Display cell indices inside the matrix cell, e.g. \verb{[i, j]}. Default: \code{TRUE}}
+
+\item{show_row_indices}{Display row indices next to matrix row, e.g. \verb{[i, ]}. Default: \code{FALSE}}
+
+\item{show_column_indices}{Display column indices next to matrix column, e.g. \verb{[, j]}. Default: \code{FALSE}}
 
 \item{highlight_cells}{Matrix of logical values that provide a mask for what
 cells should be filled. Default: None.}
