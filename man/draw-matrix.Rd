@@ -50,12 +50,13 @@ visualize_matrix_data(mat_2x2, highlight_cells = mat_2x2_mask)
 # Highlight values above 5
 mat_3x5 = matrix(rnorm(15, 5, 2), ncol = 5)
 visualize_matrix_data(mat_3x5, highlight_cells = mat_3x5 > 2) 
-# ggplot2 graphics
+# ggplot2 graphics ----
+
 # Visualize a 3x3
 mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
 visualize_matrix_data(mat_3x3)
 
-# Disable the indices
+# View the matrix without indices present
 visualize_matrix_data(mat_3x3, show_indices = FALSE)
 
 # Highlight a row

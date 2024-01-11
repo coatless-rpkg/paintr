@@ -106,12 +106,13 @@ visualize_matrix_data <- function(data, show_indices = TRUE,
 #' @rdname draw-matrix
 #' @export
 #' @examples
-#' # ggplot2 graphics
+#' # ggplot2 graphics ----
+#' 
 #' # Visualize a 3x3
 #' mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
 #' visualize_matrix_data(mat_3x3)
 #' 
-#' # Disable the indices
+#' # View the matrix without indices present
 #' visualize_matrix_data(mat_3x3, show_indices = FALSE)
 #' 
 #' # Highlight a row
@@ -140,25 +141,43 @@ visualize_matrix_data_ggplot <- function(data, show_indices = TRUE,
   # Create a data frame for ggplot
   df <- expand.grid(row = nrow:1, col = 1:ncol)
   df$highlight <- as.vector(highlight_cells)
-  df$point_contents <- as.vector(data)
+  df$value <- as.vector(data)
   
   # TODO: fix no visible binding for global variable
   
   g <- ggplot2::ggplot(df) +
-    ggplot2::aes(x = col, y = row) + 
-    ggplot2::geom_tile(ggplot2::aes(fill = df$highlight), color = "black", width = 1, height = 1) +
+    ggplot2::aes(x = col, y = row, label = value, fill = highlight) + 
+    ggplot2::geom_tile(color = "black", width = 1, height = 1) +
     ggplot2::scale_fill_manual(values = c("white", highlight_color)) +
+    ggplot2::geom_rect(
+      xmin = 0.5, xmax = ncol(data) + 0.5, 
+      ymin = 0.5, ymax = nrow(data) + 0.5, 
+      fill = NA, color = "black", size = 1
+    ) + 
     ggplot2::geom_text(
       ggplot2::aes(
-        label = ifelse(!is.na(df$point_contents), as.character(df$point_contents), "NA")), 
+        label = ifelse(is.na(df$value), "NA", df$value)
+      ), 
       size = 5, color = "black") +
+    # Include the indices
+    ggplot2::geom_text(
+      ggplot2::aes(
+        label = ifelse(show_indices, paste0("[", row, ", ", col, "]"), "")
+      ), 
+      color = "grey", hjust = 0.5, vjust = 0.5, nudge_y = -0.15, size = 3) +
+    # Provide details on the object plotted
     ggplot2::labs(
       title = paste("Data Object: ", deparse(substitute(data))),
       subtitle = paste0(
            "Dimensions: ", paste(nrow, "rows", ncol, "columns"), " | ",
            "Data Type: ", paste0(class(data), collapse=", "))
-    ) + 
+    ) +    
+    # Set the limits and breaks of the axes
+    ggplot2::scale_x_continuous(limits = c(0.5, ncol + 0.5), breaks = seq_len(ncol), expand = c(0, 0)) +
+    ggplot2::scale_y_continuous(limits = c(0.5, nrow + 0.5), breaks = seq_len(nrow), expand = c(0, 0)) +
+    # Remove everything
     ggplot2::theme_void() + 
+    # Disable showing the legend's highlight call.
     ggplot2::theme(legend.position = "none")
   
   g
