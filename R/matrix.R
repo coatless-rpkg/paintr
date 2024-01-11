@@ -43,8 +43,10 @@ visualize_matrix_data <- function(data, show_indices = TRUE,
   ncol <- ncol(data)
   
   # Initialize plot at the origin
-  plot(0, 0,
-       xlim = c(0, ncol + 1), ylim = c(-1, nrow + .5), type = "n", xlab = "", ylab = "")
+  plot.new()
+  plot.window(
+    xlim = c(0, ncol + 1), ylim = c(-1, nrow + .5)
+  )
   
   # TODO: Re-write to remove for loops.
   for (i in seq_len(nrow)) {
