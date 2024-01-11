@@ -2,6 +2,7 @@
 
 export(draw_matrix)
 export(gdraw_matrix)
+export(highlight_matrix)
 importFrom(graphics,mtext)
 importFrom(graphics,par)
 importFrom(graphics,plot.new)
