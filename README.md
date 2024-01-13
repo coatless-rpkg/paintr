@@ -62,25 +62,22 @@ draw_matrix(mat_3x5)
 <img src="man/figures/README-base-example-1.png" width="100%" />
 
 ``` r
-# Disable showing the cell indices
-draw_matrix(mat_3x5, show_cell_indices = FALSE)
+# Show the cell indices
+draw_matrix(mat_3x5, show_cell_indices = TRUE)
 ```
 
 <img src="man/figures/README-base-example-2.png" width="100%" />
 
 ``` r
-# Disable showing any indices
-draw_matrix(
-  mat_3x5, 
-  show_row_indices = TRUE, show_column_indices = TRUE,
-  show_cell_indices = FALSE)
+# Show the row and column indices
+draw_matrix(mat_3x5, show_row_indices = TRUE, show_column_indices = TRUE)
 ```
 
 <img src="man/figures/README-base-example-3.png" width="100%" />
 
 ``` r
 # Highlight cells over a specific value
-draw_matrix(mat_3x5, highlight_cells = mat_3x5 > 4)
+draw_matrix(mat_3x5, highlight_area = mat_3x5 > 4)
 ```
 
 <img src="man/figures/README-base-example-4.png" width="100%" />
@@ -95,9 +92,8 @@ gdraw_matrix(mat_3x5)
 <img src="man/figures/README-ggplot2-example-1.png" width="100%" />
 
 ``` r
-
-# Highlight cells over a specific value
-gdraw_matrix(mat_3x5, highlight_cells = mat_3x5 > 4)
+# Highlight cells in specific columns
+gdraw_matrix(mat_3x5, highlight_area = highlight_columns(mat_3x5, columns = 2:4))
 ```
 
 <img src="man/figures/README-ggplot2-example-2.png" width="100%" />

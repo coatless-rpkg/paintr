@@ -68,15 +68,12 @@ library(drawr)
 
 # Graphic of matrix data structure using base R graphics
 draw_matrix(mat_3x5)
-# Disable showing the cell indices
-draw_matrix(mat_3x5, show_cell_indices = FALSE)
-# Disable showing any indices
-draw_matrix(
-  mat_3x5, 
-  show_row_indices = TRUE, show_column_indices = TRUE,
-  show_cell_indices = FALSE)
+# Show the cell indices
+draw_matrix(mat_3x5, show_cell_indices = TRUE)
+# Show the row and column indices
+draw_matrix(mat_3x5, show_row_indices = TRUE, show_column_indices = TRUE)
 # Highlight cells over a specific value
-draw_matrix(mat_3x5, highlight_cells = mat_3x5 > 4)
+draw_matrix(mat_3x5, highlight_area = mat_3x5 > 4)
 ```
 
 We can achieve similar results with the `ggplot2` function. 
@@ -86,9 +83,8 @@ We can achieve similar results with the `ggplot2` function.
 #| results: 'markup'
 # Graphic of matrix data structure using base R graphics
 gdraw_matrix(mat_3x5)
-
-# Highlight cells over a specific value
-gdraw_matrix(mat_3x5, highlight_cells = mat_3x5 > 4)
+# Highlight cells in specific columns
+gdraw_matrix(mat_3x5, highlight_area = highlight_columns(mat_3x5, columns = 2:4))
 ```
 
 
