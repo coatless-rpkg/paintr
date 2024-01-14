@@ -2,7 +2,7 @@ pandoc: 2.19.2
 pkgdown: 2.0.7
 pkgdown_sha: ~
 articles: {}
-last_built: 2024-01-13T07:37Z
+last_built: 2024-01-14T06:34Z
 urls:
   reference: http://r-pkg.thecoatlessprofessor.com/drawr/reference
   article: http://r-pkg.thecoatlessprofessor.com/drawr/articles
