@@ -7,9 +7,12 @@
 draw_vector(
   data,
   layout = c("vertical", "horizontal"),
-  show_cell_indices = FALSE,
+  show_indices = c("none", "inside", "outside"),
   highlight_area = rep(FALSE, length(data)),
-  highlight_color = "lemonchiffon"
+  highlight_color = "lemonchiffon",
+  graph_title = paste0("Data Object: ", deparse(substitute(data))),
+  graph_subtitle = paste0("Length: ", paste(length(data), "elements"), " | ",
+    "Data Type: ", paste0(class(data), collapse = ", "))
 )
 }
 \arguments{
@@ -17,12 +20,18 @@ draw_vector(
 
 \item{layout}{Orientation of the vector. Default: \code{"vertical"}.}
 
-\item{show_cell_indices}{Display cell indices inside the matrix cell, e.g. \verb{[i]}. Default: \code{FALSE}}
+\item{show_indices}{Display data indices either: \code{"inside"}, \code{"outside"}, or \code{"none"}
+the vector cell, e.g. \verb{[i]}. Default: \code{"none"}}
 
 \item{highlight_area}{Vector of logical values that provide a mask for what
 cells should be filled. Default: None.}
 
 \item{highlight_color}{Color to use to fill the background of a cell.}
+
+\item{graph_title}{Title to appear in the upper left hand corner of the graph.}
+
+\item{graph_subtitle}{Subtitle to appear immediately under the graph title
+in the upper left hand side of the graph.}
 }
 \description{
 Generate a graph showing the contents of a Vector
