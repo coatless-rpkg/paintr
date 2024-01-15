@@ -49,7 +49,8 @@ mat_3x5
 #> [3,]  -11   12 -Inf  -14   NA
 ```
 
-What if we wanted to see the contents layed out with their indices?
+What if we wanted to see the contents laid out with their indices or
+specific cells highlighted?
 
 ``` r
 # Load the library

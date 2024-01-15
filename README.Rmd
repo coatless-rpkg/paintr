@@ -58,7 +58,8 @@ mat_3x5 = matrix(
 mat_3x5
 ```
 
-What if we wanted to see the contents layed out with their indices?
+What if we wanted to see the contents laid out with their indices or specific cells
+highlighted?
 
 ```{r}
 #| label: base-example
