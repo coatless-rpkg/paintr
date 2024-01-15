@@ -39,7 +39,14 @@ Generate a graph showing the contents of a Vector
 \examples{
 # Base graphics
 
-# Visualize a 3x3
+# Visualize a nine element vector
 vec_9 <- round(rnorm(5, 0, 4), 2)
 draw_vector(vec_9)
+
+# Visualize a 6 element vector with indices underneath data
+vec_6 <- c(-3, 5, NA, Inf, 2, 1)
+draw_vector(vec_6, show_indices = "inside")
+
+# Highlight the 2nd, 4th, and 6th cell with indices shown outside
+draw_vector(vec_6, show_indices = "outside", highlight_area = c(2, 4, 6))
 }
