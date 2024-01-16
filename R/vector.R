@@ -21,9 +21,9 @@
 #' @examples
 #' # Base graphics
 #' 
-#' # Visualize a nine element vector
-#' vec_9 <- round(rnorm(5, 0, 4), 2)
-#' draw_vector(vec_9)
+#' # Visualize a vector with 5 elements
+#' vec_5 <- round(rnorm(5, 0, 4), 2)
+#' draw_vector(vec_5)
 #' 
 #' # Visualize a 6 element vector with indices underneath data
 #' vec_6 <- c(-3, 5, NA, Inf, 2, 1)
@@ -34,18 +34,18 @@
 draw_vector <- function(
     data,
     layout = c("vertical", "horizontal"),
-    show_indices = c("none", "inside", "outside"), 
-    highlight_area = rep(FALSE, length(data)), 
+    show_indices = c("none", "inside", "outside"),
+    highlight_area = rep(FALSE, length(data)),
     highlight_color = "lemonchiffon",
     graph_title = paste0("Data Object: ", deparse(substitute(data))),
     graph_subtitle = paste0(
-      "Length: ", paste(length(data), "elements"), " | ",
-      "Data Type: ", paste0(class(data), collapse=", ")
+      "Length: ", length(data), " elements | ",
+      "Data Type: ", paste(class(data), collapse=", ")
     )
 ) {
   
   if (!is.vector(data)) {
-    stop("Please double check the data supplied is of a `vector` type.")
+    stop("Please double-check the data supplied is of a `vector` type.")
   }
   
   layout <- match.arg(layout)
@@ -56,13 +56,8 @@ draw_vector <- function(
   is_row_layout <- layout == "horizontal"
   is_column_layout <- !is_row_layout
   
-  if(is_row_layout) {
-    n_row <- 1
-    n_col <- n_elem
-  } else {
-    n_row <- n_elem
-    n_col <- 1
-  }
+  n_row <- if (is_row_layout) 1 else n_elem
+  n_col <- if (is_row_layout) n_elem else 1
   
   # Remove exterior margin
   par(mar = c(0.1, 0.1, 2, 0.1))
@@ -73,63 +68,85 @@ draw_vector <- function(
     xlim = c(0, n_col + 1), ylim = c(-.1, n_row + .1)
   )
   
-  # TODO: Re-write to remove for loops.
-  # This is a messay backport ... 
-  for (i in seq_len(n_row)) {
-    for (j in seq_len(n_col)) {
-      
-      position <- max(i,j)
-      
-      # Draw rectangle around each cell
-      rect(
-        # xleft, ybottom
-        j - 0.5, n_row - i + 1, 
-        # xright, ytop
-        j + 0.5, n_row - i, 
-        col = ifelse(highlight_area[position], highlight_color, "white"), 
-        border = "black"
-      )
-      
-      # Differentiate between missing and present values
-      point_contents <- data[position]
-      if (is.finite(point_contents) ) {
-        text(j, n_row - i + 0.5, point_contents, cex = 1.25, col = "black")  
-      } else if( is.infinite(point_contents) || is.nan(point_contents) ) {
-        text(j, n_row - i + 0.5, point_contents, cex = 1.25, col = "blue")  
-      } else {
-        # NA
-        text(j, n_row - i + 0.5, "NA", cex = 1.25, col = "red")  
-      }
-      
-      # Label each entry inside of the matrix
-      if (show_indices == "inside") {
-        text(j, n_row - i + 0.3, paste("[", position, "]", sep = ""), cex = .9, col = "grey")
-      }
-    }
+  position_matrix <- outer(seq_len(n_row), seq_len(n_col), pmax)
+  
+  # Draw rectangles and labels
+  fill_color_values <- ifelse(highlight_area[position_matrix], highlight_color, "white")
+  text_matrix <- matrix(
+    ifelse(is.finite(data[position_matrix]), as.character(data[position_matrix]), "NA"),
+    n_row, n_col
+  )
+  text_matrix[is.infinite(data[position_matrix]) | is.nan(data[position_matrix])] <- "NA"
+  
+  # Draw a rectangle around all cells in the matrix
+  rect(0.5, n_row, n_col + 0.5, 0, border = "black", lwd = 2)
+  
+  if (is_column_layout) {
+    rect(
+      xleft = rep(seq_len(n_col) + 0.5, times = n_row),
+      ybottom = rep(n_row:1 - 1, times = n_col),
+      xright = rep(seq_len(n_col) - 0.5, times = n_row),
+      ytop = rep(n_row:1, times = n_col),
+      col = fill_color_values,
+      border = "black"
+    )
+  } else {
+    rect(
+      rep(seq_len(n_col) - 0.5, each = n_row),
+      rep(n_row:1, each = n_row),
+      rep(seq_len(n_col) + 0.5, each = n_row),
+      rep(n_row:1 - 1, each = n_row),
+      col = fill_color_values,
+      border = "black"
+    )
+  }
+  
+  text(
+    x = rep(seq_len(n_col), each = n_row),
+    y = rep(n_row:1, times = n_col) - 0.5,
+    labels = text_matrix,
+    cex = 1.25,
+    col = ifelse(is.finite(data[position_matrix]), "black", "blue")
+  )
+  
+  # Label each entry inside of the matrix
+  if (show_indices == "inside") {
+    text(
+      x = rep(seq_len(n_col), each = n_row),
+      y = rep(n_row:1, times = n_col) - 0.7,
+      labels = paste("[", position_matrix, "]", sep = ""),
+      cex = .9,
+      col = "grey"
+    )
   }
   
   # Add row indices to the left
   if (show_indices == "outside" && is_column_layout) {
-    for (i in seq_len(n_row)) {
-      text(0.25, n_row - i + 0.5, paste("[", i, "]", sep = ""), cex = .95, col = "grey")
-    }
+    text(
+      x = 0.25,
+      y = n_row:1 - 0.5,
+      labels = paste("[", seq_len(n_row), "]", sep = ""),
+      cex = .95,
+      col = "grey"
+    )
   }
   
   # Add column indices to the top
-  if (show_indices == "outside" && is_row_layout ) {
-    for (j in seq_len(n_col)) {
-      text(j, n_row + 0.1, paste("[", j, "]", sep = ""), cex = .95, col = "grey")
-    }
+  if (show_indices == "outside" && is_row_layout) {
+    text(
+      x = rep(seq_len(n_col), each = n_row),
+      y = n_row + 0.05,
+      labels = paste("[", seq_len(n_col), "]", sep = ""),
+      cex = .95,
+      col = "grey"
+    )
   }
-  
-  # Draw a rectangle around all cells in the matrix
-  rect(0.5, n_row, n_col + 0.5 , 0, border = "black", lwd = 2)
   
   # Add title with data object name, dimensions, and data type
   
   # Left-align title inside of the margins of text
   mtext(
-    text = graph_title, 
+    text = graph_title,
     side = 3, line = 1, at = -0.07, adj = 0, cex = 1
   )
   mtext(

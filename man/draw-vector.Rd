@@ -11,8 +11,8 @@ draw_vector(
   highlight_area = rep(FALSE, length(data)),
   highlight_color = "lemonchiffon",
   graph_title = paste0("Data Object: ", deparse(substitute(data))),
-  graph_subtitle = paste0("Length: ", paste(length(data), "elements"), " | ",
-    "Data Type: ", paste0(class(data), collapse = ", "))
+  graph_subtitle = paste0("Length: ", length(data), " elements | ", "Data Type: ",
+    paste(class(data), collapse = ", "))
 )
 }
 \arguments{
@@ -39,9 +39,9 @@ Generate a graph showing the contents of a Vector
 \examples{
 # Base graphics
 
-# Visualize a nine element vector
-vec_9 <- round(rnorm(5, 0, 4), 2)
-draw_vector(vec_9)
+# Visualize a vector with 5 elements
+vec_5 <- round(rnorm(5, 0, 4), 2)
+draw_vector(vec_5)
 
 # Visualize a 6 element vector with indices underneath data
 vec_6 <- c(-3, 5, NA, Inf, 2, 1)
