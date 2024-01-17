@@ -111,11 +111,11 @@
 <p><img src="reference/figures/README-base-example-1.png" width="100%"></p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Show the cell indices</span></span>
-<span><span class="fu"><a href="reference/draw-matrix.html">draw_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>, show_cell_indices <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="reference/draw-matrix.html">draw_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>, show_indices <span class="op">=</span> <span class="st">"cell"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="reference/figures/README-base-example-2.png" width="100%"></p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Show the row and column indices</span></span>
-<span><span class="fu"><a href="reference/draw-matrix.html">draw_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>, show_row_indices <span class="op">=</span> <span class="cn">TRUE</span>, show_column_indices <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="co"># Show all indices</span></span>
+<span><span class="fu"><a href="reference/draw-matrix.html">draw_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>, show_indices <span class="op">=</span> <span class="st">"all"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="reference/figures/README-base-example-3.png" width="100%"></p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Highlight cells over a specific value</span></span>
@@ -128,7 +128,9 @@
 <p><img src="reference/figures/README-ggplot2-example-1.png" width="100%"></p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Highlight cells in specific columns</span></span>
-<span><span class="fu"><a href="reference/draw-matrix.html">gdraw_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>, highlight_area <span class="op">=</span> <span class="fu"><a href="reference/highlight-data.html">highlight_columns</a></span><span class="op">(</span><span class="va">mat_3x5</span>, columns <span class="op">=</span> <span class="fl">2</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="reference/draw-matrix.html">gdraw_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>, </span>
+<span>             show_indices <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"row"</span>, <span class="st">"column"</span><span class="op">)</span>,</span>
+<span>             highlight_area <span class="op">=</span> <span class="fu"><a href="reference/highlight-data.html">highlight_columns</a></span><span class="op">(</span><span class="va">mat_3x5</span>, columns <span class="op">=</span> <span class="fl">2</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><img src="reference/figures/README-ggplot2-example-2.png" width="100%"></p>
 </div>
 </div>
