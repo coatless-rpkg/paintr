@@ -27,10 +27,19 @@
 #' 
 #' # Visualize a 6 element vector with indices underneath data
 #' vec_6 <- c(-3, 5, NA, Inf, 2, 1)
-#' draw_vector(vec_6, show_indices = "inside")
+#' draw_vector(vec_6, layout = "horizontal", show_indices = "inside")
 #' 
 #' # Highlight the 2nd, 4th, and 6th cell with indices shown outside
-#' draw_vector(vec_6, show_indices = "outside", highlight_area = c(2, 4, 6))
+#' draw_vector(
+#'   vec_6, show_indices = "outside", 
+#'   highlight_area = highlight_locations(vec_6, c(2, 4, 6))
+#' )
+#' 
+#' # Highlight the 4th-6th cells with indices shown inside
+#' draw_vector(
+#'   vec_6, show_indices = "inside", 
+#'   highlight_area = highlight_locations(vec_6, 4:6)
+#' )
 draw_vector <- function(
     data,
     layout = c("vertical", "horizontal"),
@@ -68,45 +77,52 @@ draw_vector <- function(
     xlim = c(0, n_col + 1), ylim = c(-.1, n_row + .1)
   )
   
-  position_matrix <- outer(seq_len(n_row), seq_len(n_col), pmax)
+  position_matrix <- seq_len(n_elem)
   
   # Draw rectangles and labels
-  fill_color_values <- ifelse(highlight_area[position_matrix], highlight_color, "white")
-  text_matrix <- matrix(
-    ifelse(is.finite(data[position_matrix]), as.character(data[position_matrix]), "NA"),
-    n_row, n_col
+  fill_color_values <- ifelse(highlight_area, highlight_color, "white")
+  if (is_column_layout) {
+    # Reverse ordering
+    fill_color_values <- rev(fill_color_values)
+  }
+  
+  text_values <- ifelse(
+    is.finite(data) | is.infinite(data) | is.nan(data), data, 
+    ifelse(is.na(data), "NA", "Unknown")
   )
-  text_matrix[is.infinite(data[position_matrix]) | is.nan(data[position_matrix])] <- "NA"
+  text_color_values <- ifelse(
+    is.finite(data), "black",
+    ifelse(
+      is.infinite(data) | is.nan(data), "blue", "red"
+    )
+  )
   
   # Draw a rectangle around all cells in the matrix
   rect(0.5, n_row, n_col + 0.5, 0, border = "black", lwd = 2)
   
-  if (is_column_layout) {
-    rect(
-      xleft = rep(seq_len(n_col) + 0.5, times = n_row),
-      ybottom = rep(n_row:1 - 1, times = n_col),
-      xright = rep(seq_len(n_col) - 0.5, times = n_row),
-      ytop = rep(n_row:1, times = n_col),
-      col = fill_color_values,
-      border = "black"
-    )
-  } else {
-    rect(
-      rep(seq_len(n_col) - 0.5, each = n_row),
-      rep(n_row:1, each = n_row),
-      rep(seq_len(n_col) + 0.5, each = n_row),
-      rep(n_row:1 - 1, each = n_row),
-      col = fill_color_values,
-      border = "black"
-    )
-  }
+  # Obtain all (x, y) coordinate pairs
+  rect_coords <- expand.grid(
+    x = seq(0.5, n_col) + 0.5,
+    y = seq(0.5, n_row) + 0.5
+  )
+
+  # Draw the cell rectangles
+  rect(
+    xleft = rect_coords$x - 0.5,
+    ybottom = rect_coords$y - 1,
+    xright = rect_coords$x + 0.5,
+    ytop = rect_coords$y,
+    col = fill_color_values,
+    border = "black"
+  )
   
+  # Show the cell content 
   text(
     x = rep(seq_len(n_col), each = n_row),
     y = rep(n_row:1, times = n_col) - 0.5,
-    labels = text_matrix,
+    labels = text_values,
     cex = 1.25,
-    col = ifelse(is.finite(data[position_matrix]), "black", "blue")
+    col = text_color_values
   )
   
   # Label each entry inside of the matrix
