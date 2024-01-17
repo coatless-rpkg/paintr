@@ -1,24 +1,26 @@
-#' Highlight a matrix
+#' Highlight data
 #' 
-#' Generate a matrix with active areas.
+#' Generate a logical structure codifies active areas.
 #' 
 #' @param x          A matrix.
 #' @param rows       An interger vector with valid row index locations.
 #' @param columns    An integer vector containing valid column indexlocations.
-#' @param locations  An m by 2 matrix with points listed in x, y format.
-#'
+#' @param locations  An m by 2 matrix with points listed in x, y format for a 2D object
+#'                   or a vector of integer indices in a 1D format.
+#' @param ...        Additional values (not used)
 #' @return 
-#' A logical matrix with the required rows and/or columns or points set to
+#' A logical matrix or vector with the required rows and/or columns or points set to
 #' `TRUE`. All other values are given as `FALSE`.
 #'
 #' @rdname highlight-data
 #' @export
 #' @examples
+#' ## 2D Highlighting for Matrices ----
 #' # Example data
-#' x = matrix(1:12, nrow = 4)
+#' x <- matrix(1:12, nrow = 4)
 #' 
 #' # Highlight points using an x, y pairing
-#' locations = rbind( 
+#' locations <- rbind( 
 #'   c(1, 3), 
 #'   c(2, 2),
 #'   c(4, 1)
@@ -39,7 +41,59 @@
 #' 
 #' # Highlight entries in the first column or first row.
 #' highlight_data(x, rows = 1, columns = 1)
-highlight_data <- function(x, rows = NULL, columns = NULL, locations = NULL) {
+#' 
+#' ## 1D Highlighting for Vectors ----
+#' vec <- c(3, NA, -1, 2, NaN, Inf, 42)
+#' highlight_data(vec, locations = c(2, 4, 6))
+highlight_data <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
+  UseMethod("highlight_data")
+}
+
+# Plumbing to ensure vectors will pass through nicely to the vector generic
+#' @rdname highlight-data
+#' @export
+highlight_data.numeric <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
+  highlight_data.vector(x = x, rows = rows, columns = columns, locations = locations, ...)
+}
+
+#' @rdname highlight-data
+#' @export
+highlight_data.integer <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
+  highlight_data.vector(x = x, rows = rows, columns = columns, locations = locations, ...)
+}
+
+#' @rdname highlight-data
+#' @export
+highlight_data.vector <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
+  # Create a logical matrix with the same dimensions as 'x'
+  logical_vector <- rep(FALSE, length(x))
+  
+  # Nothing to mark.
+  if (is.null(rows) && is.null(columns) && is.null(locations)) {
+    return(logical_vector)
+  }
+  
+  if(!is.null(locations)){
+    stopifnot("points must be a vector when highlighting a vector structure" = is.vector(locations))
+    logical_vector[locations] <- TRUE
+  }
+  
+  # Enable rows
+  if(!is.null(rows)){
+    logical_vector[rows] <- TRUE
+  }
+  
+  # Enable columns
+  if(!is.null(columns)){
+    logical_vector[columns] <- TRUE
+  }
+  
+  logical_vector
+}
+
+#' @rdname highlight-data
+#' @export
+highlight_data.matrix <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
   
   # Create a logical matrix with the same dimensions as 'x'
   logical_matrix <- matrix(FALSE, nrow = nrow(x), ncol = ncol(x))
@@ -65,6 +119,12 @@ highlight_data <- function(x, rows = NULL, columns = NULL, locations = NULL) {
   }
   
   logical_matrix
+}
+
+#' @rdname highlight-data
+#' @export
+highlight_data.default <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
+  stop("We currently do not support the data structure of: ", class(x))
 }
 
 #' @rdname highlight-data
