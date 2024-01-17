@@ -105,12 +105,22 @@ in the upper left hand side of the graph.</p></dd>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Visualize a 6 element vector with indices underneath data</span></span></span>
 <span class="r-in"><span><span class="va">vec_6</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">3</span>, <span class="fl">5</span>, <span class="cn">NA</span>, <span class="cn">Inf</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu">draw_vector</span><span class="op">(</span><span class="va">vec_6</span>, show_indices <span class="op">=</span> <span class="st">"inside"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">draw_vector</span><span class="op">(</span><span class="va">vec_6</span>, layout <span class="op">=</span> <span class="st">"horizontal"</span>, show_indices <span class="op">=</span> <span class="st">"inside"</span><span class="op">)</span></span></span>
 <span class="r-plt img"><img src="draw-vector-2.png" alt="" width="700" height="433"></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Highlight the 2nd, 4th, and 6th cell with indices shown outside</span></span></span>
-<span class="r-in"><span><span class="fu">draw_vector</span><span class="op">(</span><span class="va">vec_6</span>, show_indices <span class="op">=</span> <span class="st">"outside"</span>, highlight_area <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">4</span>, <span class="fl">6</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">draw_vector</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  <span class="va">vec_6</span>, show_indices <span class="op">=</span> <span class="st">"outside"</span>, </span></span>
+<span class="r-in"><span>  highlight_area <span class="op">=</span> <span class="fu"><a href="highlight-data.html">highlight_locations</a></span><span class="op">(</span><span class="va">vec_6</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">4</span>, <span class="fl">6</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-plt img"><img src="draw-vector-3.png" alt="" width="700" height="433"></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Highlight the 4th-6th cells with indices shown inside</span></span></span>
+<span class="r-in"><span><span class="fu">draw_vector</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  <span class="va">vec_6</span>, show_indices <span class="op">=</span> <span class="st">"inside"</span>, </span></span>
+<span class="r-in"><span>  highlight_area <span class="op">=</span> <span class="fu"><a href="highlight-data.html">highlight_locations</a></span><span class="op">(</span><span class="va">vec_6</span>, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-plt img"><img src="draw-vector-4.png" alt="" width="700" height="433"></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc"><h2>On this page</h2>
