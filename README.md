@@ -64,14 +64,14 @@ draw_matrix(mat_3x5)
 
 ``` r
 # Show the cell indices
-draw_matrix(mat_3x5, show_cell_indices = TRUE)
+draw_matrix(mat_3x5, show_indices = "cell")
 ```
 
 <img src="man/figures/README-base-example-2.png" width="100%" />
 
 ``` r
-# Show the row and column indices
-draw_matrix(mat_3x5, show_row_indices = TRUE, show_column_indices = TRUE)
+# Show all indices
+draw_matrix(mat_3x5, show_indices = "all")
 ```
 
 <img src="man/figures/README-base-example-3.png" width="100%" />
@@ -94,7 +94,9 @@ gdraw_matrix(mat_3x5)
 
 ``` r
 # Highlight cells in specific columns
-gdraw_matrix(mat_3x5, highlight_area = highlight_columns(mat_3x5, columns = 2:4))
+gdraw_matrix(mat_3x5, 
+             show_indices = c("row", "column"),
+             highlight_area = highlight_columns(mat_3x5, columns = 2:4))
 ```
 
 <img src="man/figures/README-ggplot2-example-2.png" width="100%" />

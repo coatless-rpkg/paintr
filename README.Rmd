@@ -70,9 +70,9 @@ library(drawr)
 # Graphic of matrix data structure using base R graphics
 draw_matrix(mat_3x5)
 # Show the cell indices
-draw_matrix(mat_3x5, show_cell_indices = TRUE)
-# Show the row and column indices
-draw_matrix(mat_3x5, show_row_indices = TRUE, show_column_indices = TRUE)
+draw_matrix(mat_3x5, show_indices = "cell")
+# Show all indices
+draw_matrix(mat_3x5, show_indices = "all")
 # Highlight cells over a specific value
 draw_matrix(mat_3x5, highlight_area = mat_3x5 > 4)
 ```
@@ -85,7 +85,9 @@ We can achieve similar results with the `ggplot2` function.
 # Graphic of matrix data structure using base R graphics
 gdraw_matrix(mat_3x5)
 # Highlight cells in specific columns
-gdraw_matrix(mat_3x5, highlight_area = highlight_columns(mat_3x5, columns = 2:4))
+gdraw_matrix(mat_3x5, 
+             show_indices = c("row", "column"),
+             highlight_area = highlight_columns(mat_3x5, columns = 2:4))
 ```
 
 
