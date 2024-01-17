@@ -64,6 +64,9 @@ draw_matrix <- function(
   n_col <- ncol(data)
   n_elem <- n_row * n_col
   
+  col_ind <- seq_len(n_col)
+  row_ind <- seq_len(n_row)
+  
   # Remove exterior margin
   par(mar = c(0.1, 0.1, 2, 0.1))
   
@@ -75,35 +78,35 @@ draw_matrix <- function(
   
   position_array <- seq_len(n_elem)
   
-  # Draw rectangles and labels
-  fill_color_values <- ifelse(highlight_area, highlight_color, "white")
-  text_values <- ifelse(
-    is.finite(data) | is.infinite(data) | is.nan(data), data, 
-    ifelse(is.na(data), "NA", "Unknown")
-  )  
-  text_color_values <- ifelse(
-    is.finite(data), "black",
-    ifelse(
-      is.infinite(data) | is.nan(data), "blue", "red"
-    )
-  )
-  
   # Draw a rectangle around all cells in the matrix
   rect(0.5, n_row, n_col + 0.5, 0, border = "black", lwd = 2)
   
   # Obtain all (x, y) coordinate pairs
-  rect_coords <- expand.grid(
-    x = seq(0.5, n_col)+0.5,
-    y = seq(0.5, n_row)+0.5
+  df <- expand.grid(row = rev(row_ind), col = col_ind)
+  df$highlight <- as.vector(highlight_area)
+  df$value <- as.vector(data)
+  
+  df$highlight_colors <- ifelse(is.na(df$highlight) | !df$highlight, "white", highlight_color)
+
+  df$text_colors <- ifelse(
+    is.finite(df$value), "black",
+    ifelse(
+      is.infinite(df$value) | is.nan(df$value), "blue", "red"
+    )
+  )
+  
+  df$value <- ifelse(
+    is.finite(df$value) | is.infinite(df$value) | is.nan(df$value), df$value, 
+    ifelse(is.na(df$value), "NA", "Unknown")
   )
   
   # Draw the cell rectangles
   rect(
-    xleft = rect_coords$x - 0.5,
-    ybottom = rect_coords$y - 1,
-    xright = rect_coords$x + 0.5,
-    ytop = rect_coords$y,
-    col = fill_color_values,
+    xleft = df$col - 0.5,
+    ybottom = df$row - 1,
+    xright = df$col + 0.5,
+    ytop = df$row,
+    col = df$highlight_colors,
     border = "black"
   )
   
@@ -111,9 +114,9 @@ draw_matrix <- function(
   text(
     x = rep(seq_len(n_col), each = n_row),
     y = rep(n_row:1, times = n_col) - 0.5,
-    labels = text_values,
+    labels = df$value,
     cex = 1.25,
-    col = text_color_values
+    col = df$text_colors
   )
   
   # Label each entry inside of the matrix
