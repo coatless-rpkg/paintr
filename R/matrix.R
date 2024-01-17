@@ -4,13 +4,18 @@
 #' 
 #' Generate a graph showing the contents of a matrix.
 #' 
-#' @param data                A object that has the class of `matrix`. 
-#' @param show_cell_indices   Display cell indices inside the matrix cell, e.g. `[i, j]`. Default: `FALSE`
-#' @param show_row_indices    Display row indices next to matrix row, e.g. `[i, ]`. Default: `FALSE`
-#' @param show_column_indices Display column indices next to matrix column, e.g. `[, j]`. Default: `FALSE`
-#' @param highlight_area      Matrix of logical values that provide a mask for what
-#'                            cells should be filled. Default: None.
-#' @param highlight_color     Color to use to fill the background of a cell. 
+#' @param data            A object that has the class of `matrix`. 
+#' @param show_indices    Display indices based on location. Options are:
+#'                        `"none"`: no indices, `"cell"`:  matrix cell indices `[i, j]`,
+#'                        `"row"`: row indices `[i, ]` to the left of the matrix,
+#'                        `"column"`: column indices `[,j]` above matrix, and
+#'                        `"all"`: row, column, and inside options. Default: `"none"`.
+#' @param highlight_area  Matrix of logical values that provide a mask for what
+#'                        cells should be filled. Default: None.
+#' @param highlight_color Color to use to fill the background of a cell. 
+#' @param graph_title         Title to appear in the upper left hand corner of the graph.
+#' @param graph_subtitle      Subtitle to appear immediately under the graph title
+#'                            in the upper left hand side of the graph.
 #' 
 #' @importFrom graphics rect text mtext par plot.new plot.window
 #' @rdname draw-matrix
@@ -22,33 +27,42 @@
 #' mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
 #' draw_matrix(mat_3x3)
 #' 
-#' # Show the indices
-#' draw_matrix(mat_3x3, show_cell_indices = TRUE)
+#' # Show the cell indices
+#' draw_matrix(mat_3x3, show_indices = "cell")
 #' 
 #' # Highlight a row
 #' mat_4x4 = matrix(seq_len(16), nrow = 4)
 #' draw_matrix(
-#'   mat_4x4, 
-#'   show_row_indices = TRUE, highlight_area = highlight_rows(mat_4x4, rows = 1))
+#'   mat_4x4, show_indices = "row", 
+#'   highlight_area = highlight_rows(mat_4x4, rows = 1)
+#' )
 #' 
 #' # Highlight values above 5
 #' mat_2x4 = matrix(round(rnorm(16, 5, 2), 2), ncol = 4)
 #' draw_matrix(mat_2x4, highlight_area = mat_2x4 > 2) 
 draw_matrix <- function(
     data,
-    show_cell_indices = FALSE, 
-    show_row_indices = FALSE, 
-    show_column_indices = FALSE, 
-    highlight_area = matrix(FALSE, nrow(data), ncol(data)), 
-    highlight_color = "lemonchiffon"
-  ) {
+    show_indices = "none",
+    highlight_area = matrix(FALSE, nrow = nrow(data), ncol = ncol(data)),
+    highlight_color = "lemonchiffon",
+    graph_title = paste0("Data Object: ", deparse(substitute(data))),
+    graph_subtitle = paste0(
+      "Dimensions: ", paste(n_row, "rows x", n_col, "columns"), " | ",
+      "Data Type: ", paste(class(data), collapse=", ")
+    )
+) {
   
   if (!is.matrix(data)) {
-    stop("Please double check the data supplied is of a matrix type.")
+    stop("Please double-check the data supplied is of a `vector` type.")
   }
   
-  nrow <- nrow(data)
-  ncol <- ncol(data)
+  if (!all(show_indices %in% c("none", "cell", "row", "column", "all"))) {
+    stop("Please only use the values of 'none', 'cell', 'row', 'column', or 'all' in `show_indices`.")
+  } 
+  
+  n_row <- nrow(data)
+  n_col <- ncol(data)
+  n_elem <- n_row * n_col
   
   # Remove exterior margin
   par(mar = c(0.1, 0.1, 2, 0.1))
@@ -56,68 +70,92 @@ draw_matrix <- function(
   # Initialize plot at the origin
   plot.new()
   plot.window(
-    xlim = c(0, ncol + 1), ylim = c(-.1, nrow + .2)
+    xlim = c(0, n_col + 1), ylim = c(-.1, n_row + .1)
   )
   
-  # TODO: Re-write to remove for loops.
-  for (i in seq_len(nrow)) {
-    for (j in seq_len(ncol)) {
-      
-      # Draw rectangle around each cell
-      rect(
-        # xleft, ybottom
-        j - 0.5, nrow - i + 1, 
-        # xright, ytop
-        j + 0.5, nrow - i, 
-        col = ifelse(highlight_area[i, j], highlight_color, "white"), 
-        border = "black"
-      )
-      
-      # Differentiate between missing and present values
-      point_contents <- data[i, j]
-      if (is.finite(point_contents) ) {
-        text(j, nrow - i + 0.5, data[i, j], cex = 1.25, col = "black")  
-      } else if( is.infinite(point_contents) || is.nan(point_contents) ) {
-        text(j, nrow - i + 0.5, data[i, j], cex = 1.25, col = "blue")  
-      } else {
-        # NA
-        text(j, nrow - i + 0.5, "NA", cex = 1.25, col = "red")  
-      }
-      
-      # Label each entry inside of the matrix
-      if (show_cell_indices) {
-        text(j, nrow - i + 0.3, paste("[", i, ", ", j, "]", sep = ""), cex = .9, col = "grey")
-      }
-    }
+  position_array <- seq_len(n_elem)
+  
+  # Draw rectangles and labels
+  fill_color_values <- ifelse(highlight_area, highlight_color, "white")
+  text_values <- ifelse(
+    is.finite(data) | is.infinite(data) | is.nan(data), data, 
+    ifelse(is.na(data), "NA", "Unknown")
+  )  
+  text_color_values <- ifelse(
+    is.finite(data), "black",
+    ifelse(
+      is.infinite(data) | is.nan(data), "blue", "red"
+    )
+  )
+  
+  # Draw a rectangle around all cells in the matrix
+  rect(0.5, n_row, n_col + 0.5, 0, border = "black", lwd = 2)
+  
+  # Obtain all (x, y) coordinate pairs
+  rect_coords <- expand.grid(
+    x = seq(0.5, n_col)+0.5,
+    y = seq(0.5, n_row)+0.5
+  )
+  
+  # Draw the cell rectangles
+  rect(
+    xleft = rect_coords$x - 0.5,
+    ybottom = rect_coords$y - 1,
+    xright = rect_coords$x + 0.5,
+    ytop = rect_coords$y,
+    col = fill_color_values,
+    border = "black"
+  )
+  
+  # Show the cell contents with appropriate color
+  text(
+    x = rep(seq_len(n_col), each = n_row),
+    y = rep(n_row:1, times = n_col) - 0.5,
+    labels = text_values,
+    cex = 1.25,
+    col = text_color_values
+  )
+  
+  # Label each entry inside of the matrix
+  if (any(show_indices %in% c("cell", "all"))) {
+    id_x = rep(seq_len(n_col), each = n_row)
+    id_y = rep(n_row:1, times = n_col)
+    text(
+      x = id_x,
+      y = id_y - 0.7,
+      labels = paste("[", rev(id_y), ", ", id_x,"]", sep = ""),
+      cex = .9,
+      col = "grey"
+    )
   }
   
   # Add row indices to the left
-  if (show_row_indices) {
-    for (i in seq_len(nrow)) {
-      text(0.25, nrow - i + 0.5, paste("[", i, ", ]", sep = ""), cex = .95, col = "grey")
-    }
+  if (any(show_indices %in% c("row", "all"))) {
+    text(
+      x = 0.25,
+      y = n_row:1 - 0.5,
+      labels = paste("[", seq_len(n_row), ", ]", sep = ""),
+      cex = .95,
+      col = "grey"
+    )
   }
   
   # Add column indices to the top
-  if (show_column_indices) {
-    for (j in seq_len(ncol)) {
-      text(j, nrow + 0.15, paste("[ ,", j, "]", sep = ""), cex = .95, col = "grey")
-    }
+  if (any(show_indices %in% c("column", "all")) ) {
+    text(
+      x = seq_len(n_col),
+      y = n_row + 0.15,
+      labels = paste("[ , ", seq_len(n_col), "]", sep = ""),
+      cex = .95,
+      col = "grey"
+    )
   }
   
-  # Draw a rectangle around all cells in the matrix
-  rect(0.5, nrow, ncol + 0.5 , 0, border = "black", lwd = 2)
-  
   # Add title with data object name, dimensions, and data type
-  graph_title = paste0("Data Object: ", deparse(substitute(data)))
-  graph_subtitle = paste0(
-    "Dimensions: ", paste(nrow, "rows", ncol, "columns"), " | ",
-    "Data Type: ", paste0(class(data), collapse=", ")
-  )
   
   # Left-align title inside of the margins of text
   mtext(
-    text = graph_title, 
+    text = graph_title,
     side = 3, line = 1, at = -0.07, adj = 0, cex = 1
   )
   mtext(
@@ -151,12 +189,15 @@ draw_matrix <- function(
 #' gdraw_matrix(mat_3x5, highlight_area = mat_3x5 > 2) 
 gdraw_matrix <- function(
     data,
-    show_cell_indices = FALSE, 
-    show_row_indices = FALSE, 
-    show_column_indices = FALSE, 
+    show_indices = "none",
     highlight_area = matrix(FALSE, nrow(data), ncol(data)), 
-    highlight_color = "lemonchiffon"
-  ) {
+    highlight_color = "lemonchiffon",
+    graph_title = paste0("Data Object: ", deparse(substitute(data))),
+    graph_subtitle = paste0(
+      "Dimensions: ", paste(n_row, "rows x", n_col, "columns"), " | ",
+      "Data Type: ", paste(class(data), collapse=", ")
+    )
+) {
   
   # Define a value to avoid using the .data pronoun and incorporate rlang...
   highlight = value = NULL
@@ -166,14 +207,19 @@ gdraw_matrix <- function(
   }
   
   if (!is.matrix(data)) {
-    stop("Please double-check the data supplied is of a matrix type.")
+    stop("Please double-check the data supplied is of a `vector` type.")
   }
   
-  nrow <- nrow(data)
-  ncol <- ncol(data)
+  if (!all(show_indices %in% c("none", "cell", "row", "column", "all"))) {
+    stop("Please only use the values of 'none', 'cell', 'row', 'column', or 'all' in `show_indices`.")
+  } 
   
-  col_ind <- seq_len(ncol)
-  row_ind <- seq_len(nrow)
+  n_row <- nrow(data)
+  n_col <- ncol(data)
+  n_elem <- n_row * n_col
+  
+  col_ind <- seq_len(n_col)
+  row_ind <- seq_len(n_row)
   
   # Create a data frame for ggplot
   df <- expand.grid(row = rev(row_ind), col = col_ind)
@@ -206,14 +252,12 @@ gdraw_matrix <- function(
     ) +
     # Provide details on the object plotted
     ggplot2::labs(
-      title = paste("Data Object: ", deparse(substitute(data))),
-      subtitle = paste0(
-           "Dimensions: ", paste(nrow, "rows", ncol, "columns"), " | ",
-           "Data Type: ", paste0(class(data), collapse=", "))
+      title = graph_title,
+      subtitle = graph_subtitle
     ) +    
     # Set the limits and breaks of the axes
-    ggplot2::scale_x_continuous(limits = c(0, ncol + 1), breaks = seq_len(ncol), expand = c(0, 0)) +
-    ggplot2::scale_y_continuous(limits = c(0, nrow + 1), breaks = seq_len(nrow), expand = c(0, 0)) +
+    ggplot2::scale_x_continuous(limits = c(0, n_col + 1), breaks = seq_len(n_col), expand = c(0, 0)) +
+    ggplot2::scale_y_continuous(limits = c(0, n_row + 1), breaks = seq_len(n_row), expand = c(0, 0)) +
     # Remove everything
     ggplot2::theme_void() + 
     # Disable showing the legend's highlight call.
@@ -221,15 +265,15 @@ gdraw_matrix <- function(
   
   
   # Include the cell indices
-  if (show_cell_indices) {
+  if  (any(show_indices %in% c("cell", "all"))) {
     g <- g + 
       ggplot2::geom_text(
-        label = paste0("[", nrow - df$row + 1, ", ", df$col, "]"),
+        label = paste0("[", n_row - df$row + 1, ", ", df$col, "]"),
         color = "grey", hjust = 0.5, vjust = 0.5, nudge_y = -0.15, size = 4)
   }
   
   # Add row indices to the left
-  if (show_row_indices) {
+  if  (any(show_indices %in% c("row", "all"))) {
     g <- g + 
       ggplot2::annotate(
         geom = "text",
@@ -238,12 +282,12 @@ gdraw_matrix <- function(
   }
   
   # Add column indices to the top
-  if (show_column_indices) {
+  if (any(show_indices %in% c("column", "all"))) {
     g <- g + 
       ggplot2::annotate(
         geom = "text",
-        label = paste0("[, ", col_ind, "]"),
-        x = col_ind, y = nrow + 0.65, color = "grey", hjust = 0.5, vjust = 0.5, size = 4)
+        label = paste0("[ , ", col_ind, "]"),
+        x = col_ind, y = n_row + 0.65, color = "grey", hjust = 0.5, vjust = 0.5, size = 4)
   }
     
   g

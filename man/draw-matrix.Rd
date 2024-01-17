@@ -7,35 +7,42 @@
 \usage{
 draw_matrix(
   data,
-  show_cell_indices = FALSE,
-  show_row_indices = FALSE,
-  show_column_indices = FALSE,
-  highlight_area = matrix(FALSE, nrow(data), ncol(data)),
-  highlight_color = "lemonchiffon"
+  show_indices = "none",
+  highlight_area = matrix(FALSE, nrow = nrow(data), ncol = ncol(data)),
+  highlight_color = "lemonchiffon",
+  graph_title = paste0("Data Object: ", deparse(substitute(data))),
+  graph_subtitle = paste0("Dimensions: ", paste(n_row, "rows x", n_col, "columns"),
+    " | ", "Data Type: ", paste(class(data), collapse = ", "))
 )
 
 gdraw_matrix(
   data,
-  show_cell_indices = FALSE,
-  show_row_indices = FALSE,
-  show_column_indices = FALSE,
+  show_indices = "none",
   highlight_area = matrix(FALSE, nrow(data), ncol(data)),
-  highlight_color = "lemonchiffon"
+  highlight_color = "lemonchiffon",
+  graph_title = paste0("Data Object: ", deparse(substitute(data))),
+  graph_subtitle = paste0("Dimensions: ", paste(n_row, "rows x", n_col, "columns"),
+    " | ", "Data Type: ", paste(class(data), collapse = ", "))
 )
 }
 \arguments{
 \item{data}{A object that has the class of \code{matrix}.}
 
-\item{show_cell_indices}{Display cell indices inside the matrix cell, e.g. \verb{[i, j]}. Default: \code{FALSE}}
-
-\item{show_row_indices}{Display row indices next to matrix row, e.g. \verb{[i, ]}. Default: \code{FALSE}}
-
-\item{show_column_indices}{Display column indices next to matrix column, e.g. \verb{[, j]}. Default: \code{FALSE}}
+\item{show_indices}{Display indices based on location. Options are:
+\code{"none"}: no indices, \code{"cell"}:  matrix cell indices \verb{[i, j]},
+\code{"row"}: row indices \verb{[i, ]} to the left of the matrix,
+\code{"column"}: column indices \verb{[,j]} above matrix, and
+\code{"all"}: row, column, and inside options. Default: \code{"none"}.}
 
 \item{highlight_area}{Matrix of logical values that provide a mask for what
 cells should be filled. Default: None.}
 
 \item{highlight_color}{Color to use to fill the background of a cell.}
+
+\item{graph_title}{Title to appear in the upper left hand corner of the graph.}
+
+\item{graph_subtitle}{Subtitle to appear immediately under the graph title
+in the upper left hand side of the graph.}
 }
 \description{
 Generate a graph showing the contents of a matrix.
@@ -47,14 +54,15 @@ Generate a graph showing the contents of a matrix.
 mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
 draw_matrix(mat_3x3)
 
-# Show the indices
-draw_matrix(mat_3x3, show_cell_indices = TRUE)
+# Show the cell indices
+draw_matrix(mat_3x3, show_indices = "cell")
 
 # Highlight a row
 mat_4x4 = matrix(seq_len(16), nrow = 4)
 draw_matrix(
-  mat_4x4, 
-  show_row_indices = TRUE, highlight_area = highlight_rows(mat_4x4, rows = 1))
+  mat_4x4, show_indices = "row", 
+  highlight_area = highlight_rows(mat_4x4, rows = 1)
+)
 
 # Highlight values above 5
 mat_2x4 = matrix(round(rnorm(16, 5, 2), 2), ncol = 4)
