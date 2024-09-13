@@ -1,27 +1,12 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>http://r-pkg.thecoatlessprofessor.com/drawr/404.html</loc>
-  </url>
-  <url>
-    <loc>http://r-pkg.thecoatlessprofessor.com/drawr/authors.html</loc>
-  </url>
-  <url>
-    <loc>http://r-pkg.thecoatlessprofessor.com/drawr/index.html</loc>
-  </url>
-  <url>
-    <loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/draw-matrix.html</loc>
-  </url>
-  <url>
-    <loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/draw-vector.html</loc>
-  </url>
-  <url>
-    <loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/drawr-package.html</loc>
-  </url>
-  <url>
-    <loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/highlight-data.html</loc>
-  </url>
-  <url>
-    <loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/index.html</loc>
-  </url>
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/404.html</loc></url>
+<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/authors.html</loc></url>
+<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/index.html</loc></url>
+<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/news/index.html</loc></url>
+<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/highlight-data.html</loc></url>
+<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/index.html</loc></url>
+<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/paint-matrix.html</loc></url>
+<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/paint-vector.html</loc></url>
+<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/paintr-package.html</loc></url>
 </urlset>
+
