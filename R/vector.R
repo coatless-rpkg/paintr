@@ -16,31 +16,31 @@
 #'                            in the upper left hand side of the graph.
 #'
 #' @importFrom graphics rect text mtext par plot.new plot.window
-#' @rdname draw-vector
+#' @rdname paint-vector
 #' @export
 #' @examples
 #' # Base graphics
 #' 
 #' # Visualize a vector with 5 elements
 #' vec_5 <- round(rnorm(5, 0, 4), 2)
-#' draw_vector(vec_5)
+#' paint_vector(vec_5)
 #' 
 #' # Visualize a 6 element vector with indices underneath data
 #' vec_6 <- c(-3, 5, NA, Inf, 2, 1)
-#' draw_vector(vec_6, layout = "horizontal", show_indices = "inside")
+#' paint_vector(vec_6, layout = "horizontal", show_indices = "inside")
 #' 
 #' # Highlight the 2nd, 4th, and 6th cell with indices shown outside
-#' draw_vector(
+#' paint_vector(
 #'   vec_6, show_indices = "outside", 
 #'   highlight_area = highlight_locations(vec_6, c(2, 4, 6))
 #' )
 #' 
 #' # Highlight the 4th-6th cells with indices shown inside
-#' draw_vector(
+#' paint_vector(
 #'   vec_6, show_indices = "inside", 
 #'   highlight_area = highlight_locations(vec_6, 4:6)
 #' )
-draw_vector <- function(
+paint_vector <- function(
     data,
     layout = c("vertical", "horizontal"),
     show_indices = c("none", "inside", "outside"),

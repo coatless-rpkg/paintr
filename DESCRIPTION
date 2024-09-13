@@ -1,4 +1,4 @@
-Package: drawr
+Package: paintr
 Title: Create Graphics of 'R' Data Structures
 Version: 0.0.1
 Authors@R: c(
@@ -9,12 +9,12 @@ Authors@R: c(
                    )
             )
 Description: Visualize the contents of different 'R' data structures.
-URL: https://github.com/coatless-rpkg/drawr, https://r-pkg.thecoatlessprofessor.com/drawr/
-BugReports: https://github.com/coatless-rpkg/drawr/issues
+URL: https://github.com/coatless-rpkg/paintr, https://r-pkg.thecoatlessprofessor.com/paintr/
+BugReports: https://github.com/coatless-rpkg/paintr/issues
 Depends: R (>= 4.2.0)
 License: GPL (>= 2)
 Encoding: UTF-8
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2
 Roxygen: list(markdown = TRUE)
 Imports: 
     graphics

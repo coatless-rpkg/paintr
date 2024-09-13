@@ -18,29 +18,29 @@
 #'                            in the upper left hand side of the graph.
 #' 
 #' @importFrom graphics rect text mtext par plot.new plot.window
-#' @rdname draw-matrix
+#' @rdname paint-matrix
 #' @export
 #' @examples
 #' # Base graphics
 #' 
 #' # Visualize a 3x3
 #' mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
-#' draw_matrix(mat_3x3)
+#' paint_matrix(mat_3x3)
 #' 
 #' # Show the cell indices
-#' draw_matrix(mat_3x3, show_indices = "cell")
+#' paint_matrix(mat_3x3, show_indices = "cell")
 #' 
 #' # Highlight a row
 #' mat_4x4 = matrix(seq_len(16), nrow = 4)
-#' draw_matrix(
+#' paint_matrix(
 #'   mat_4x4, show_indices = "row", 
 #'   highlight_area = highlight_rows(mat_4x4, rows = 1)
 #' )
 #' 
 #' # Highlight values above 5
 #' mat_2x4 = matrix(round(rnorm(16, 5, 2), 2), ncol = 4)
-#' draw_matrix(mat_2x4, highlight_area = mat_2x4 > 2) 
-draw_matrix <- function(
+#' paint_matrix(mat_2x4, highlight_area = mat_2x4 > 2) 
+paint_matrix <- function(
     data,
     show_indices = "none",
     highlight_area = matrix(FALSE, nrow = nrow(data), ncol = ncol(data)),
@@ -170,27 +170,27 @@ draw_matrix <- function(
 
 ## ggplot2 matrix ----
 
-#' @rdname draw-matrix
+#' @rdname paint-matrix
 #' @export
 #' @examples
 #' # ggplot2 graphics ----
 #' 
 #' # Visualize a 3x3
 #' mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
-#' gdraw_matrix(mat_3x3)
+#' gpaint_matrix(mat_3x3)
 #' 
 #' # View the matrix without indices present
-#' gdraw_matrix(mat_3x3, highlight_area = FALSE)
+#' gpaint_matrix(mat_3x3, highlight_area = FALSE)
 #' 
 #' # Highlight a row
 #' mat_2x2 = matrix(c(1, 2, 3, 4), nrow = 2)
 #' mat_2x2_mask = matrix(c(TRUE, TRUE, FALSE, FALSE), nrow = 2)
-#' gdraw_matrix(mat_2x2, highlight_area = mat_2x2_mask)
+#' gpaint_matrix(mat_2x2, highlight_area = mat_2x2_mask)
 #' 
 #' # Highlight values above 5
 #' mat_3x5 = matrix(round(rnorm(15, 5, 2), 2), ncol = 5)
-#' gdraw_matrix(mat_3x5, highlight_area = mat_3x5 > 2) 
-gdraw_matrix <- function(
+#' gpaint_matrix(mat_3x5, highlight_area = mat_3x5 > 2) 
+gpaint_matrix <- function(
     data,
     show_indices = "none",
     highlight_area = matrix(FALSE, nrow(data), ncol(data)), 
