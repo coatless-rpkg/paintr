@@ -56,7 +56,12 @@ Default: \code{NULL}, which highlights nothing.}
 
 \item{graph_title}{Title to appear in the upper left hand corner of the graph.}
 
-\item{graph_subtitle}{Subtitle to appear immediately under the graph title.}
+\item{graph_subtitle}{Subtitle to appear immediately under the graph title.
+\code{NULL} (the default) describes the data: its dimensions
+and its class. \code{NA} or \code{""} draws no subtitle; any other
+string is drawn as given. The default reports the
+dimensions of the data itself, not of the drawing, so an
+elided matrix still reports all of its rows.}
 
 \item{sigfig}{Significant digits drawn in black. Digits past the
 \code{sigfig}-th are drawn in grey; nothing is discarded.
@@ -84,7 +89,10 @@ to the device.}
 }
 \value{
 \code{paint_matrix()} invisibly returns the resolved cell table: a list with the
-components \code{cells}, \code{fontsize}, \code{floored}, \code{u}, \code{x0}, \code{y0}, \code{usr} and \code{pin}.
+components \code{cells}, \code{fontsize}, \code{floored}, \code{u}, \code{x0}, \code{y0}, \code{usr}, \code{pin},
+\code{graph_title}, \code{graph_subtitle} and \code{note}. The last three are the chrome as it
+was actually drawn, so \code{graph_subtitle} is the resolved default rather than the
+\code{NULL} that was passed in.
 \code{gpaint_matrix()} returns a \code{ggplot} object.
 }
 \description{

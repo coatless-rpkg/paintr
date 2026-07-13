@@ -185,6 +185,66 @@ test_that("makeContent() emits rects plus one textGrob per span", {
   expect_equal(unique(s$gp$fontfamily), "mono")
 })
 
+test_that("both backends put the cell index the same distance below its value", {
+  # THE DRIFT GUARD. The nudge that separates a `[i, j]` index from the value it
+  # names is DATA -- `dy_rel` on the cell table -- and `paint_resolve()` folds it
+  # into the cell's `y` before either renderer ever sees it. So neither renderer
+  # knows what a "cellindex" is, and neither can drift from the other.
+  #
+  # This test reads the offset back out of what each backend ACTUALLY EMITS -- the
+  # grid textGrob's own `y`, the base renderer's own resolved cells -- and not out
+  # of the shared function that computed them. If someone ever "fixes" this by
+  # branching on `kind` inside one renderer, this is what fails.
+  #
+  # The offset is compared in ROW HEIGHTS, not inches: the two backends measure
+  # different panels (base reserves a title band, grid does not), so the inch
+  # figures legitimately differ while the fraction of a row must not.
+  m <- matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
+  f <- fx(m, show_indices = "cell")
+  opts <- paint_opts(family = "mono")
+
+  # -- grid: read the y's off the drawn children ------------------------------
+  # Every unit conversion happens INSIDE `with_panel()`, while its device is still
+  # open. A `convertY()` out here, after the device has closed, would make grid
+  # open the default one -- and that writes an Rplots.pdf into the working
+  # directory, which is a CRAN check failure.
+  g <- paintr_grob(f$cells, f$col_w, f$n_row, opts = opts)
+  off_grid <- with_panel(7, {
+    kids <- grid::makeContent(g)$children
+
+    txt <- kid(kids, "paintr.sig")
+    y_in <- grid::convertY(txt$y, "in", valueOnly = TRUE)
+    is_idx <- grepl("^\\[", txt$label)
+    expect_equal(sum(is_idx), 9L)
+    expect_equal(sum(!is_idx), 9L)
+
+    # One layout unit -- one row -- in inches. A value cell is exactly one row
+    # tall, and it is the shortest box drawn, so the smallest rect height IS `u`.
+    # (The tallest is the outline, which spans the whole block.)
+    rects <- kid(kids, "paintr.rect")
+    u_grid <- min(grid::convertHeight(rects$height, "in", valueOnly = TRUE))
+
+    # Both chunks are built over the same grid in the same order, so the two
+    # halves line up element by element.
+    (y_in[is_idx] - y_in[!is_idx]) / u_grid
+  })
+
+  # -- base: read the y's off the resolved table it drew from ------------------
+  grDevices::pdf(NULL, width = 7, height = 7)
+  on.exit(grDevices::dev.off(), add = TRUE)
+  r <- render_base(f$cells, f$col_w, f$n_row, opts = opts)
+  cs <- r$cells
+  idx <- cs[cs$kind == "cellindex", , drop = FALSE]
+  val <- cs[cs$kind == "value", , drop = FALSE]
+  off_base <- (idx$y - val$y) / r$u
+
+  # Below, in both. And by the same amount, in both.
+  expect_true(all(off_grid < 0))
+  expect_true(all(off_base < 0))
+  expect_equal(off_base, off_grid, tolerance = 1e-9)
+  expect_equal(off_grid, rep(cellindex_dy, 9L), tolerance = 1e-9)
+})
+
 test_that("an empty insig draws nothing at all", {
   # Scientific mode forces insig == "", so the grey textGrob must not exist.
   g <- grob_of(c(1, 1e15))

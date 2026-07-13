@@ -28,13 +28,19 @@
 #' @param highlight_color Color to use to fill the background of a cell.
 #' @param graph_title     Title to appear in the upper left hand corner of the graph.
 #' @param graph_subtitle  Subtitle to appear immediately under the graph title.
+#'                        `NULL` (the default) describes the data: its length and
+#'                        its class. `NA` or `""` draws no subtitle; any other
+#'                        string is drawn as given. The default reports the length
+#'                        of the data itself, not of the drawing, so an elided
+#'                        vector still reports all of its elements.
 #' @inheritParams paint_matrix
 #' @param max_rows,max_cols Elide the middle of the vector when it is longer than
 #'                        this. A vertical vector is elided by `max_rows`, a
 #'                        horizontal one by `max_cols`.
 #'
 #' @return
-#' `paint_vector()` invisibly returns the resolved cell table.
+#' `paint_vector()` invisibly returns the resolved cell table. See `paint_matrix()`
+#' for its components.
 #' `gpaint_vector()` returns a `ggplot` object. See `paint_matrix()` for what that
 #' object is and is not.
 #'
@@ -84,6 +90,7 @@ paint_vector <- function(
   layout <- match.arg(layout)
   show_indices <- match.arg(show_indices)
   subtle_digits <- match.arg(subtle_digits)
+  graph_subtitle <- resolve_subtitle(graph_subtitle, vector_subtitle(data))
 
   prep <- painter_prep(
     data = data,
@@ -146,6 +153,7 @@ gpaint_vector <- function(
   layout <- match.arg(layout)
   show_indices <- match.arg(show_indices)
   subtle_digits <- match.arg(subtle_digits)
+  graph_subtitle <- resolve_subtitle(graph_subtitle, vector_subtitle(data))
 
   prep <- painter_prep(
     data = data,

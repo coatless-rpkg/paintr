@@ -111,10 +111,24 @@ elide_note <- function(hidden_rows, hidden_cols) {
 # the cell table
 # ---------------------------------------------------------------------------
 
+# How far below its cell's centre the `[i, j]` label is drawn, as a fraction of
+# the row height. Two cells share one `(row, col)` -- the value and its index --
+# so SOMETHING has to separate them vertically, and that something is data on the
+# cell table rather than a rule inside a renderer: a renderer that has to know
+# what a "cellindex" is has to be taught twice, and the second teacher is always
+# late. With the nudge carried as `dy_rel`, `paint_resolve()` folds it into the
+# cell's `y` and both backends inherit it without knowing it exists.
+#
+# Sign: `y` grows upwards, so BELOW is negative. Magnitude: 0.2 of a row is what
+# the previous release drew (value at row centre, index 0.2 lower) and it is the
+# smallest gap that keeps the two spans clear of each other at the sizes autofit
+# picks.
+cellindex_dy <- -0.2
+
 #' One chunk of the cell table
 #'
 #' Every cell in the table -- value, label, header, gap, outline -- is built by
-#' this one constructor, so every chunk carries exactly the same sixteen columns
+#' this one constructor, so every chunk carries exactly the same seventeen columns
 #' in exactly the same order and `rbind()` can never surprise us.
 #'
 #' @param kind One of `"value"`, `"outline"`, `"rowlabel"`, `"collabel"`,
@@ -122,6 +136,10 @@ elide_note <- function(hidden_rows, hidden_cols) {
 #' @param row,col Drawn positions, 1-based, row 1 at the top.
 #' @param i,j Original data indices, `NA` where the cell is not a datum.
 #' @param head Defaults to `sig`, which is right for every non-numeric cell.
+#' @param dy_rel Vertical nudge away from the cell's centre, in row heights.
+#'   Negative is downwards. `0` -- dead centre -- for every kind but
+#'   `"cellindex"`, which shares its `(row, col)` with a value and has to sit
+#'   under it.
 #'
 #' @return A bare data frame.
 #'
@@ -132,7 +150,7 @@ cell_rows <- function(kind, row, col,
                       fmt_group = NA_integer_,
                       sig = "", insig = "", head = NULL, tail = "",
                       ink = "black", fill = NA_character_, border = NA_character_,
-                      align = "center", size_rel = 1, fit = TRUE) {
+                      align = "center", size_rel = 1, dy_rel = 0, fit = TRUE) {
   n <- max(length(row), length(col))
   if (is.null(head)) {
     head <- sig
@@ -152,6 +170,7 @@ cell_rows <- function(kind, row, col,
     border = rep_len(as.character(border), n),
     align = rep_len(as.character(align), n),
     size_rel = rep_len(as.double(size_rel), n),
+    dy_rel = rep_len(as.double(dy_rel), n),
     fit = rep_len(as.logical(fit), n),
     kind = rep_len(as.character(kind), n),
     stringsAsFactors = FALSE
@@ -251,9 +270,9 @@ strip_asis <- function(x) {
 #'
 #' @return A bare data frame with one row per drawn cell and the columns `i`, `j`,
 #'   `row`, `col`, `fmt_group`, `sig`, `insig`, `head`, `tail`, `ink`, `fill`,
-#'   `border`, `align`, `size_rel`, `fit`, `kind`; plus the attributes `n_row`,
-#'   `n_col` (the drawn extent, in cells), `note` (the "# 18 more rows" string, or
-#'   `NA`), `hidden_rows` and `hidden_cols`.
+#'   `border`, `align`, `size_rel`, `dy_rel`, `fit`, `kind`; plus the attributes
+#'   `n_row`, `n_col` (the drawn extent, in cells), `note` (the "# 18 more rows"
+#'   string, or `NA`), `hidden_rows` and `hidden_cols`.
 #'
 #' @keywords internal
 #' @noRd
@@ -482,6 +501,10 @@ paint_cells <- function(data,
     align = f$align, size_rel = 1, fit = TRUE
   )
 
+  # The index shares its `(row, col)` with the value it names, so it is `dy_rel`
+  # -- and only `dy_rel` -- that keeps the two from being stamped on top of each
+  # other. Without it the renderers centre both in the same cell and draw
+  # `[1` + `10` + `1]` as one illegible smear.
   cellindex <- NULL
   if (idx_cell && nrow(value) > 0L) {
     cellindex <- cell_rows(
@@ -493,7 +516,8 @@ paint_cells <- function(data,
       } else {
         paste0("[", i_v, ", ", j_v, "]")
       },
-      ink = "grey50", align = "center", size_rel = 0.7
+      ink = "grey50", align = "center", size_rel = 0.7,
+      dy_rel = cellindex_dy
     )
   }
 

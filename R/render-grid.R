@@ -159,6 +159,12 @@ paintr_grob <- function(cells, col_w, n_row, opts = paint_opts(),
 #' `dx_insig = dx_sig + w(sig)` land the grey digits exactly where the black ones
 #' stop.
 #'
+#' Vertically, both spans are centred on `y` -- and `y` is the cell's centre plus
+#' its `dy_rel` nudge, already resolved. That is the whole of this backend's
+#' knowledge of the `[i, j]` index that shares a cell with its value: none. Both
+#' renderers read the same resolved `y` out of the same `paint_resolve()`, so they
+#' cannot disagree about where it goes.
+#'
 #' @param res The list returned by `paint_resolve()`.
 #' @param opts From `paint_opts()`.
 #'

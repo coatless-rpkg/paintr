@@ -401,6 +401,95 @@ test_that("the grob refits when the device changes size (deferred sizing)", {
 })
 
 # ---------------------------------------------------------------------------
+# the subtitle
+# ---------------------------------------------------------------------------
+#
+# Three states, and the middle one is the reason the default cannot simply live in
+# the formals: `NULL` has to mean "compute it", so "draw nothing" needs a value of
+# its own, and that value is `NA`.
+#
+#   graph_subtitle = NULL   -> the computed line
+#   graph_subtitle = NA     -> no subtitle at all
+#   graph_subtitle = "text" -> exactly that
+
+test_that("the default subtitle describes the data", {
+  with_null_pdf({
+    expect_equal(
+      paint_matrix(matrix(1:6, nrow = 2))$graph_subtitle,
+      "Dimensions: 2 rows x 3 columns | Data Type: matrix, array"
+    )
+    expect_equal(
+      paint_vector(c(1, 2, 3, 4, 5))$graph_subtitle,
+      "Length: 5 elements | Data Type: numeric"
+    )
+    expect_equal(
+      paint_vector(letters[1:3])$graph_subtitle,
+      "Length: 3 elements | Data Type: character"
+    )
+  })
+})
+
+test_that("graph_subtitle = NA suppresses it, and a string is drawn verbatim", {
+  with_null_pdf({
+    m <- matrix(1:6, nrow = 2)
+
+    expect_null(paint_matrix(m, graph_subtitle = NA)$graph_subtitle)
+    expect_null(paint_matrix(m, graph_subtitle = "")$graph_subtitle)
+    expect_null(paint_vector(1:5, graph_subtitle = NA)$graph_subtitle)
+
+    expect_equal(
+      paint_matrix(m, graph_subtitle = "a line of my own")$graph_subtitle,
+      "a line of my own"
+    )
+    expect_equal(
+      paint_vector(1:5, graph_subtitle = "mine")$graph_subtitle,
+      "mine"
+    )
+  })
+})
+
+test_that("the subtitle reports the ORIGINAL shape of an elided structure", {
+  # The subtitle describes the DATA. The "# N more rows" note describes the
+  # DRAWING. A 30-row matrix drawn as 20 rows still HAS 30 rows, and a subtitle
+  # read off the cell table -- which knows only the drawn extent -- would say 20
+  # and quietly lose the fact the user most needs.
+  with_null_pdf({
+    r <- paint_matrix(matrix(seq_len(90), nrow = 30, ncol = 3))
+    expect_equal(
+      r$graph_subtitle,
+      "Dimensions: 30 rows x 3 columns | Data Type: matrix, array"
+    )
+    # It really was elided: fewer rows drawn than the subtitle reports, and a note
+    # saying so.
+    expect_lt(max(r$cells$row), 30L)
+    expect_match(r$note, "more rows")
+
+    rv <- paint_vector(seq_len(50))
+    expect_equal(rv$graph_subtitle, "Length: 50 elements | Data Type: integer")
+    expect_lt(max(rv$cells$row), 50L)
+    expect_match(rv$note, "more rows")
+  })
+})
+
+test_that("gpaint_* carries the same subtitle contract", {
+  # Both backends or neither: a subtitle that only the base painter draws is the
+  # same class of drift as a nudge that only one renderer honours.
+  skip_if_not_installed("ggplot2")
+  m <- matrix(1:6, nrow = 2)
+
+  expect_equal(
+    gpaint_matrix(m)$labels$subtitle,
+    "Dimensions: 2 rows x 3 columns | Data Type: matrix, array"
+  )
+  expect_equal(
+    gpaint_vector(1:5)$labels$subtitle,
+    "Length: 5 elements | Data Type: integer"
+  )
+  expect_null(gpaint_matrix(m, graph_subtitle = NA)$labels$subtitle)
+  expect_equal(gpaint_matrix(m, graph_subtitle = "mine")$labels$subtitle, "mine")
+})
+
+# ---------------------------------------------------------------------------
 # Bug 6: par() is restored
 # ---------------------------------------------------------------------------
 

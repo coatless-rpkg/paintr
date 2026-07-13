@@ -58,7 +58,12 @@ Default: \code{NULL}, which highlights nothing.}
 
 \item{graph_title}{Title to appear in the upper left hand corner of the graph.}
 
-\item{graph_subtitle}{Subtitle to appear immediately under the graph title.}
+\item{graph_subtitle}{Subtitle to appear immediately under the graph title.
+\code{NULL} (the default) describes the data: its length and
+its class. \code{NA} or \code{""} draws no subtitle; any other
+string is drawn as given. The default reports the length
+of the data itself, not of the drawing, so an elided
+vector still reports all of its elements.}
 
 \item{sigfig}{Significant digits drawn in black. Digits past the
 \code{sigfig}-th are drawn in grey; nothing is discarded.
@@ -84,7 +89,8 @@ to the device.}
 \item{family}{Font family. \code{"mono"} by default.}
 }
 \value{
-\code{paint_vector()} invisibly returns the resolved cell table.
+\code{paint_vector()} invisibly returns the resolved cell table. See \code{paint_matrix()}
+for its components.
 \code{gpaint_vector()} returns a \code{ggplot} object. See \code{paint_matrix()} for what that
 object is and is not.
 }

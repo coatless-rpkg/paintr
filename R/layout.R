@@ -551,10 +551,11 @@ span_dx <- function(cells, col_w, u, fontsize, measure, opts) {
 #'   \describe{
 #'     \item{`cells`}{the cell table, plus the columns `fontsize` (points, the
 #'       cell's own size, i.e. the base size times `size_rel`), `dx_sig` and
-#'       `dx_insig` (inches from the cell's centre), `x`, `y` (the cell's centre,
-#'       in inches from the panel's bottom-left) and `xl`, `xr`, `yb`, `yt` (the
-#'       cell's rectangle). The `"outline"` cell's rectangle is the whole value
-#'       block, not one cell.}
+#'       `dx_insig` (inches from the cell's centre), `x`, `y` (where the cell's
+#'       text is anchored, in inches from the panel's bottom-left -- the cell's
+#'       centre, plus its `dy_rel` nudge) and `xl`, `xr`, `yb`, `yt` (the cell's
+#'       rectangle, which the nudge does not move). The `"outline"` cell's
+#'       rectangle is the whole value block, not one cell.}
 #'     \item{`fontsize`}{the base font size, in points}
 #'     \item{`floored`}{did the fit land below `opts$min_pt`?}
 #'     \item{`u`}{inches per layout unit}
@@ -610,7 +611,17 @@ paint_resolve <- function(cells, col_w, n_row, panel, measure, opts = paint_opts
   }
 
   cells$x <- (cells$xl + cells$xr) / 2
-  cells$y <- (cells$yb + cells$yt) / 2
+  # `dy_rel` is a fraction of a ROW, and a row is `u` inches tall, so `u` is the
+  # whole conversion. Folding it into `y` here -- rather than in a renderer -- is
+  # what makes a nudged cell just a cell: `draw_base()` and `paintr_children()`
+  # both read `y` and neither has to learn that a "cellindex" exists. It is also
+  # what makes them agree, since there is one arithmetic and they share it.
+  #
+  # The rectangle (`xl`, `xr`, `yb`, `yt`) is deliberately NOT nudged: `dy_rel`
+  # moves the ink, not the box, and every cell that has a box has `dy_rel == 0`
+  # anyway.
+  dy <- if (is.null(cells$dy_rel)) 0 else ifelse(is.na(cells$dy_rel), 0, cells$dy_rel)
+  cells$y <- (cells$yb + cells$yt) / 2 + u * dy
 
   list(
     cells = cells,

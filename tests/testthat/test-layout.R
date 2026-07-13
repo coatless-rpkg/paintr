@@ -422,6 +422,73 @@ test_that("a data frame aligns each column on its OWN decimal point", {
 })
 
 # ---------------------------------------------------------------------------
+# the cell index sits BELOW the value it names
+# ---------------------------------------------------------------------------
+#
+# A "cellindex" shares its `(row, col)` with the value it names -- same cell, same
+# centre -- so `dy_rel` is the ONLY thing keeping the two apart. Drop it and both
+# are centred in the same cell and the renderer stamps `[1` + `10` + `1]` on top of
+# each other: a grey smear where a number should be. That shipped, because nothing
+# asserted the geometry.
+#
+# So assert it here, in the layout tier, as plain numbers: the resolved `y` of an
+# index is strictly below the resolved `y` of its value. No device, no image, no
+# eyeballing.
+
+test_that("a cell index resolves BELOW the value it names", {
+  panel <- panel_fake(7, 5)
+  m <- matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
+  v <- c(-3, 5, NA, Inf, 2, 1)
+
+  cases <- list(
+    list(m, show_indices = "cell"),
+    list(m, show_indices = "all"),
+    list(v, show_indices = "inside"),
+    list(v, show_indices = "inside", layout = "horizontal")
+  )
+
+  for (case in cases) {
+    r <- resolve(do.call(fx, case), panel)
+    cs <- r$cells
+
+    val <- cs[cs$kind == "value", , drop = FALSE]
+    idx <- cs[cs$kind == "cellindex", , drop = FALSE]
+    expect_gt(nrow(idx), 0L)
+    expect_equal(nrow(idx), nrow(val))
+
+    # Pair each index with the value it names, by the data index -- not by row
+    # order, which would still pass if the two chunks were built out of step.
+    k <- match(paste(idx$i, idx$j), paste(val$i, val$j))
+    expect_false(anyNA(k))
+    val <- val[k, , drop = FALSE]
+
+    # BELOW. `y` grows upwards, so the index's `y` is strictly the smaller.
+    expect_true(all(idx$y < val$y))
+    # And below by exactly one nudge, which is a fraction of a ROW -- so it scales
+    # with the cell, on every device.
+    expect_equal(idx$y - val$y, rep(r$u * cellindex_dy, nrow(idx)))
+    # Vertical only: the index is still centred over its value.
+    expect_equal(idx$x, val$x)
+    # Still inside the cell it belongs to.
+    expect_true(all(idx$y > idx$yb & idx$y < idx$yt))
+
+    # The nudge moved the index and NOTHING ELSE. Every other kind -- value,
+    # rowlabel, collabel, ellipsis, outline -- is still dead centre in its box.
+    rest <- cs[cs$kind != "cellindex", , drop = FALSE]
+    expect_equal(rest$y, (rest$yb + rest$yt) / 2)
+    # And the nudge does not move the BOX, only the ink in it.
+    expect_equal(idx$yt - idx$yb, rep(r$u, nrow(idx)))
+  }
+})
+
+test_that("with no index lane, every cell is centred", {
+  # The other half of the claim: `dy_rel` is 0 unless there is an index to nudge.
+  r <- resolve(fx(matrix(1:6, nrow = 2)), panel_fake(7, 5))
+  expect_true(all(r$cells$dy_rel == 0))
+  expect_equal(r$cells$y, (r$cells$yb + r$cells$yt) / 2)
+})
+
+# ---------------------------------------------------------------------------
 # cross-backend agreement -- base and ggplot draw the same picture
 # ---------------------------------------------------------------------------
 

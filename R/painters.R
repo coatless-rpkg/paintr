@@ -145,6 +145,88 @@ gpaint_skin <- function(prep, graph_title = NULL, graph_subtitle = NULL) {
     ggplot2::theme_void()
 }
 
+# ---------------------------------------------------------------------------
+# the subtitle
+# ---------------------------------------------------------------------------
+#
+# The subtitle's default CANNOT live in a painter's formals, even though that is
+# where it lived before and where it reads most naturally. A default like
+#
+#     graph_subtitle = paste0("Dimensions: ", nrow(data), ...)
+#
+# is a promise over `data`, and `data` is forced by the type check -- so it works,
+# right up until a painter wants to say "no subtitle". `graph_subtitle = NULL`
+# would then be indistinguishable from "the user did not ask for one", because
+# that IS the default. Computing the default in the BODY is what buys the third
+# state, and the three are:
+#
+#     NULL           -> compute the default line          (the common case)
+#     NA, or ""      -> draw no subtitle at all           (opt out)
+#     "some text"    -> draw exactly that                 (opt in)
+#
+# `NULL` out of `resolve_subtitle()` means "no band" to BOTH backends, which is
+# the whole reason the empty cases are collapsed to it here rather than at the
+# renderer: `base_mai()` would reserve a band for the literal string "NA", and
+# `ggplot2::labs(subtitle = NA_character_)` would happily draw it.
+
+#' The default subtitle for a matrix
+#'
+#' It describes the DATA, not the drawing. A 30-row matrix elided down to 20 drawn
+#' rows still reports 30: the "# 10 more rows" note is what tells the reader that
+#' the picture is partial, and the subtitle is what tells them what the picture is
+#' of. Reading these dimensions off the cell table -- which knows only the drawn
+#' extent -- would silently make the two lines say the same thing twice, and lose
+#' the true shape entirely.
+#'
+#' @param data The matrix, before any elision.
+#'
+#' @return A length-one character string.
+#'
+#' @keywords internal
+#' @noRd
+matrix_subtitle <- function(data) {
+  paste0(
+    "Dimensions: ", nrow(data), " rows x ", ncol(data), " columns", " | ",
+    "Data Type: ", paste(class(data), collapse = ", ")
+  )
+}
+
+#' The default subtitle for a vector
+#'
+#' @param data The vector, before any elision. `length()`, not the drawn count.
+#'
+#' @return A length-one character string.
+#'
+#' @keywords internal
+#' @noRd
+vector_subtitle <- function(data) {
+  paste0(
+    "Length: ", length(data), " elements | ",
+    "Data Type: ", paste(class(data), collapse = ", ")
+  )
+}
+
+#' Apply the subtitle contract
+#'
+#' @param graph_subtitle What the user passed: `NULL`, `NA`, `""`, or a string.
+#' @param default What [matrix_subtitle()] or [vector_subtitle()] computed.
+#'
+#' @return A length-one character string to draw, or `NULL` to draw nothing.
+#'
+#' @keywords internal
+#' @noRd
+resolve_subtitle <- function(graph_subtitle, default) {
+  if (is.null(graph_subtitle)) {
+    graph_subtitle <- default
+  }
+  # `has_text()` (R/render-base.R) is the one definition of "is there a band
+  # here?", and it already reads NA, "" and character(0) as "no".
+  if (!has_text(graph_subtitle)) {
+    return(NULL)
+  }
+  as.character(graph_subtitle)[[1L]]
+}
+
 #' Stop unless ggplot2 is installed
 #'
 #' The guard that keeps `Suggests: ggplot2` true. Called at the very top of every

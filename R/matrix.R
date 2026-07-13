@@ -36,6 +36,11 @@
 #' @param highlight_color Color to use to fill the background of a cell.
 #' @param graph_title     Title to appear in the upper left hand corner of the graph.
 #' @param graph_subtitle  Subtitle to appear immediately under the graph title.
+#'                        `NULL` (the default) describes the data: its dimensions
+#'                        and its class. `NA` or `""` draws no subtitle; any other
+#'                        string is drawn as given. The default reports the
+#'                        dimensions of the data itself, not of the drawing, so an
+#'                        elided matrix still reports all of its rows.
 #' @param sigfig          Significant digits drawn in black. Digits past the
 #'                        `sigfig`-th are drawn in grey; nothing is discarded.
 #'                        Must be in `1:15`.
@@ -56,7 +61,10 @@
 #'
 #' @return
 #' `paint_matrix()` invisibly returns the resolved cell table: a list with the
-#' components `cells`, `fontsize`, `floored`, `u`, `x0`, `y0`, `usr` and `pin`.
+#' components `cells`, `fontsize`, `floored`, `u`, `x0`, `y0`, `usr`, `pin`,
+#' `graph_title`, `graph_subtitle` and `note`. The last three are the chrome as it
+#' was actually drawn, so `graph_subtitle` is the resolved default rather than the
+#' `NULL` that was passed in.
 #' `gpaint_matrix()` returns a `ggplot` object.
 #'
 #' @section The ggplot object is a shell:
@@ -119,6 +127,7 @@ paint_matrix <- function(
   }
   show_indices <- match.arg(show_indices)
   subtle_digits <- match.arg(subtle_digits)
+  graph_subtitle <- resolve_subtitle(graph_subtitle, matrix_subtitle(data))
 
   prep <- painter_prep(
     data = data,
@@ -190,6 +199,7 @@ gpaint_matrix <- function(
   }
   show_indices <- match.arg(show_indices)
   subtle_digits <- match.arg(subtle_digits)
+  graph_subtitle <- resolve_subtitle(graph_subtitle, matrix_subtitle(data))
 
   prep <- painter_prep(
     data = data,

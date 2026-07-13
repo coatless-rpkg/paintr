@@ -373,6 +373,12 @@ draw_base <- function(resolved, opts) {
   # `cex = pt / par("ps")` is only a size in points when par("cex") is 1.
   cex <- ink$fontsize / (graphics::par("ps") * graphics::par("cex"))
 
+  # `ink$y` is the cell's centre PLUS its `dy_rel` nudge -- `paint_resolve()`
+  # folded the two together, so a `[1, 1]` index arrives here already sitting
+  # below the value it names. There is deliberately no `kind` test in this file:
+  # the day a renderer starts asking what a cell IS is the day the two backends
+  # start drawing different pictures.
+
   graphics::text(
     x = ux(ink$x + ink$dx_sig), y = uy(ink$y),
     labels = ink$sig, col = ink$ink,
@@ -468,11 +474,14 @@ draw_bands <- function(graph_title, graph_subtitle, note, opts,
 #'   below the painter calls `getOption()`.
 #' @param title_pt,subtitle_pt,note_pt Sizes of the chrome, in points.
 #'
-#' @return `invisible()` of the list from `paint_resolve()`, with two extra
-#'   fields recording what the device actually did: `usr` (the window that was
-#'   established) and `pin` (the panel that was measured). Returning them is what
-#'   lets a test prove `xaxs = "i"` was honoured -- with the default `"r"`, `usr`
-#'   comes back padded by 4% and no longer matches the letterbox.
+#' @return `invisible()` of the list from `paint_resolve()`, with extra fields
+#'   recording what the device actually did: `usr` (the window that was
+#'   established) and `pin` (the panel that was measured), plus the chrome as it
+#'   was drawn -- `graph_title`, `graph_subtitle` and `note`. Returning `usr` is
+#'   what lets a test prove `xaxs = "i"` was honoured -- with the default `"r"`,
+#'   `usr` comes back padded by 4% and no longer matches the letterbox. Returning
+#'   the chrome is what lets a test prove the subtitle a painter *resolved* is the
+#'   subtitle that was *drawn*, without reading pixels back off a device.
 #'
 #' @keywords internal
 #' @noRd
@@ -612,5 +621,10 @@ render_base <- function(cells, col_w, n_row,
 
   resolved$usr <- graphics::par("usr")
   resolved$pin <- graphics::par("pin")
+  # The chrome, exactly as `draw_bands()` was handed it: `NULL` for a band that
+  # was not drawn, the string for one that was.
+  resolved$graph_title <- graph_title
+  resolved$graph_subtitle <- graph_subtitle
+  resolved$note <- note
   invisible(resolved)
 }

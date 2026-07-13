@@ -269,7 +269,7 @@ test_that("paint_cells() returns a BARE data frame with the exact columns", {
     names(cells),
     c(
       "i", "j", "row", "col", "fmt_group", "sig", "insig", "head", "tail",
-      "ink", "fill", "border", "align", "size_rel", "fit", "kind"
+      "ink", "fill", "border", "align", "size_rel", "dy_rel", "fit", "kind"
     )
   )
   expect_type(cells$i, "integer")
@@ -278,6 +278,7 @@ test_that("paint_cells() returns a BARE data frame with the exact columns", {
   expect_type(cells$col, "integer")
   expect_type(cells$fmt_group, "integer")
   expect_type(cells$size_rel, "double")
+  expect_type(cells$dy_rel, "double")
   expect_type(cells$fit, "logical")
   expect_type(cells$kind, "character")
   expect_true(all(cells$kind %in% c(
@@ -368,12 +369,20 @@ test_that("index lanes are cells like any other", {
   expect_equal(min(cells$row[cells$kind == "value"]), 2L)
   expect_equal(min(cells$col[cells$kind == "value"]), 2L)
 
-  # A cell index sits on top of its value, at the same drawn position.
+  # A cell index shares its value's CELL -- the same drawn (row, col) -- and is
+  # then nudged off its value by `dy_rel`. Both halves matter: the shared cell is
+  # what puts it in the right box, and the nudge is the only thing that stops it
+  # being stamped on top of the number.
   ci <- cells[cells$kind == "cellindex", ]
   vv <- cells[cells$kind == "value", ]
   expect_equal(ci$row, vv$row)
   expect_equal(ci$col, vv$col)
   expect_true(all(ci$size_rel < 1))
+  expect_true(all(ci$dy_rel < 0))
+  expect_equal(unique(ci$dy_rel), cellindex_dy)
+
+  # ... and it is the ONLY kind that is nudged. Everything else is centred.
+  expect_true(all(cells$dy_rel[cells$kind != "cellindex"] == 0))
 })
 
 test_that("a data frame emits a header row and a type row", {
