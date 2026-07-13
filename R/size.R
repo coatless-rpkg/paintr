@@ -76,11 +76,30 @@ paint_size <- function(data, ...,
     stop("`dpi` must be a single positive number.")
   }
 
+  # The chrome the painters will draw, reconstructed EXACTLY as they build it --
+  # `deparse(substitute(data))` for the title, and the same default subtitle their
+  # own `resolve_subtitle()` will compute. It is needed because the recommendation
+  # has to be wide enough to hold it; see `base_chrome_w()`.
+  #
+  # `substitute()` is evaluated HERE, in the frame the user named `data` in, for
+  # the same reason `graph_title` stays in each painter's own formals: one frame
+  # further down and every title deparses to the literal "data".
+  graph_title <- paste0("Data Object: ", deparse(substitute(data))[[1L]])
+
   dots <- list(...)
   if (is.null(dots$ellipsis)) {
     dots$ellipsis <- getOption("paintr.ellipsis", "...")
   }
   cells <- do.call(paint_cells, c(list(data = data), dots))
+
+  # `paint_cells()` has now vetted the structure, so this cannot be asked of a
+  # 3-D array. A vector gets `paint_vector()`'s subtitle; a matrix and a data frame
+  # get the one the grid painters use.
+  graph_subtitle <- if (is_paint_vector(data)) {
+    vector_subtitle(data)
+  } else {
+    dims_subtitle(data)
+  }
 
   col_w <- column_widths(cells)
   n_row <- attr(cells, "n_row")
@@ -108,21 +127,50 @@ paint_size <- function(data, ...,
   # `render_base()` reserves for them. Asking `base_mai()` is what keeps the two in
   # step -- it is the one place the band heights are written down.
   #
-  # The two strings are PLACEHOLDERS, and they can be, because `base_mai()` sizes a
-  # band from its point size and reserves it or not according to `has_text()`: what
-  # matters is that a band is THERE, not what it says. What must not happen is a
-  # band the painter draws and this reservation forgets -- the panel would then be
-  # shorter than assumed, `u` smaller, and the recommended size would land the text
-  # UNDER the floor it was asked to clear. Over-reserving is safe (the text comes
-  # out a shade larger than `min_pt`); under-reserving is a suggestion that does not
-  # work. So the subtitle is reserved unconditionally, exactly as the title is,
-  # because a painter called with the default `graph_subtitle = NULL` draws one.
+  # For the HEIGHT the strings could be placeholders, and they used to be, because
+  # `base_mai()` sizes a band from its point size and reserves it or not according
+  # to `has_text()`: what matters is that a band is THERE, not what it says. What
+  # must not happen is a band the painter draws and this reservation forgets -- the
+  # panel would then be shorter than assumed, `u` smaller, and the recommended size
+  # would land the text UNDER the floor it was asked to clear. Over-reserving is
+  # safe (the text comes out a shade larger than `min_pt`); under-reserving is a
+  # suggestion that does not work. So the subtitle is reserved unconditionally,
+  # exactly as the title is, because a painter called with the default
+  # `graph_subtitle = NULL` draws one -- and that is now literally true, since the
+  # string below IS the one the painter will resolve.
+  #
+  # For the WIDTH they could not be placeholders, and that is the bug this
+  # reconstruction exists to fix. See `base_chrome_w()`.
+  note <- attr(cells, "note")
   mai <- base_mai(
-    graph_title = "Data Object: x",
-    graph_subtitle = "Dimensions: x",
-    note = attr(cells, "note")
+    graph_title = graph_title,
+    graph_subtitle = graph_subtitle,
+    note = note
   )
-  w_in <- panel_w + mai[[2L]] + mai[[4L]]
+
+  # THE PANEL IS NOT THE ONLY THING ON THE DEVICE. `base_mai()` models the chrome
+  # as vertical BANDS -- it reserves their height and never looks at their width --
+  # so a width taken from the panel alone is a width that forgot the title, the
+  # subtitle and the note entirely. For a grid of numbers that is usually harmless,
+  # because the grid is the wide thing; for a VERTICAL VECTOR it is not, because a
+  # vector is one narrow column. `paint_size(seq_len(30))` recommended 0.4in across
+  # -- narrower than the default `par("mar")` -- and `paint_vector()` then ERRORED
+  # on the very device it had just been told to open. The one thing this function
+  # exists to do is give back a size that works.
+  #
+  # So the width is the wider of what the cells need and what the chrome needs.
+  # Flooring it is SAFE, and safe in the strong sense that it cannot change the
+  # fitted size: `cell_geometry()` takes `u = min(panel_w / w_units, panel_h /
+  # h_units)`, so a device made WIDER than the cells asked for simply lets the
+  # height bind, and `u` -- and with it the font -- is exactly what it was.
+  chrome_w <- base_chrome_w(
+    graph_title = graph_title,
+    graph_subtitle = graph_subtitle,
+    note = note,
+    measure = measure_mono(family)
+  )
+
+  w_in <- max(panel_w, chrome_w) + mai[[2L]] + mai[[4L]]
   h_in <- panel_h + mai[[1L]] + mai[[3L]]
 
   out <- switch(

@@ -469,10 +469,48 @@ cell_dy <- function(cells) {
 #' a third stacked span gets the same protection for free, and neither renderer
 #' has to learn that a "cellindex" exists.
 #'
+#' **`h1` IS THE FONT ASCENT, NOT THE INK BOX, AND THE PAIR IS FITTED ON THE INK.**
+#' This is the second half of the same bug, and fitting the pair on `h1` alone
+#' shipped a value stamped through its own index anyway -- just by a hair instead
+#' of by a mile. `graphics::strheight()` and `grid::grobHeight()` both report the
+#' ascent; both renderers anchor with `adj = c(0, 0.5)` / `vjust = 0.5`, which
+#' centres a string's TRUE INK on the anchor. The two are not the same number, and
+#' `[i, j]` is the worst string in the package for it -- brackets and a comma reach
+#' above the digits and below the baseline. Rasterised and counted, in `"mono"`:
+#'
+#' ```
+#'   string           ink        model (strheight)
+#'   "Mg"           0.79 em          0.56 em
+#'   "-123.4"       0.66 em          0.56 em
+#'   "[1, 1]"       0.82 em          0.56 em     <- 46% taller than the model
+#' ```
+#'
+#' Fitted on the ascent, a 6x6 numeric matrix at `show_indices = "all"` on a 7x5in
+#' device put the value's ink 0.0029in BELOW the top of its index's ink -- a
+#' strike-through, sub-pixel at screen resolution and unmistakable at print. It hits
+#' numerics harder than characters, not less: a decimal-aligned block is centred and
+#' the index is centred, so they overlap in x maximally.
+#'
+#' `h_ink` is the fix, and it is a **bound, not a measurement**: one em contains the
+#' ink of any ASCII string in any family (the worst measured is 0.82), and it is
+#' already what `measure_mono()` assumes. Taking `max(h1, 1/72)` keeps whichever is
+#' larger, so a device that reports a bigger ascent than an em is still believed.
+#'
+#' The bound is LINEAR in the gap, which is why `cellindex_dy` moved from `0.2` to
+#' `0.3` in the same breath (see `R/cells.R`): the honest ink model costs the pair
+#' about 16% of its size, and the deeper nudge buys it back and then some. The two
+#' changes are one change and they must not be separated.
+#'
+#' A horizontal constraint is not an option and was not considered twice: the index
+#' is `align = "center"` and a decimal-aligned numeric block is centred too, so the
+#' two overlap in x at EVERY font size and a width constraint would drive the fit to
+#' zero. Vertical separation is the only mechanism there is.
+#'
 #' @param cells A cell table.
 #' @param fitting Indices of the cells that bind the fit, from [fit_fontsize()].
 #' @param u Inches per layout unit.
-#' @param h1 Text height in inches per point, from the measure.
+#' @param h1 Text height in inches per point, from the measure. The ASCENT -- which
+#'   is why it is floored at an em below.
 #' @param opts From [paint_opts()].
 #'
 #' @return A single font size, in points, or `Inf` when no two fitting cells share
@@ -505,7 +543,14 @@ stacked_fontsize <- function(cells, fitting, u, h1, opts) {
     return(Inf)
   }
 
-  min(2 * gap[pair] * u * (1 - opts$pad) / (h1 * (sz[a][pair] + sz[b][pair])))
+  # `h1` is `strheight()`, which R defines as the FONT ASCENT -- not the ink box.
+  # `[i, j]` is brackets and a comma, whose ink runs ~0.82 em, 46% taller than the
+  # ascent, and both renderers CENTRE a string's true ink box on its anchor.
+  # Fitting the pair on the ascent leaves the two runs a fraction of a pixel apart.
+  # One em bounds ASCII ink in any family, and it is what `measure_mono()` already
+  # assumes -- so this is a no-op for `paint_size()`, whose `h1` IS exactly `1/72`.
+  h_ink <- max(h1, 1 / 72)
+  min(2 * gap[pair] * u * (1 - opts$pad) / (h_ink * (sz[a][pair] + sz[b][pair])))
 }
 
 #' Choose the font size

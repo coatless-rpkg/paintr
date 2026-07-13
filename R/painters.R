@@ -177,7 +177,7 @@ gpaint_skin <- function(prep, graph_title = NULL, graph_subtitle = NULL) {
 # renderer: `base_mai()` would reserve a band for the literal string "NA", and
 # `ggplot2::labs(subtitle = NA_character_)` would happily draw it.
 
-#' The default subtitle for a grid: a matrix or a data frame
+#' The default subtitle for a two-dimensional structure: a matrix or a data frame
 #'
 #' It describes the DATA, not the drawing. A 30-row matrix elided down to 20 drawn
 #' rows still reports 30: the "# 10 more rows" note is what tells the reader that
@@ -191,13 +191,20 @@ gpaint_skin <- function(prep, graph_title = NULL, graph_subtitle = NULL) {
 #' pasted a second time -- and a second body is a second thing to forget to change.
 #' The class is what distinguishes the two lines, and it is read from the data.
 #'
+#' **Not `grid_subtitle()`.** In this package `grid` is the name of a GRAPHICS
+#' BACKEND -- `render_grid()`, `measure_grid()`, `panel_grid()`, `R/render-grid.R`
+#' -- so `grid_subtitle()` reads as "the subtitle for the grid renderer", which it
+#' is not: the BASE painter calls it, both painters call it, and it is not about a
+#' renderer at all. It is about the DIMENSIONS of the data, which is what it is now
+#' named for.
+#'
 #' @param data The matrix or data frame, before any elision.
 #'
 #' @return A length-one character string.
 #'
 #' @keywords internal
 #' @noRd
-grid_subtitle <- function(data) {
+dims_subtitle <- function(data) {
   paste0(
     "Dimensions: ", nrow(data), " rows x ", ncol(data), " columns", " | ",
     "Data Type: ", paste(class(data), collapse = ", ")
@@ -222,7 +229,7 @@ vector_subtitle <- function(data) {
 #' Apply the subtitle contract
 #'
 #' @param graph_subtitle What the user passed: `NULL`, `NA`, `""`, or a string.
-#' @param default What [grid_subtitle()] or [vector_subtitle()] computed.
+#' @param default What [dims_subtitle()] or [vector_subtitle()] computed.
 #'
 #' @return A length-one character string to draw, or `NULL` to draw nothing.
 #'

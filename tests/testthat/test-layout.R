@@ -627,6 +627,49 @@ test_that("the stacked pair is what binds the fit, and it binds by SHRINKING the
   expect_gt(bigger, with_idx$fontsize)
 })
 
+test_that("the honest ink height is paid for by the deeper nudge, not by the reader", {
+  # `stacked_fontsize()` fits the pair on the INK (one em), not on `strheight()`'s
+  # ascent (0.56 em) -- see `test-ink.R`, which measures both in pixels. That is a
+  # ~44% taller height to fit, and on its own it would cost the text a sixth of its
+  # size on every plot that draws an index inside a cell.
+  #
+  # `cellindex_dy` is what pays for it. The bound is LINEAR in the gap, so moving
+  # the index from 0.2 rows below the value to 0.3 multiplies the budget by 1.5 --
+  # slightly more than the ink model took away. THE TWO CHANGES ARE ONE CHANGE, and
+  # this is the assertion that stops one of them being reverted without the other:
+  # a collision test cannot see it, because putting the nudge back to 0.2 does not
+  # collide, it just quietly shrinks every index plot in the package.
+  panel <- panel_fake(7, 5)
+  m <- measure_mono()
+  opts <- paint_opts()
+
+  # The documented example -- `paint_matrix(mat_3x3, show_indices = "cell")` -- must
+  # still fit at the cap. At `cellindex_dy = -0.2` it comes back at about 19.6pt.
+  mat_3x3 <- matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
+  r3 <- resolve(fx(mat_3x3, show_indices = "cell"), panel, m, opts)
+  expect_equal(r3$fontsize, opts$max_pt)
+
+  # And the stacked bound really is the 0.3 one, written out. `measure_mono()`'s
+  # `h1` IS exactly `1/72`, so `max(h1, 1/72)` is a no-op here -- which is precisely
+  # why `paint_size()`, which fits with `measure_mono()`, is untouched by the ink
+  # fix. The nudge, though, it feels.
+  r6 <- resolve(fx(matrix(1:36, nrow = 6), show_indices = "cell"), panel, m, opts)
+  h1 <- m$h(height_ref, opts$ref_pt)[[1L]] / opts$ref_pt
+  expect_equal(h1, 1 / 72)
+
+  v <- r6$cells[r6$cells$kind == "value", ][1L, ]
+  i <- r6$cells[r6$cells$kind == "cellindex", ][1L, ]
+  expect_equal(
+    r6$fontsize,
+    2 * 0.3 * r6$u * (1 - opts$pad) / (h1 * (v$size_rel + i$size_rel))
+  )
+  # Non-vacuous: the 0.2 budget is a DIFFERENT number, and a smaller one.
+  expect_gt(
+    r6$fontsize,
+    2 * 0.2 * r6$u * (1 - opts$pad) / (h1 * (v$size_rel + i$size_rel))
+  )
+})
+
 test_that("with no index lane, every cell is centred", {
   # The other half of the claim: `dy_rel` is 0 unless there is an index to nudge.
   r <- resolve(fx(matrix(1:6, nrow = 2)), panel_fake(7, 5))
@@ -648,11 +691,18 @@ test_that("with no index INSIDE a cell, the value still gets the WHOLE padded ro
   m <- measure_mono()
   h1 <- m$h(height_ref, opts$ref_pt)[[1L]] / opts$ref_pt
 
-  unnudged_fit <- function(cells, col_w, u) {
-    req <- cell_demand(cells, m, opts$ref_pt)
+  # The oracle: `fit_fontsize()` as it was BEFORE the stacked pair existed. `by_h`
+  # divides by the raw `h1` -- the ascent -- and NOT by `max(h1, 1/72)`. That is not
+  # an oversight, it is the point of the test. The ink floor belongs to
+  # `stacked_fontsize()` and to nothing else; put it in `by_h` as well and a plain
+  # `paint_vector(letters)` -- no index, no nudge, nothing to protect -- falls from
+  # 24pt to 13.6pt on a 7x5in device, because a single-character cell is one of the
+  # few places `by_h` genuinely binds.
+  unnudged_fit <- function(cells, col_w, u, measure, h_1) {
+    req <- cell_demand(cells, measure, opts$ref_pt)
     sz <- cells$size_rel
     by_w <- ifelse(req > 0, u * col_w[cells$col] * (1 - opts$pad) / (req * sz), Inf)
-    by_h <- u * (1 - opts$pad) / (h1 * sz)
+    by_h <- u * (1 - opts$pad) / (h_1 * sz)
     fitting <- which(cells$fit & (nzchar(cells$sig) | nzchar(cells$insig)))
     min(min(pmin(by_w, by_h)[fitting]), opts$max_pt)
   }
@@ -671,8 +721,39 @@ test_that("with no index INSIDE a cell, the value still gets the WHOLE padded ro
     for (panel in list(panel_fake(7, 5), panel_fake(3, 3), panel_fake(14, 9))) {
       r <- resolve(f, panel, opts = opts)
       expect_true(all(r$cells$dy_rel == 0), info = case_label(case))
-      expect_equal(r$fontsize, unnudged_fit(f$cells, f$col_w, r$u))
+      expect_equal(r$fontsize, unnudged_fit(f$cells, f$col_w, r$u, m, h1))
+
+      # AND THE STACKED PAIR CANNOT REACH THESE PLOTS AT ALL. This is the
+      # structural half of the lock, and it is what makes the ink fix provably
+      # confined: `stacked_fontsize()` is the ONLY thing the fix changed, and it
+      # returns `Inf` -- contributes nothing to `min()` -- unless two FITTING cells
+      # share a `(row, col)`. The only such pair in the package is value+cellindex.
+      # The outline and the ellipsis are `fit = FALSE`; a rowlabel is in column 1;
+      # a collabel, a header and a type row are rows of their own. So no edit inside
+      # `stacked_fontsize()` can move a pixel of any of these, whatever it does.
+      fitting <- which(f$cells$fit & (nzchar(f$cells$sig) | nzchar(f$cells$insig)))
+      expect_identical(
+        stacked_fontsize(f$cells, fitting, r$u, h1, opts),
+        Inf,
+        info = case_label(case)
+      )
     }
+  }
+
+  # ... and it is finite exactly when an index shares a cell, which is what makes
+  # the assertion above a claim rather than a tautology.
+  for (case in list(
+    list(matrix(1:9, ncol = 1), show_indices = "cell"),
+    list(matrix(1:9, ncol = 1), show_indices = "all"),
+    list(9:1, show_indices = "inside")
+  )) {
+    f <- do.call(fx, case)
+    r <- resolve(f, panel_fake(7, 5), opts = opts)
+    fitting <- which(f$cells$fit & (nzchar(f$cells$sig) | nzchar(f$cells$insig)))
+    expect_true(
+      is.finite(stacked_fontsize(f$cells, fitting, r$u, h1, opts)),
+      info = case_label(case)
+    )
   }
 
   # And where the height genuinely binds -- a 9x1 of single digits, whose column
@@ -682,6 +763,60 @@ test_that("with no index INSIDE a cell, the value still gets the WHOLE padded ro
   expect_equal(r$fontsize, r$u * (1 - opts$pad) / h1)
   v <- r$cells[r$cells$kind == "value", ]
   expect_equal(unique(m$h(v$sig, v$fontsize[[1L]])), r$u * (1 - opts$pad))
+})
+
+test_that("the ink floor stays OUT of by_h -- the lock, on a REAL device measure", {
+  # THE ORACLE ABOVE HAS A BLIND SPOT, AND IT IS WORTH SAYING OUT LOUD.
+  # `measure_mono()`'s `h1` is EXACTLY `1/72`, so `max(h1, 1/72)` is a no-op in the
+  # fake font -- which is exactly why `paint_size()` is bit-identical across this
+  # change, and exactly why a fake-font oracle CANNOT see an ink floor leaking into
+  # `by_h`. A real device can: `strheight("Mg")` is 0.56 em on `pdf()`'s mono, well
+  # under the em, so the floor would bite there and nowhere else.
+  #
+  # It must not bite. `by_h` is the height budget of EVERY cell in the package,
+  # index or no index, and a single-character cell is one of the few places it
+  # genuinely binds -- so an ink floor in `by_h` takes a plain
+  # `paint_vector(letters)`, which has no index, no nudge and nothing whatever to
+  # protect, from 24pt down to 13.6pt. The ink floor belongs to the stacked pair.
+  local_null_pdf()
+
+  opts <- paint_opts(max_pt = 100)
+  m <- measure_base("mono")
+  h1 <- m$h(height_ref, opts$ref_pt)[[1L]] / opts$ref_pt
+
+  # Non-vacuous: the real ascent really is under an em, so the floor really would
+  # change this arithmetic if it were let in.
+  expect_lt(h1, 1 / 72)
+
+  unnudged_fit <- function(cells, col_w, u) {
+    req <- cell_demand(cells, m, opts$ref_pt)
+    sz <- cells$size_rel
+    by_w <- ifelse(req > 0, u * col_w[cells$col] * (1 - opts$pad) / (req * sz), Inf)
+    by_h <- u * (1 - opts$pad) / (h1 * sz)
+    fitting <- which(cells$fit & (nzchar(cells$sig) | nzchar(cells$insig)))
+    min(min(pmin(by_w, by_h)[fitting]), opts$max_pt)
+  }
+
+  for (case in list(
+    list(letters),                                  # the one that actually moves
+    list(matrix(1:9, ncol = 1)),
+    list(matrix(1:9, ncol = 1), show_indices = "row"),
+    list(matrix(1:9, ncol = 1), show_indices = "column"),
+    list(matrix(1:600, nrow = 30, ncol = 20), show_all = TRUE),
+    list(iris),
+    list(9:1, show_indices = "outside")
+  )) {
+    f <- do.call(fx, case)
+    for (panel in list(panel_fake(6.8, 4.3), panel_fake(3, 3), panel_fake(14, 9))) {
+      r <- resolve(f, panel, m, opts)
+      expect_true(all(r$cells$dy_rel == 0), info = case_label(case))
+      expect_equal(
+        r$fontsize,
+        unnudged_fit(f$cells, f$col_w, r$u),
+        info = case_label(case)
+      )
+    }
+  }
 })
 
 # ---------------------------------------------------------------------------

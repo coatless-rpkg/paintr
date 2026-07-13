@@ -87,7 +87,7 @@ paint_data_frame <- function(
   # Three painters, one contract -- a default line that two of them drew and the
   # third did not would be drift of exactly the kind the shared cell table exists
   # to prevent.
-  graph_subtitle <- resolve_subtitle(graph_subtitle, grid_subtitle(data))
+  graph_subtitle <- resolve_subtitle(graph_subtitle, dims_subtitle(data))
 
   prep <- painter_prep(
     data = data,
@@ -151,7 +151,7 @@ gpaint_data_frame <- function(
   }
   show_indices <- match.arg(show_indices)
   subtle_digits <- match.arg(subtle_digits)
-  graph_subtitle <- resolve_subtitle(graph_subtitle, grid_subtitle(data))
+  graph_subtitle <- resolve_subtitle(graph_subtitle, dims_subtitle(data))
 
   prep <- painter_prep(
     data = data,

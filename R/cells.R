@@ -119,11 +119,26 @@ elide_note <- function(hidden_rows, hidden_cols) {
 # late. With the nudge carried as `dy_rel`, `paint_resolve()` folds it into the
 # cell's `y` and both backends inherit it without knowing it exists.
 #
-# Sign: `y` grows upwards, so BELOW is negative. Magnitude: 0.2 of a row is what
-# the previous release drew (value at row centre, index 0.2 lower) and it is the
-# smallest gap that keeps the two spans clear of each other at the sizes autofit
-# picks.
-cellindex_dy <- -0.2
+# Sign: `y` grows upwards, so BELOW is negative.
+#
+# Magnitude: 0.3 of a row, and it is PAIRED WITH `stacked_fontsize()`'s `h_ink`
+# -- the two are one change and separating them regresses one or the other.
+#
+# 0.2 is what the previous release drew, and it was fitted against
+# `strheight()`, which is the FONT ASCENT and not the ink box: `[i, j]`'s ink runs
+# ~0.82 em against an ascent of ~0.56, so the pair was being fitted on a height
+# 46% short of the truth and the value's ink came down THROUGH its index. Measured
+# by rasterising and counting pixels, a 6x6 numeric matrix at
+# `show_indices = "all"` on 7x5in overlapped by 0.0029in.
+#
+# `stacked_fontsize()` now fits the pair on the honest ink height, which costs the
+# text about 16% of its size. This is what buys it back: that bound is LINEAR in
+# the gap, so 0.2 -> 0.3 is a 1.5x on the size, and the net is a picture that is
+# very slightly SMALLER than before and no longer struck through. The index's ink
+# bottom still lands well inside the cell -- at the sizes autofit picks it clears
+# the cell's lower edge by a comfortable margin, which `test-layout.R` asserts
+# rather than assumes.
+cellindex_dy <- -0.3
 
 #' One chunk of the cell table
 #'

@@ -553,6 +553,86 @@ test_that("a device too small for the CALLER's own margins does not error on res
 })
 
 # ---------------------------------------------------------------------------
+# ... and `plt` is the SAME BUG, one slot over
+# ---------------------------------------------------------------------------
+#
+# The `pin` guard above was only half the fix, and the other half shipped. `plt`
+# is derived in exactly the same way -- it is `mai` over `fin` -- so on a device
+# too small for the CALLER's OWN margins the numerator goes negative and the
+# fraction follows it, and `par()` refuses a negative `plt` outright.
+#
+# The devices above happen not to expose it: a 1.8in SQUARE is wide enough for the
+# default left+right margins (1.24in), so its `plt` stays non-negative even though
+# its `pin` does not. Make the device NARROW instead of small, or make the CALLER's
+# margins hostile, and it throws -- from `par(op)` itself, before the explicit
+# restore is even reached.
+#
+# This is what made `paint_size()`'s own recommendation error, but it is entirely
+# independent of `paint_size()`, and these fixtures are written not to mention it.
+
+test_that("a device too NARROW for the caller's margins does not error on restore", {
+  # 0.4in across: the default `mar` alone wants 1.24in of left+right margin, so
+  # `plt` comes back as `2.05 -0.05 0.17 0.86` -- x1 BELOW ZERO.
+  local_null_pdf(width = 0.4, height = 6)
+  before <- graphics::par(no.readonly = TRUE)
+
+  # Non-vacuous, twice over: the caller's `plt` really is negative, and `par()`
+  # really does refuse it. A fix that merely avoided drawing small would not pass.
+  expect_true(any(before$plt < 0))
+  expect_error(graphics::par(plt = before$plt), "plt")
+
+  expect_no_error(suppressWarnings(draw(fixtures()$matrix)))
+  expect_equal(graphics::par(no.readonly = TRUE), before)
+})
+
+test_that("a caller with hostile margins does not error on restore", {
+  # Nothing wrong with the DEVICE here -- 7x5in is the ordinary one. It is the
+  # CALLER: at `cex = 1.7` and `mex = 2.2` one margin line is 0.748in, so
+  # `mar = c(9, 8, 7, 6)` asks for 11.97in of vertical margin on a 5in device.
+  # `plt` comes back `0.85 0.36 1.35 -0.05`.
+  local_null_pdf(width = 7, height = 5)
+  graphics::par(cex = 1.7, mar = c(9, 8, 7, 6), mex = 2.2)
+
+  before <- graphics::par(no.readonly = TRUE)
+  csi_before <- graphics::par("csi")
+
+  expect_true(any(before$plt < 0))
+  expect_error(graphics::par(plt = before$plt), "plt")
+
+  expect_no_error(suppressWarnings(draw(fixtures()$matrix)))
+
+  # EXACTLY, and that includes the three that `par(op)` is lossy about and the one
+  # it cannot even see. `csi` is read-only, so it is not in `no.readonly` -- and it
+  # is the whole reason `restore_par()` is ordered the way it is.
+  expect_equal(graphics::par(no.readonly = TRUE), before)
+  expect_equal(graphics::par("csi"), csi_before)
+  expect_equal(graphics::par("cex"), 1.7)
+  expect_equal(graphics::par("mex"), 2.2)
+  expect_equal(graphics::par("mar"), c(9, 8, 7, 6))
+})
+
+test_that("settable_plt() draws the line where par() actually draws it", {
+  # `par(plt = )` rejects a NEGATIVE component, and only a negative one: an
+  # INVERTED region it takes without complaint. That is not a detail -- it is why
+  # the 1.8in square device above has always restored cleanly (its `plt` runs
+  # backwards in y but never goes below zero) while a 0.4in-wide one has always
+  # thrown. Guard on inversion instead and we would stop restoring a `plt` the
+  # device is perfectly happy with.
+  local_null_pdf(width = 7, height = 5)
+
+  expect_true(settable_plt(c(0.1, 0.9, 0.1, 0.9)))
+  expect_true(settable_plt(c(0.4555, 0.7666, 0.5666, 0.5444)))  # inverted in y
+  expect_no_error(graphics::par(plt = c(0.4555, 0.7666, 0.5666, 0.5444)))
+
+  expect_false(settable_plt(c(2.05, -0.05, 0.17, 0.86)))
+  expect_error(graphics::par(plt = c(2.05, -0.05, 0.17, 0.86)), "plt")
+
+  expect_false(settable_plt(c(0.85, 0.36, 1.35, -0.05)))
+  expect_false(settable_plt(c(NA, 0.9, 0.1, 0.9)))
+  expect_false(settable_plt(numeric(0)))
+})
+
+# ---------------------------------------------------------------------------
 # the bands are reserved in INCHES, not in `mar` lines
 # ---------------------------------------------------------------------------
 

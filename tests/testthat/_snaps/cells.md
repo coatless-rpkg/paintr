@@ -35,12 +35,12 @@
       10      1.0    0.0  TRUE     value
       11      1.0    0.0  TRUE     value
       12      1.0    0.0  TRUE     value
-      13      0.7   -0.2  TRUE cellindex
-      14      0.7   -0.2  TRUE cellindex
-      15      0.7   -0.2  TRUE cellindex
-      16      0.7   -0.2  TRUE cellindex
-      17      0.7   -0.2  TRUE cellindex
-      18      0.7   -0.2  TRUE cellindex
+      13      0.7   -0.3  TRUE cellindex
+      14      0.7   -0.3  TRUE cellindex
+      15      0.7   -0.3  TRUE cellindex
+      16      0.7   -0.3  TRUE cellindex
+      17      0.7   -0.3  TRUE cellindex
+      18      0.7   -0.3  TRUE cellindex
 
 # the cell table snapshots: a data frame with names and types
 

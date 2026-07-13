@@ -496,10 +496,24 @@ test_that("paint_size() grows with the data and honours min_pt and units", {
   expect_lt(small[["width"]], big[["width"]])
   expect_lt(small[["height"]], big[["height"]])
 
-  # A bigger floor needs a bigger canvas, linearly.
+  # A bigger floor needs a bigger canvas. The HEIGHT says so unconditionally: it is
+  # the panel's, and the panel is linear in `min_pt`.
   a <- paint_size(matrix(1:100, nrow = 10), show_all = TRUE, min_pt = 5)
   b <- paint_size(matrix(1:100, nrow = 10), show_all = TRUE, min_pt = 10)
-  expect_gt(b[["width"]], a[["width"]])
+  expect_gt(b[["height"]], a[["height"]])
+
+  # The WIDTH is `max(panel, chrome)`, and for a 10x10 of single digits the chrome
+  # WINS at both floors -- the subtitle alone is 59 characters, which is wider than
+  # ten one-digit cells will ever be at 10pt. So the width does not move here, and
+  # it should not: a device narrower than the title it is about to draw is not a
+  # smaller answer, it is a wrong one. It was the bug. It never goes DOWN, though...
+  expect_gte(b[["width"]], a[["width"]])
+
+  # ... and the moment the panel is the binding constraint, the width tracks the
+  # floor again, exactly as the height does.
+  wa <- paint_size(matrix(1:400, nrow = 20), show_all = TRUE, min_pt = 5)
+  wb <- paint_size(matrix(1:400, nrow = 20), show_all = TRUE, min_pt = 10)
+  expect_gt(wb[["width"]], wa[["width"]])
 
   # A 2x2 of single digits at 5pt genuinely only needs a fraction of an inch of
   # panel. That is the correct answer, not a bug: it is two tiny cells of 5pt text
@@ -544,6 +558,85 @@ test_that("paint_size() clears the floor for a data frame too", {
 
   expect_no_warning(res <- paint_data_frame(iris, show_all = TRUE))
   expect_false(res$floored)
+})
+
+# ---------------------------------------------------------------------------
+# paint_size(): THE ROUND TRIP
+# ---------------------------------------------------------------------------
+#
+# The whole contract, and it had never been tested end to end: take the size,
+# OPEN A DEVICE AT EXACTLY THAT SIZE, and draw. The man page says "Paste it
+# straight into a device call", so that is the test.
+#
+# It did not work. `paint_size(seq_len(30))` recommended 0.4 x 2.4in, and
+# `paint_vector(seq_len(30))` on a 0.4in-wide device ERRORED:
+#
+#     Error in graphics::par(op) :
+#       invalid value specified for graphical parameter "plt"
+#
+# Two independent bugs, and the round trip needed BOTH of them fixed:
+#
+#   * the width was taken from the PANEL alone, and a vertical vector's panel is
+#     one narrow column -- so the recommendation came out narrower than the
+#     title it was going to draw, and narrower than the default `par("mar")`;
+#   * and `restore_par()` restored `plt` unguarded, so ANY device too small for
+#     the caller's own margins threw on the way out -- after drawing correctly.
+#
+# The vector is the case that was broken, so the vector is first.
+
+test_that("paint_size(): the recommended size DRAWS, for every structure", {
+  cases <- list(
+    list(nm = "vector",           d = seq_len(30),            p = paint_vector,     all = FALSE),
+    list(nm = "vector show_all",  d = seq_len(200),           p = paint_vector,     all = TRUE),
+    list(nm = "vector chr",       d = letters,                p = paint_vector,     all = FALSE),
+    list(nm = "matrix",           d = matrix(1:600, nrow = 30), p = paint_matrix,   all = FALSE),
+    list(nm = "matrix show_all",  d = matrix(1:600, nrow = 30), p = paint_matrix,   all = TRUE),
+    list(nm = "data frame",       d = iris,                   p = paint_data_frame, all = FALSE),
+    list(nm = "data frame all",   d = iris,                   p = paint_data_frame, all = TRUE)
+  )
+
+  for (cs in cases) {
+    s <- if (cs$all) paint_size(cs$d, show_all = TRUE) else paint_size(cs$d)
+
+    grDevices::pdf(NULL, width = s[["width"]], height = s[["height"]])
+    dev <- grDevices::dev.cur()
+
+    # (a) IT DRAWS. No error -- and the error it used to throw came from the
+    # `on.exit()` restore, i.e. AFTER the picture, so nothing short of running the
+    # painter for real would have caught it.
+    res <- NULL
+    expect_no_error(
+      res <- if (cs$all) cs$p(cs$d, show_all = TRUE) else cs$p(cs$d),
+      message = cs$nm
+    )
+    # (b) AND IT CLEARS THE FLOOR, which is what the size was computed to do.
+    # `min_pt` defaults to 5 in `paint_size()` and in `paint_opts()` alike.
+    expect_gte(res$fontsize, 5)
+    expect_false(res$floored)
+
+    grDevices::dev.off(dev)
+  }
+})
+
+test_that("paint_size() recommends a device wider than the chrome it will draw", {
+  # The mechanism, isolated. `base_mai()` models the chrome as vertical BANDS and
+  # never looks at their width, so a width taken from the panel alone forgets the
+  # title and the subtitle entirely -- and for a vertical vector, which is one
+  # narrow column, the chrome is ALL of the width.
+  s <- paint_size(seq_len(30))
+
+  title <- "Data Object: seq_len(30)"
+  subtitle <- vector_subtitle(seq_len(30))
+  m <- measure_mono("mono")
+
+  # `base_mai()`'s side margins, which the recommendation adds to the panel.
+  sides <- base_mai(title, subtitle)[[2L]] + base_mai(title, subtitle)[[4L]]
+
+  expect_gte(s[["width"]], m$w(title, 12)[[1L]] + sides)
+  expect_gte(s[["width"]], m$w(subtitle, 9)[[1L]] + sides)
+  # Non-vacuous: this is the assertion that fails on the old arithmetic, which
+  # returned 0.4in -- narrower than the 24-character title at 12pt (2.4in).
+  expect_gt(m$w(title, 12)[[1L]], 0.4)
 })
 
 # ---------------------------------------------------------------------------

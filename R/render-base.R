@@ -153,10 +153,42 @@ note_line <- 0.4
 #' derived value is negative (measured: a 1.8in square device with the default
 #' margins gives `pin = c(0.56, -0.04)`), and `par(pin = <negative>)` errors --
 #' so a plain `par(op)` throws on the restore, *after* the picture already drew
-#' correctly. `plt` has no such floor (it is a fraction of the figure region,
-#' not an inch count) and is what step 4 uses to reproduce `pin` anyway, so
-#' dropping `pin` from `op` before step 1 costs nothing: the margins and `pty`
-#' it would have been derived from are restored regardless, in steps 1 and 4.
+#' correctly. Dropping `pin` from `op` before step 1 costs nothing: the margins
+#' and `pty` it would have been derived from are restored regardless, in steps 1
+#' and 4.
+#'
+#' **And `op$plt` is derived in exactly the same way, so it needs exactly the same
+#' guard.** It was long believed that it did not -- `plt` is a *fraction* of the
+#' figure region rather than an inch count, so it looks as though it cannot go
+#' negative. It can. `plt` is `mai` divided by `fin`, and once the margins exceed
+#' the device the numerator goes negative and the fraction follows it. Measured:
+#'
+#' ```
+#' pdf(NULL, 0.4, 6)                      # narrower than the default mar
+#' par("plt")                             # 2.05 -0.05 0.17 0.86
+#' pdf(NULL, 7, 5); par(cex = 1.7, mar = c(9, 8, 7, 6), mex = 2.2)
+#' par("plt")                             # 0.85 0.36 1.35 -0.05
+#' ```
+#'
+#' and `par()` rejects a negative component of `plt` outright:
+#' `invalid value specified for graphical parameter "plt"`. (It accepts an
+#' *inverted* region happily -- the 1.8in square device gives a `plt` whose y
+#' runs backwards and sets fine -- so it is negativity, not inversion, that is
+#' the settable/unsettable line, and `settable_plt()` tests exactly that.)
+#'
+#' This is the `pin` bug, again, one slot over, and it was left behind when `pin`
+#' was fixed. It reproduces with no `paint_size()` in sight -- `pdf(NULL, 0.4, 6);
+#' paint_matrix(matrix(1:4, 2))` threw on the restore *after* drawing the picture
+#' correctly -- and it is what made `paint_size()`'s own recommendation error, since
+#' the size it recommended for a vertical vector was narrower than the default
+#' margins.
+#'
+#' The guard is `pin`'s, not a new idea: **a derived value that the device cannot
+#' accept is not restored, because it does not have to be.** `plt` follows from the
+#' device size, `mar`/`mai`, `csi`, `mex` and `pty`, and every one of those is put
+#' back regardless -- steps 1, 2 and 3 -- so the caller's `plt` re-derives itself.
+#' Verified: on both devices above, `par("plt")` comes back bit-for-bit without
+#' step 4 ever running.
 #'
 #' The order below reproduces the caller's whole
 #' `(cex, csi, mex, mar/mai, oma/omi, pin/plt, mfg, new)` state exactly, rather
@@ -213,6 +245,12 @@ note_line <- 0.4
 #' @keywords internal
 #' @noRd
 restore_par <- function(op, csi0, csi_unit = NA_real_, laid_out = TRUE) {
+  # `plt` IS `pin`'s problem, one slot over, and it has to be settled BEFORE step 1
+  # -- not just at step 4 -- because `plt` is an element of `op` and `par(op)` sets
+  # it. That is where it actually threw: the guard has to cover both the bulk
+  # restore and the explicit one, so it is decided once, here.
+  plt_ok <- settable_plt(op$plt)
+
   if (isTRUE(laid_out)) {
     # `pin` is derived from the device size, `mai`/`mar` and `pty` -- all of
     # which this list restores anyway (step 1 sets `mai`; step 4 below sets
@@ -221,6 +259,13 @@ restore_par <- function(op, csi0, csi_unit = NA_real_, laid_out = TRUE) {
     # <negative>)` errors, so restoring it directly would throw here even
     # though the picture already drew. Let it come back on its own.
     op$pin <- NULL
+    # And so is `plt`, on exactly the devices that make `pin` negative -- it is
+    # `mai` over `fin`, so once the margins outgrow the device the fraction goes
+    # negative too, and `par()` refuses a negative `plt`. Drop it and let it
+    # re-derive from the `mar`/`csi`/`mex`/`pty` that steps 1-3 restore anyway.
+    if (!plt_ok) {
+      op$plt <- NULL
+    }
     graphics::par(op)
   }
 
@@ -228,7 +273,9 @@ restore_par <- function(op, csi0, csi_unit = NA_real_, laid_out = TRUE) {
       isTRUE(is.finite(csi0)) && csi0 > 0) {
     graphics::par(cex = csi0 / csi_unit)
     graphics::par(mex = op$mex)
-    graphics::par(plt = op$plt)
+    if (plt_ok) {
+      graphics::par(plt = op$plt)
+    }
   }
 
   if (isTRUE(laid_out) && length(op$mfg) == 4L) {
@@ -237,6 +284,28 @@ restore_par <- function(op, csi0, csi_unit = NA_real_, laid_out = TRUE) {
 
   graphics::par(cex = op$cex, col = op$col, new = op$new)
   invisible(NULL)
+}
+
+#' Will `par()` accept this `plt`?
+#'
+#' `par(plt = )` rejects a **negative** component -- and only a negative one. An
+#' *inverted* region (`x1 < x0`, or `y1 < y0`) it takes without complaint, which is
+#' why a 1.8in square device, whose `plt` runs backwards in y but stays
+#' non-negative, has always restored cleanly while a 0.4in-wide one, whose `plt` is
+#' `2.05 -0.05 0.17 0.86`, has always thrown.
+#'
+#' So the test is exactly "no negative component", and it is deliberately not
+#' "is this a sane plot region": narrowing it further would stop restoring a `plt`
+#' that the device accepts today, which is a regression, not a fix.
+#'
+#' @param plt A `par("plt")` value.
+#'
+#' @return `TRUE` if `par(plt = )` will take it.
+#'
+#' @keywords internal
+#' @noRd
+settable_plt <- function(plt) {
+  length(plt) == 4L && all(is.finite(plt)) && all(plt >= 0)
 }
 
 # ---------------------------------------------------------------------------
@@ -300,6 +369,57 @@ base_mai <- function(graph_title = NULL, graph_subtitle = NULL, note = NULL,
     side_in,
     max(top, pad_in),
     side_in
+  )
+}
+
+#' How wide the chrome's ink actually is, in inches
+#'
+#' [base_mai()] models the title, the subtitle and the note as **vertical bands**:
+#' it sizes each one from its point size and reserves the height, and it never once
+#' looks at what the band SAYS. For a margin reservation that is exactly right --
+#' the bands run the full width of the figure, whatever that width turns out to be.
+#'
+#' For [paint_size()], which has to CHOOSE that width, it is exactly wrong, and it
+#' shipped a recommendation that errored. A vertical vector is one narrow column,
+#' so the panel it needs is about 0.2in wide, and `paint_size(seq_len(30))` duly
+#' recommended a device 0.4in across -- narrower than the default `par("mar")`, and
+#' a great deal narrower than the string `"Data Object: seq_len(30)"` the painter
+#' was about to draw across the top of it. The painter then errored on that very
+#' device. The one thing `paint_size()` exists to do is hand back a size that works.
+#'
+#' So the width is floored on the ink the chrome really needs. The three strings are
+#' the REAL ones here, not the placeholders `base_mai()` is content with: a
+#' placeholder has a placeholder's width, and width is the whole question.
+#'
+#' The measure is injected, and in practice it is always `measure_mono()`:
+#' `paint_size()` opens no device and reads no device, so there is no device to ask.
+#' That is a feature -- see `R/size.R`.
+#'
+#' @inheritParams base_mai
+#' @param measure A measure: a list of closures `w(s, pt)` and `h(s, pt)`.
+#'
+#' @return A single number: the widest band's ink, in inches. `0` when there is no
+#'   chrome at all.
+#'
+#' @keywords internal
+#' @noRd
+base_chrome_w <- function(graph_title = NULL, graph_subtitle = NULL, note = NULL,
+                          measure = measure_mono(),
+                          title_pt = 12, subtitle_pt = 9, note_pt = 8) {
+  band <- function(s, pt) {
+    if (!has_text(s)) {
+      return(0)
+    }
+    # `draw_bands()` draws element ONE of whatever it is handed -- a `deparse()`
+    # that came back as several lines is truncated to its first -- so element one
+    # is what has to fit.
+    measure$w(as.character(s)[[1L]], pt)[[1L]]
+  }
+  max(
+    band(graph_title, title_pt),
+    band(graph_subtitle, subtitle_pt),
+    band(note, note_pt),
+    0
   )
 }
 
