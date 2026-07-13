@@ -1,18 +1,14 @@
 # Tier 3: the grid renderer.
 #
-# THIS FILE DEPENDS ON `grid` ALONE. It names no plotting package from Suggests,
-# and it must not acquire one: that is what lets the hardest code in the package
-# -- the deferred font fit -- be tested with zero Suggests installed and stay
-# immune to the layered backend's 4.x churn. `gpaint_*()` is a ~25-line skin over
-# `paintr_grob()`, and the skin is the only place that backend may appear.
-#
-# (The prose below is deliberately free of the string that names that backend, so
-# that a `grep -i` over this file comes back empty. The dependency is `grid`, and
-# nothing else. Please do not "helpfully" reintroduce the name.)
+# THIS FILE DEPENDS ON `grid` ALONE. It contains no reference to ggplot2, and it
+# must not acquire one: that is what lets the hardest code in the package -- the
+# deferred font fit -- be tested with zero Suggests installed and stay immune to
+# ggplot2 4.x churn. `gpaint_*()` is a ~25-line skin over `paintr_grob()`, and
+# the skin is the only place ggplot2 is allowed to appear.
 #
 # Why a custom grob at all, when it looks like an optimisation:
 #
-#   1. THE LAYERED BACKEND CANNOT MEASURE TEXT AT BUILD TIME. Its panel is a
+#   1. ggplot2 CANNOT MEASURE TEXT AT BUILD TIME. The panel is a
 #      `null` unit and `convertWidth(unit(1, "null"), "in")` returns 0 outside a
 #      layout, while the fitting size swings 4.7x across plausible devices. So the
 #      font size MUST be computed at DRAW time, inside `makeContent()`, where the
@@ -80,7 +76,7 @@ warn_floor_once <- function(state, enabled, resolved, opts, dev_in) {
   # Two gates, and both are deliberate. `enabled` is the option threaded down as
   # plain data by the painter (nothing below the painter is allowed to depend on
   # the user's .Rprofile for its *defaults*). The `getOption()` re-read is a live
-  # kill switch: a plot object is built long before it is drawn, so a user who
+  # kill switch: a ggplot object is built long before it is drawn, so a user who
   # sets the option between the two would otherwise still be shouted at.
   if (!isTRUE(enabled) || !isTRUE(getOption("paintr.warn_floor", TRUE))) {
     return(invisible(FALSE))
@@ -102,7 +98,7 @@ warn_floor_once <- function(state, enabled, resolved, opts, dev_in) {
 #' Holds the cell table and defers every device-dependent decision to
 #' [makeContent.paintr_grob()]. Constructing it opens no device, reads no device,
 #' and measures no text -- which is precisely why it can be handed to
-#' `annotation_custom()`, whose panel does not exist yet.
+#' `ggplot2::annotation_custom()`, whose panel does not exist yet.
 #'
 #' @param cells A cell table from `paint_cells()`.
 #' @param col_w Column widths in layout units, from `column_widths()`.
@@ -241,8 +237,8 @@ paintr_children <- function(res, opts) {
 #' It calls the **shared** `paint_resolve()` -- the same function, on the same
 #' cell table, that `render_base()` calls -- with `measure_grid()` swapped in for
 #' `measure_base()`. Nothing about the fit is reimplemented here, which is what
-#' makes "both backends draw the same picture" a property of one function rather
-#' than a coincidence between two.
+#' makes "base and ggplot draw the same picture" a property of one function
+#' rather than a coincidence between two.
 #'
 #' @param x A `paintr_grob`.
 #'
