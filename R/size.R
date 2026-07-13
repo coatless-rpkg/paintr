@@ -52,15 +52,18 @@
 #'   pixel.
 #'
 #' @examples
+#' # How large a device does a 20x20 matrix need, drawn in full?
 #' paint_size(matrix(1:400, nrow = 20), show_all = TRUE)
 #'
-#' # Paste it straight into a device call:
-#' #   s <- paint_size(iris, show_all = TRUE)
-#' #   png("iris.png", width = s[["width"]], height = s[["height"]],
-#' #       units = "in", res = 96)
+#' # The same question in pixels, for a png() at 96 dpi.
+#' paint_size(iris, show_all = TRUE, units = "px")
 #'
-#' # Or into a knitr chunk header, in inches.
-#' paint_size(iris, show_all = TRUE)
+#' # The answer is in inches by default, so it can be pasted straight into a
+#' # device call or a knitr chunk header (fig.width, fig.height).
+#' s <- paint_size(iris, show_all = TRUE)
+#' s
+#' # png("iris.png", width = s[["width"]], height = s[["height"]],
+#' #     units = "in", res = 96)
 #'
 #' @export
 paint_size <- function(data, ...,

@@ -136,9 +136,9 @@ column names. Default: \code{TRUE}.}
 \item{show_names}{Draw the column-name row. Default: \code{TRUE}.}
 }
 \value{
-\code{paint_data_frame()} invisibly returns the resolved cell table.
-\code{gpaint_data_frame()} returns a \code{ggplot} object. See \code{paint_matrix()} for what
-that object is and is not.
+\code{paint_data_frame()} invisibly returns the resolved cell table. See
+\code{\link[=paint_matrix]{paint_matrix()}} for its components.
+\code{gpaint_data_frame()} returns a \code{ggplot} object.
 }
 \description{
 Generate a graph showing the contents of a data frame.
@@ -153,6 +153,28 @@ independent variables: a \code{1e15} in one column will not flip another column 
 scientific notation. (A matrix is the opposite -- one unit for the whole thing,
 so that the same value looks identical in every cell.)
 }
+\section{The ggplot object is a shell}{
+
+\code{gpaint_data_frame()} returns a real \code{ggplot} object -- \code{+ theme()}, \code{ggsave()},
+\code{print()} and knitr chunks all work -- but its panel is drawn \emph{entirely} by a
+custom grid grob, held in a single \code{annotation_custom()} over a meaningless
+\verb{0..1} coordinate system. There is no \code{aes()}, no geom and no scale carrying
+any meaning, so:
+\itemize{
+\item \code{ggplot_build()} sees an empty layer.
+\item \verb{+ scale_fill_*()}, \verb{+ scale_x_*()} and friends have no effect on the drawing.
+Use \code{highlight_area} and \code{highlight_color} to fill cells.
+\item \code{+ geom_point()} would draw onto the \verb{0..1} coordinate system, not onto the
+cells.
+}
+
+This is not a shortcut around ggplot2. The cell text is fitted to the device at
+\emph{draw} time, which no geom can do, because a layer is built long before the
+device size is known; and every number is drawn as two spans in two colors,
+which \code{geom_text()} cannot do at all. A custom grob is the only mechanism that
+can do either.
+}
+
 \examples{
 # Base graphics
 
@@ -169,9 +191,11 @@ paint_data_frame(
   head(iris, 5),
   highlight_area = highlight_columns(head(iris, 5), "Sepal.Width")
 )
+\dontshow{if (requireNamespace("ggplot2", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 # ggplot2 graphics ----
 
 gpaint_data_frame(head(iris, 5))
 
 gpaint_df(head(mtcars, 4))
+\dontshow{\}) # examplesIf}
 }

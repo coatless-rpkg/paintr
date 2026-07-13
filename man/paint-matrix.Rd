@@ -104,13 +104,24 @@ Generate a graph showing the contents of a matrix.
 }
 \section{The ggplot object is a shell}{
 
-\code{gpaint_matrix()} returns a \code{ggplot} whose only layer is an
-\code{annotation_custom()} holding a grid grob, over a meaningless \verb{0..1}
-coordinate system. It stays a real \code{ggplot} -- \code{+ theme()}, \code{ggsave()} and
-printing all work -- but \code{ggplot_build()} sees an empty layer, and adding a
-geom or a scale to it will not do anything useful. This is not a shortcut: text
-cannot be measured at build time and \code{geom_text()} cannot draw two-tone digits,
-so a custom grob is the only mechanism that exists.
+\code{gpaint_matrix()} returns a real \code{ggplot} object -- \code{+ theme()}, \code{ggsave()},
+\code{print()} and knitr chunks all work -- but its panel is drawn \emph{entirely} by a
+custom grid grob, held in a single \code{annotation_custom()} over a meaningless
+\verb{0..1} coordinate system. There is no \code{aes()}, no geom and no scale carrying
+any meaning, so:
+\itemize{
+\item \code{ggplot_build()} sees an empty layer.
+\item \verb{+ scale_fill_*()}, \verb{+ scale_x_*()} and friends have no effect on the drawing.
+Use \code{highlight_area} and \code{highlight_color} to fill cells.
+\item \code{+ geom_point()} would draw onto the \verb{0..1} coordinate system, not onto the
+cells.
+}
+
+This is not a shortcut around ggplot2. The cell text is fitted to the device at
+\emph{draw} time, which no geom can do, because a layer is built long before the
+device size is known; and every number is drawn as two spans in two colors,
+which \code{geom_text()} cannot do at all. A custom grob is the only mechanism that
+can do either.
 }
 
 \examples{
@@ -136,6 +147,7 @@ paint_matrix(
 # Highlight values above 5
 mat_2x4 = matrix(round(rnorm(16, 5, 2), 2), ncol = 4)
 paint_matrix(mat_2x4, highlight_area = mat_2x4 > 2)
+\dontshow{if (requireNamespace("ggplot2", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 # ggplot2 graphics ----
 
 # Visualize a 3x3
@@ -153,4 +165,5 @@ gpaint_matrix(mat_2x2, highlight_area = mat_2x2_mask)
 # Highlight values above 5
 mat_3x5 = matrix(round(rnorm(15, 5, 2), 2), ncol = 5)
 gpaint_matrix(mat_3x5, highlight_area = mat_3x5 > 2)
+\dontshow{\}) # examplesIf}
 }

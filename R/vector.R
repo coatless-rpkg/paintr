@@ -39,10 +39,28 @@
 #'                        horizontal one by `max_cols`.
 #'
 #' @return
-#' `paint_vector()` invisibly returns the resolved cell table. See `paint_matrix()`
+#' `paint_vector()` invisibly returns the resolved cell table. See [paint_matrix()]
 #' for its components.
-#' `gpaint_vector()` returns a `ggplot` object. See `paint_matrix()` for what that
-#' object is and is not.
+#' `gpaint_vector()` returns a `ggplot` object.
+#'
+#' @section The ggplot object is a shell:
+#' `gpaint_vector()` returns a real `ggplot` object -- `+ theme()`, `ggsave()`,
+#' `print()` and knitr chunks all work -- but its panel is drawn *entirely* by a
+#' custom grid grob, held in a single `annotation_custom()` over a meaningless
+#' `0..1` coordinate system. There is no `aes()`, no geom and no scale carrying
+#' any meaning, so:
+#'
+#' * `ggplot_build()` sees an empty layer.
+#' * `+ scale_fill_*()`, `+ scale_x_*()` and friends have no effect on the drawing.
+#'   Use `highlight_area` and `highlight_color` to fill cells.
+#' * `+ geom_point()` would draw onto the `0..1` coordinate system, not onto the
+#'   cells.
+#'
+#' This is not a shortcut around ggplot2. The cell text is fitted to the device at
+#' *draw* time, which no geom can do, because a layer is built long before the
+#' device size is known; and every number is drawn as two spans in two colors,
+#' which `geom_text()` cannot do at all. A custom grob is the only mechanism that
+#' can do either.
 #'
 #' @importFrom graphics rect text mtext par plot.new plot.window
 #' @rdname paint-vector
@@ -122,7 +140,7 @@ paint_vector <- function(
 
 #' @rdname paint-vector
 #' @export
-#' @examples
+#' @examplesIf requireNamespace("ggplot2", quietly = TRUE)
 #' # ggplot2 graphics ----
 #'
 #' gpaint_vector(c(-3, 5, NA, Inf, 2, 1))

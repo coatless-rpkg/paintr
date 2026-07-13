@@ -89,10 +89,9 @@ to the device.}
 \item{family}{Font family. \code{"mono"} by default.}
 }
 \value{
-\code{paint_vector()} invisibly returns the resolved cell table. See \code{paint_matrix()}
+\code{paint_vector()} invisibly returns the resolved cell table. See \code{\link[=paint_matrix]{paint_matrix()}}
 for its components.
-\code{gpaint_vector()} returns a \code{ggplot} object. See \code{paint_matrix()} for what that
-object is and is not.
+\code{gpaint_vector()} returns a \code{ggplot} object.
 }
 \description{
 Generate a graph showing the contents of a vector.
@@ -101,6 +100,28 @@ Generate a graph showing the contents of a vector.
 \code{paint_vector()} draws on the current base graphics device.
 \code{gpaint_vector()} returns a \code{ggplot} object.
 }
+\section{The ggplot object is a shell}{
+
+\code{gpaint_vector()} returns a real \code{ggplot} object -- \code{+ theme()}, \code{ggsave()},
+\code{print()} and knitr chunks all work -- but its panel is drawn \emph{entirely} by a
+custom grid grob, held in a single \code{annotation_custom()} over a meaningless
+\verb{0..1} coordinate system. There is no \code{aes()}, no geom and no scale carrying
+any meaning, so:
+\itemize{
+\item \code{ggplot_build()} sees an empty layer.
+\item \verb{+ scale_fill_*()}, \verb{+ scale_x_*()} and friends have no effect on the drawing.
+Use \code{highlight_area} and \code{highlight_color} to fill cells.
+\item \code{+ geom_point()} would draw onto the \verb{0..1} coordinate system, not onto the
+cells.
+}
+
+This is not a shortcut around ggplot2. The cell text is fitted to the device at
+\emph{draw} time, which no geom can do, because a layer is built long before the
+device size is known; and every number is drawn as two spans in two colors,
+which \code{geom_text()} cannot do at all. A custom grob is the only mechanism that
+can do either.
+}
+
 \examples{
 # Base graphics
 
@@ -120,9 +141,11 @@ paint_vector(
   vec_6, show_indices = "outside",
   highlight_area = highlight_locations(vec_6, c(2, 4, 6))
 )
+\dontshow{if (requireNamespace("ggplot2", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 # ggplot2 graphics ----
 
 gpaint_vector(c(-3, 5, NA, Inf, 2, 1))
 
 gpaint_vector(letters[1:5], layout = "horizontal", show_indices = "outside")
+\dontshow{\}) # examplesIf}
 }
