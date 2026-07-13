@@ -36,6 +36,77 @@ resolve <- function(f, panel, measure = measure_mono(), opts = paint_opts()) {
 dense <- function() fx(matrix(1:600, nrow = 30, ncol = 20), show_all = TRUE)
 
 # ---------------------------------------------------------------------------
+# the index INSIDE the cell: fixtures and ink measurement
+# ---------------------------------------------------------------------------
+
+# Every shape that draws an index inside the cell it names -- which is the only
+# configuration in which two spans share one box.
+#
+# The sizes are chosen to BREAK, not to pass. At a 7in device with default options
+# the old fit budgeted the value the whole row while nudging the index only 0.2 of
+# a row below it, so the two inks collided from 5x5 up:
+#
+#     3x3   +0.096in of clear air     4x4   +0.032in
+#     5x5   -0.006in  OVERPRINTED     6x6   -0.032in
+#     20x20 -0.017in  OVERPRINTED     paint_vector(1:20) -0.044in
+#
+# A guard fixtured only at 3x3 -- one of the few sizes that happens to clear --
+# stays green on a picture in which the value is stamped straight through the
+# index. So every one of these sizes is fixtured, and both `"cell"` and `"all"`.
+inside_cases <- list(
+  list(matrix(1:9, nrow = 3), show_indices = "cell"),
+  list(matrix(1:9, nrow = 3), show_indices = "all"),
+  list(matrix(1:25, nrow = 5), show_indices = "cell"),
+  list(matrix(1:25, nrow = 5), show_indices = "all"),
+  list(matrix(1:36, nrow = 6), show_indices = "cell"),
+  list(matrix(1:36, nrow = 6), show_indices = "all"),
+  list(matrix(1:400, nrow = 20), show_indices = "cell"),
+  list(matrix(1:400, nrow = 20), show_indices = "all"),
+  list(matrix(c(1, 1 / 3, 1000, 0.001), nrow = 2), show_indices = "cell"),
+  list(1:20, show_indices = "inside"),
+  list(1:20, show_indices = "inside", layout = "horizontal")
+)
+
+case_label <- function(case) {
+  shape <- if (is.matrix(case[[1L]])) {
+    paste0(nrow(case[[1L]]), "x", ncol(case[[1L]]))
+  } else {
+    paste0("vector[", length(case[[1L]]), "]")
+  }
+  layout <- if (is.null(case$layout)) "vertical" else case$layout
+  paste(shape, case$show_indices, layout)
+}
+
+# The drawn height of a span, in inches. Text height is content-independent, so
+# the size is the only thing that varies.
+ink_h <- function(measure, pt) {
+  vapply(pt, function(p) measure$h(height_ref, p)[[1L]], numeric(1))
+}
+
+# THE INK-COLLISION MEASUREMENT, and the reason the old guards did not catch this.
+#
+# They asserted ANCHOR geometry -- the index's `y` is below the value's `y`, the
+# anchor is inside the box -- and every one of those claims stays TRUE while the
+# value's descenders are stamped straight through the index's brackets. What has
+# to be asserted is the INK: the value's bottom edge against the index's top edge,
+# with real measured text heights.
+#
+# Returns the gap, in inches, for each (value, index) pair. Positive is clear air.
+# Negative is the bug.
+ink_gap <- function(r, measure) {
+  cs <- r$cells
+  val <- cs[cs$kind == "value", , drop = FALSE]
+  idx <- cs[cs$kind == "cellindex", , drop = FALSE]
+  # Pair by the DATA index, not by row order: a pairing by position would still
+  # line up if the two chunks were built out of step.
+  k <- match(paste(idx$i, idx$j), paste(val$i, val$j))
+  stopifnot(!anyNA(k), nrow(idx) > 0L)
+  val <- val[k, , drop = FALSE]
+  (val$y - ink_h(measure, val$fontsize) / 2) -
+    (idx$y + ink_h(measure, idx$fontsize) / 2)
+}
+
+# ---------------------------------------------------------------------------
 # panels
 # ---------------------------------------------------------------------------
 
@@ -467,8 +538,15 @@ test_that("a cell index resolves BELOW the value it names", {
     # And below by exactly one nudge, which is a fraction of a ROW -- so it scales
     # with the cell, on every device.
     expect_equal(idx$y - val$y, rep(r$u * cellindex_dy, nrow(idx)))
-    # Vertical only: the index is still centred over its value.
+    # Vertical only. `x` is the CELL's centre, and the two share a cell -- it is
+    # NOT where either span's ink lands, and the two inks are deliberately not
+    # centred on each other: the value is anchored on its decimal point through
+    # `dx_sig`, the index is centred in the box.
     expect_equal(idx$x, val$x)
+    # What IS true of the index's ink: `align = "center"` centres it on the cell.
+    w_idx <- measure_mono()$w(idx$sig, idx$fontsize[[1L]])
+    expect_equal(idx$dx_sig, -w_idx / 2)
+    expect_equal(idx$x + idx$dx_sig + w_idx / 2, idx$x)
     # Still inside the cell it belongs to.
     expect_true(all(idx$y > idx$yb & idx$y < idx$yt))
 
@@ -481,11 +559,129 @@ test_that("a cell index resolves BELOW the value it names", {
   }
 })
 
+# ---------------------------------------------------------------------------
+# ...AND IT IS NOT STAMPED THROUGH BY IT
+# ---------------------------------------------------------------------------
+#
+# The test above is an ANCHOR test, and an anchor test cannot see this bug: the
+# index's anchor stays 0.2 rows below the value's anchor, and inside its own box,
+# while the value is drawn so large that its ink swallows the index whole. Every
+# assertion above passes on a picture in which `14` is printed straight through
+# `[2, 3]`.
+#
+# The INK is what has to be asserted. A value and an index that share a cell are a
+# STACKED PAIR and are fitted as one unit (`stacked_fontsize()`), so:
+#
+#     value's bottom edge  >  index's top edge
+#
+# with real measured text heights, at every size -- not just at the 3x3 that
+# happens to clear.
+
+test_that("the value's ink never touches the index inside its cell", {
+  m <- measure_mono()
+  for (panel in list(panel_fake(7, 7), panel_fake(7, 5), panel_fake(4, 3))) {
+    for (case in inside_cases) {
+      r <- resolve(do.call(fx, case), panel)
+      gap <- ink_gap(r, m)
+      expect_true(
+        all(gap > 0),
+        info = paste0(
+          case_label(case), " on ", panel$w_in, "x", panel$h_in,
+          "in: worst ink gap ", signif(min(gap), 3), "in"
+        )
+      )
+    }
+  }
+})
+
+test_that("the stacked pair is what binds the fit, and it binds by SHRINKING the value", {
+  # Non-vacuity, and the whole shape of the fix in one assertion. At 7x7in a 6x6
+  # with no index inside its cells fits at the `max_pt` cap; ask for the index and
+  # the value MUST come down to make room for it. A fit that let the value keep the
+  # whole row -- the bug -- would return the same size for both.
+  panel <- panel_fake(7, 7)
+  bare <- resolve(fx(matrix(1:36, nrow = 6)), panel)
+  with_idx <- resolve(fx(matrix(1:36, nrow = 6), show_indices = "cell"), panel)
+
+  expect_equal(bare$fontsize, paint_opts()$max_pt)
+  expect_lt(with_idx$fontsize, bare$fontsize)
+  # Genuinely fitted, not merely capped.
+  expect_lt(with_idx$fontsize, paint_opts()$max_pt)
+
+  # And the size it chose is exactly the stacked-pair budget: the two half-heights
+  # meet in the middle of the nudge, less the padding headroom.
+  m <- measure_mono()
+  h1 <- m$h(height_ref, paint_opts()$ref_pt)[[1L]] / paint_opts()$ref_pt
+  v <- with_idx$cells[with_idx$cells$kind == "value", ][1L, ]
+  i <- with_idx$cells[with_idx$cells$kind == "cellindex", ][1L, ]
+  expect_equal(
+    with_idx$fontsize,
+    2 * abs(cellindex_dy) * with_idx$u * (1 - paint_opts()$pad) /
+      (h1 * (v$size_rel + i$size_rel))
+  )
+
+  # A 3x3 is one of the sizes that always cleared, and it is in the documentation.
+  # It keeps the biggest text of the lot: the shrink is a function of how tight the
+  # cell is, not a tax on every plot that asks for an index.
+  bigger <- resolve(fx(matrix(1:9, nrow = 3), show_indices = "cell"), panel)$fontsize
+  expect_gt(bigger, with_idx$fontsize)
+})
+
 test_that("with no index lane, every cell is centred", {
   # The other half of the claim: `dy_rel` is 0 unless there is an index to nudge.
   r <- resolve(fx(matrix(1:6, nrow = 2)), panel_fake(7, 5))
   expect_true(all(r$cells$dy_rel == 0))
   expect_equal(r$cells$y, (r$cells$yb + r$cells$yt) / 2)
+})
+
+test_that("with no index INSIDE a cell, the value still gets the WHOLE padded row", {
+  # THE COMMON CASE MUST NOT MOVE. `show_indices = "none"/"row"/"column"/"outside"`
+  # nudges nothing, so no two spans share a box, so neither the nudge budget nor
+  # the stacked pair may reach them: the height available to a cell is
+  # `u * (1 - pad)`, exactly as it was.
+  #
+  # The oracle is that pre-existing fit, written out in full. Shrinking the fonts
+  # of every plot in the package would be a steep price for an index nobody asked
+  # for, so this is asserted against the old arithmetic itself rather than against
+  # a number that a later edit could quietly re-baseline.
+  opts <- paint_opts(max_pt = 100)
+  m <- measure_mono()
+  h1 <- m$h(height_ref, opts$ref_pt)[[1L]] / opts$ref_pt
+
+  unnudged_fit <- function(cells, col_w, u) {
+    req <- cell_demand(cells, m, opts$ref_pt)
+    sz <- cells$size_rel
+    by_w <- ifelse(req > 0, u * col_w[cells$col] * (1 - opts$pad) / (req * sz), Inf)
+    by_h <- u * (1 - opts$pad) / (h1 * sz)
+    fitting <- which(cells$fit & (nzchar(cells$sig) | nzchar(cells$insig)))
+    min(min(pmin(by_w, by_h)[fitting]), opts$max_pt)
+  }
+
+  for (case in list(
+    list(matrix(1:9, ncol = 1)),
+    list(matrix(1:9, ncol = 1), show_indices = "none"),
+    list(matrix(1:9, ncol = 1), show_indices = "row"),
+    list(matrix(1:9, ncol = 1), show_indices = "column"),
+    list(matrix(1:600, nrow = 30, ncol = 20), show_all = TRUE),
+    list(iris),
+    list(9:1, show_indices = "outside"),
+    list(9:1, show_indices = "outside", layout = "horizontal")
+  )) {
+    f <- do.call(fx, case)
+    for (panel in list(panel_fake(7, 5), panel_fake(3, 3), panel_fake(14, 9))) {
+      r <- resolve(f, panel, opts = opts)
+      expect_true(all(r$cells$dy_rel == 0), info = case_label(case))
+      expect_equal(r$fontsize, unnudged_fit(f$cells, f$col_w, r$u))
+    }
+  }
+
+  # And where the height genuinely binds -- a 9x1 of single digits, whose column
+  # sits at the `min_w` floor -- the value's ink fills the padded row exactly. Take
+  # so much as the nudge out of that budget and this is what moves.
+  r <- resolve(fx(matrix(1:9, ncol = 1)), panel_fake(7, 5), opts = opts)
+  expect_equal(r$fontsize, r$u * (1 - opts$pad) / h1)
+  v <- r$cells[r$cells$kind == "value", ]
+  expect_equal(unique(m$h(v$sig, v$fontsize[[1L]])), r$u * (1 - opts$pad))
 })
 
 # ---------------------------------------------------------------------------
@@ -517,6 +713,48 @@ test_that("paint_resolve() agrees between measure_base() and measure_grid()", {
       expect_equal(rb$cells, rg$cells, tolerance = 1e-10)
     }
   }
+})
+
+test_that("base and grid agree, and neither collides, with the index INSIDE the cell", {
+  # THE DRIFT GUARD, at sizes that BREAK. The stacked-pair fit lives in
+  # `paint_resolve()` -- shared -- and the two backends differ only in their
+  # measure, so a fix applied to one and not the other is impossible by
+  # construction. This is what proves it stayed that way, and it is fixtured at
+  # 6x6 and 20x20 and a 20-vector rather than at the 3x3 that clears anyway.
+  #
+  # Real measures, on a real device: `measure_mono()` is an exactly linear fake
+  # font, and the onset of the collision is a question about real font metrics.
+  local_null_pdf()
+  graphics::plot.new()
+  panel <- panel_fake(7, 7)
+
+  for (case in inside_cases) {
+    f <- do.call(fx, case)
+    for (family in c("mono", "sans")) {
+      mb <- measure_base(family)
+      mg <- measure_grid(family)
+      opts <- paint_opts(family = family)
+      rb <- resolve(f, panel, measure = mb, opts = opts)
+      rg <- resolve(f, panel, measure = mg, opts = opts)
+
+      expect_equal(rb$fontsize, rg$fontsize, tolerance = 1e-10)
+      expect_equal(rb$cells, rg$cells, tolerance = 1e-10)
+
+      lab <- paste(case_label(case), family)
+      expect_true(all(ink_gap(rb, mb) > 0), info = paste("base", lab))
+      expect_true(all(ink_gap(rg, mg) > 0), info = paste("grid", lab))
+    }
+  }
+
+  # With REAL metrics, the 3x3 of the documentation -- `paint_matrix(mat_3x3,
+  # show_indices = "cell")` -- is still drawn at the `max_pt` cap. Its cells were
+  # always roomy enough for both spans, and the pair fit takes nothing from a pair
+  # that already fits.
+  r3 <- resolve(
+    fx(matrix(1:9, nrow = 3), show_indices = "cell"), panel,
+    measure = measure_base("mono"), opts = paint_opts(family = "mono")
+  )
+  expect_equal(r3$fontsize, paint_opts()$max_pt)
 })
 
 # ---------------------------------------------------------------------------

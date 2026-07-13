@@ -413,6 +413,101 @@ cell_demand <- function(cells, measure, ref_pt) {
   req
 }
 
+#' The vertical nudge of every cell, in row heights
+#'
+#' `dy_rel` read defensively, as a vector as long as the table: a cell table built
+#' before the column existed nudges nothing, and an `NA` is a zero. It is read in
+#' two places -- [fit_fontsize()], which must *budget* for the nudge, and
+#' [paint_resolve()], which *applies* it -- and those two must never disagree
+#' about what the nudge is, so there is one reader.
+#'
+#' @param cells A cell table.
+#'
+#' @return A numeric vector, one nudge per cell, in row heights. Negative is down.
+#'
+#' @keywords internal
+#' @noRd
+cell_dy <- function(cells) {
+  if (is.null(cells$dy_rel)) {
+    return(rep(0, nrow(cells)))
+  }
+  ifelse(is.na(cells$dy_rel), 0, cells$dy_rel)
+}
+
+#' The size at which no two spans that share a cell touch
+#'
+#' The `[i, j]` index drawn INSIDE a cell shares that cell's `(row, col)` with the
+#' value it names, and `dy_rel` sits it `0.2` row heights lower. Value and index
+#' are therefore not two independent cells competing for the same box -- they are
+#' one STACKED PAIR, and the pair is what has to fit.
+#'
+#' Budget the value the whole row and it will happily grow until its descenders
+#' reach down into the index's ascenders: the nudge is only `0.2 * u`, so the ink
+#' collides the moment `half_height(value) + half_height(index) > 0.2 * u`, which
+#' at a 7in device with default options is any matrix from 5x5 up. The value is
+#' then stamped straight through the index and the index is gone. That shipped.
+#'
+#' So the pair gets ONE height constraint. With `a` the upper span and `b` the
+#' lower, their centres are `(dy_a - dy_b) * u` apart and their facing half-heights
+#' are `h_a / 2` and `h_b / 2`, so the ink is clear exactly when
+#'
+#'     (h_a + h_b) / 2  <=  (dy_a - dy_b) * u
+#'
+#' and, since height is linear in font size (`h = h1 * fs * size_rel`), that is one
+#' division again -- no solver, and no per-cell special case. The `(1 - pad)`
+#' factor is the same headroom the rest of the fit keeps, and here it is load
+#' bearing rather than decorative: `pdf()` quantizes font size UP to whole points,
+#' so a pair fitted to touch exactly would be drawn colliding.
+#'
+#' Shrinking the value is the correct answer, not a regrettable one: it is the
+#' price of having asked for an index inside the cell, and it is what the fixed
+#' `cex` of the previous release was doing by accident. An illegible index is
+#' strictly worse than a smaller number.
+#'
+#' There is no `kind` test here, and that is deliberate. The rule is geometric --
+#' *two spans that share a box and are nudged apart* -- so a cell table that grows
+#' a third stacked span gets the same protection for free, and neither renderer
+#' has to learn that a "cellindex" exists.
+#'
+#' @param cells A cell table.
+#' @param fitting Indices of the cells that bind the fit, from [fit_fontsize()].
+#' @param u Inches per layout unit.
+#' @param h1 Text height in inches per point, from the measure.
+#' @param opts From [paint_opts()].
+#'
+#' @return A single font size, in points, or `Inf` when no two fitting cells share
+#'   a `(row, col)` -- which is every plot that draws no index inside a cell.
+#'
+#' @keywords internal
+#' @noRd
+stacked_fontsize <- function(cells, fitting, u, h1, opts) {
+  if (h1 <= 0 || length(fitting) < 2L) {
+    return(Inf)
+  }
+  dy <- cell_dy(cells)
+  sz <- cells$size_rel
+
+  # Sort the fitting cells down each cell's stack: same box, then top span first.
+  # Only ADJACENT spans in that order can be the first to touch, so this is the
+  # whole of the pairwise test.
+  k <- fitting[order(cells$row[fitting], cells$col[fitting], -dy[fitting])]
+  n <- length(k)
+  a <- k[-n]
+  b <- k[-1L]
+
+  shared <- cells$row[a] == cells$row[b] & cells$col[a] == cells$col[b]
+  # Non-negative by the ordering. A zero gap means two spans dead centre on one
+  # box, which no font size can separate -- there is nothing to fit, so it is left
+  # alone rather than driven to a size of 0.
+  gap <- dy[a] - dy[b]
+  pair <- which(shared & gap > 0)
+  if (length(pair) == 0L) {
+    return(Inf)
+  }
+
+  min(2 * gap[pair] * u * (1 - opts$pad) / (h1 * (sz[a][pair] + sz[b][pair])))
+}
+
 #' Choose the font size
 #'
 #' Closed form: one division. Font size is linear in `strwidth()` and text height
@@ -423,6 +518,19 @@ cell_demand <- function(cells, measure, ref_pt) {
 #' size *up* to a legibility floor is what produces overlapping text -- it is the
 #' precise bug this engine exists to fix. The honest small number is returned;
 #' `paint_resolve()` reports it as `floored` and the renderer warns.
+#'
+#' Three constraints, and the last two are one bug each:
+#'
+#'   1. WIDTH, against the cell's own column -- on the decimal-aligned unit width,
+#'      not the widest token (see [cell_demand()]).
+#'   2. HEIGHT, against the padded row -- **less the nudge**. A cell pushed
+#'      `|dy_rel|` row heights off centre has that much less room before its ink
+#'      leaves the box, and it loses it at both ends, hence `2 * |dy_rel|`. At
+#'      `dy_rel == 0` -- every cell of every plot that draws no index inside a cell
+#'      -- this is exactly the old `u * (1 - pad)` and the geometry is untouched.
+#'   3. The STACK, for cells that share a `(row, col)`. See [stacked_fontsize()].
+#'      This is the one that keeps a value from being stamped through the index
+#'      beneath it.
 #'
 #' @param cells A cell table.
 #' @param col_w Column widths in layout units.
@@ -446,15 +554,20 @@ fit_fontsize <- function(cells, col_w, u, measure, opts) {
   }
 
   req <- cell_demand(cells, measure, opts$ref_pt)
+  dy <- cell_dy(cells)
+  sz <- cells$size_rel
 
   avail_w <- u * col_w[cells$col] * (1 - opts$pad)
-  avail_h <- u * (1 - opts$pad)
-  sz <- cells$size_rel
+  # The nudge is spent out of the height budget, at both ends of the box. `pmax()`
+  # is a floor against a nudge so large that no size fits inside the cell at all;
+  # `cellindex_dy` is 0.2 and the budget stays comfortably positive.
+  avail_h <- u * pmax((1 - opts$pad) - 2 * abs(dy), 0)
 
   by_w <- ifelse(req > 0, avail_w / (req * sz), Inf)
   by_h <- if (h1 > 0) avail_h / (h1 * sz) else rep(Inf, nrow(cells))
 
   fs <- min(pmin(by_w, by_h)[fitting])
+  fs <- min(fs, stacked_fontsize(cells, fitting, u, h1, opts))
   min(fs, opts$max_pt)
 }
 
@@ -620,8 +733,12 @@ paint_resolve <- function(cells, col_w, n_row, panel, measure, opts = paint_opts
   # The rectangle (`xl`, `xr`, `yb`, `yt`) is deliberately NOT nudged: `dy_rel`
   # moves the ink, not the box, and every cell that has a box has `dy_rel == 0`
   # anyway.
-  dy <- if (is.null(cells$dy_rel)) 0 else ifelse(is.na(cells$dy_rel), 0, cells$dy_rel)
-  cells$y <- (cells$yb + cells$yt) / 2 + u * dy
+  #
+  # `fit_fontsize()` has already BUDGETED for this nudge -- it is the same
+  # `cell_dy()`, read once -- so the value above and the index below are two spans
+  # of a stack that was fitted as one, and the size that arrives here is a size at
+  # which they cannot touch.
+  cells$y <- (cells$yb + cells$yt) / 2 + u * cell_dy(cells)
 
   list(
     cells = cells,

@@ -142,7 +142,15 @@ gpaint_skin <- function(prep, graph_title = NULL, graph_subtitle = NULL) {
       subtitle = graph_subtitle,
       caption = prep$note
     ) +
-    ggplot2::theme_void()
+    ggplot2::theme_void() +
+    # BOTH BACKENDS DRAW THE SAME PICTURE, and that includes the chrome. The
+    # "# 11 more rows" note is one string, resolved once by `painter_prep()`, and
+    # `draw_bands()` puts it at the bottom LEFT (`mtext(adj = 0)`, at the panel's
+    # left edge) -- but `plot.caption` inherits `hjust = 1` from the theme, so the
+    # ggplot2 skin was quietly putting the same string at the bottom RIGHT. Same
+    # data, two pictures, which is the exact class of drift the shared cell table
+    # exists to make impossible. `hjust = 0` is base's answer, so it is this one's.
+    ggplot2::theme(plot.caption = ggplot2::element_text(hjust = 0))
 }
 
 # ---------------------------------------------------------------------------

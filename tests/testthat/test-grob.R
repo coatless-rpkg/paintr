@@ -192,57 +192,106 @@ test_that("both backends put the cell index the same distance below its value", 
   # knows what a "cellindex" is, and neither can drift from the other.
   #
   # This test reads the offset back out of what each backend ACTUALLY EMITS -- the
-  # grid textGrob's own `y`, the base renderer's own resolved cells -- and not out
-  # of the shared function that computed them. If someone ever "fixes" this by
-  # branching on `kind` inside one renderer, this is what fails.
+  # grid textGrob's own `y` and `fontsize`, the base renderer's own resolved cells
+  # -- and not out of the shared function that computed them. If someone ever
+  # "fixes" this by branching on `kind` inside one renderer, this is what fails.
   #
   # The offset is compared in ROW HEIGHTS, not inches: the two backends measure
   # different panels (base reserves a title band, grid does not), so the inch
   # figures legitimately differ while the fraction of a row must not.
-  m <- matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
-  f <- fx(m, show_indices = "cell")
-  opts <- paint_opts(family = "mono")
+  #
+  # AND IT ASSERTS THE INK, NOT JUST THE ANCHOR. A 3x3 -- which is all this guard
+  # used to fixture -- is one of the few sizes at which the value happens to clear
+  # the index anyway. From 5x5 up the value was drawn straight through the index
+  # while every anchor assertion here stayed green. So the sizes below are the ones
+  # that BREAK, and the claim is that the two spans' ink does not touch.
+  for (case in list(
+    list(matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3), show_indices = "cell"),
+    list(matrix(1:36, nrow = 6), show_indices = "cell"),
+    list(matrix(1:400, nrow = 20), show_indices = "cell", show_all = TRUE),
+    list(1:20, show_indices = "inside")
+  )) {
+    f <- do.call(fx, case)
+    opts <- paint_opts(family = "mono")
+    n_idx <- sum(f$cells$kind == "cellindex")
+    expect_gt(n_idx, 0L)
 
-  # -- grid: read the y's off the drawn children ------------------------------
-  # Every unit conversion happens INSIDE `with_panel()`, while its device is still
-  # open. A `convertY()` out here, after the device has closed, would make grid
-  # open the default one -- and that writes an Rplots.pdf into the working
-  # directory, which is a CRAN check failure.
-  g <- paintr_grob(f$cells, f$col_w, f$n_row, opts = opts)
-  off_grid <- with_panel(7, {
-    kids <- grid::makeContent(g)$children
+    # -- grid: read the y's off the drawn children ----------------------------
+    # Every unit conversion happens INSIDE `with_panel()`, while its device is
+    # still open. A `convertY()` out here, after the device has closed, would make
+    # grid open the default one -- and that writes an Rplots.pdf into the working
+    # directory, which is a CRAN check failure.
+    g <- paintr_grob(f$cells, f$col_w, f$n_row, opts = opts, warn_floor = FALSE)
+    got <- with_panel(7, {
+      kids <- grid::makeContent(g)$children
 
-    txt <- kid(kids, "paintr.sig")
-    y_in <- grid::convertY(txt$y, "in", valueOnly = TRUE)
-    is_idx <- grepl("^\\[", txt$label)
-    expect_equal(sum(is_idx), 9L)
-    expect_equal(sum(!is_idx), 9L)
+      txt <- kid(kids, "paintr.sig")
+      y_in <- grid::convertY(txt$y, "in", valueOnly = TRUE)
+      # These fixtures draw no index OUTSIDE the block, so a leading "[" is an
+      # index inside a cell and nothing else.
+      is_idx <- grepl("^\\[", txt$label)
+      expect_equal(sum(is_idx), n_idx)
+      expect_equal(sum(!is_idx), n_idx)
 
-    # One layout unit -- one row -- in inches. A value cell is exactly one row
-    # tall, and it is the shortest box drawn, so the smallest rect height IS `u`.
-    # (The tallest is the outline, which spans the whole block.)
-    rects <- kid(kids, "paintr.rect")
-    u_grid <- min(grid::convertHeight(rects$height, "in", valueOnly = TRUE))
+      # One layout unit -- one row -- in inches. A value cell is exactly one row
+      # tall, and it is the shortest box drawn, so the smallest rect height IS `u`.
+      # (The tallest is the outline, which spans the whole block.)
+      rects <- kid(kids, "paintr.rect")
+      u_grid <- min(grid::convertHeight(rects$height, "in", valueOnly = TRUE))
 
-    # Both chunks are built over the same grid in the same order, so the two
-    # halves line up element by element.
-    (y_in[is_idx] - y_in[!is_idx]) / u_grid
-  })
+      # The drawn height of each span, at the size the grob actually emitted.
+      hm <- measure_grid("mono")
+      h_in <- vapply(
+        txt$gp$fontsize,
+        function(p) hm$h("Mg", p)[[1L]],
+        numeric(1)
+      )
 
-  # -- base: read the y's off the resolved table it drew from ------------------
-  grDevices::pdf(NULL, width = 7, height = 7)
-  on.exit(grDevices::dev.off(), add = TRUE)
-  r <- render_base(f$cells, f$col_w, f$n_row, opts = opts)
-  cs <- r$cells
-  idx <- cs[cs$kind == "cellindex", , drop = FALSE]
-  val <- cs[cs$kind == "value", , drop = FALSE]
-  off_base <- (idx$y - val$y) / r$u
+      # Both chunks are built over the same grid in the same order, so the two
+      # halves line up element by element.
+      list(
+        off = (y_in[is_idx] - y_in[!is_idx]) / u_grid,
+        # The INK: the value's bottom edge against the index's top edge.
+        gap = (y_in[!is_idx] - h_in[!is_idx] / 2) - (y_in[is_idx] + h_in[is_idx] / 2)
+      )
+    })
 
-  # Below, in both. And by the same amount, in both.
-  expect_true(all(off_grid < 0))
-  expect_true(all(off_base < 0))
-  expect_equal(off_base, off_grid, tolerance = 1e-9)
-  expect_equal(off_grid, rep(cellindex_dy, 9L), tolerance = 1e-9)
+    # -- base: read the y's off the resolved table it drew from ----------------
+    base_of <- function() {
+      grDevices::pdf(NULL, width = 7, height = 7)
+      on.exit(grDevices::dev.off(), add = TRUE)
+      r <- render_base(f$cells, f$col_w, f$n_row, opts = opts, warn_floor = FALSE)
+      cs <- r$cells
+      idx <- cs[cs$kind == "cellindex", , drop = FALSE]
+      val <- cs[cs$kind == "value", , drop = FALSE]
+      k <- match(paste(idx$i, idx$j), paste(val$i, val$j))
+      val <- val[k, , drop = FALSE]
+      hm <- measure_base("mono")
+      h <- function(pt) vapply(pt, function(p) hm$h("Mg", p)[[1L]], numeric(1))
+      list(
+        off = (idx$y - val$y) / r$u,
+        gap = (val$y - h(val$fontsize) / 2) - (idx$y + h(idx$fontsize) / 2)
+      )
+    }
+    base <- base_of()
+
+    lab <- paste0(nrow(f$cells), " cells")
+    # Below, in both. And by the same amount, in both.
+    expect_true(all(got$off < 0), info = lab)
+    expect_true(all(base$off < 0), info = lab)
+    expect_equal(base$off, got$off, tolerance = 1e-9)
+    expect_equal(got$off, rep(cellindex_dy, n_idx), tolerance = 1e-9)
+
+    # And in NEITHER is the value stamped through the index it names.
+    expect_true(
+      all(got$gap > 0),
+      info = paste("grid", lab, "worst ink gap", signif(min(got$gap), 3), "in")
+    )
+    expect_true(
+      all(base$gap > 0),
+      info = paste("base", lab, "worst ink gap", signif(min(base$gap), 3), "in")
+    )
+  }
 })
 
 test_that("an empty insig draws nothing at all", {
