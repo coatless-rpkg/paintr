@@ -4,8 +4,15 @@
 \alias{highlight_data}
 \alias{highlight_data.numeric}
 \alias{highlight_data.integer}
+\alias{highlight_data.character}
+\alias{highlight_data.logical}
+\alias{highlight_data.complex}
+\alias{highlight_data.factor}
+\alias{highlight_data.Date}
+\alias{highlight_data.POSIXct}
 \alias{highlight_data.vector}
 \alias{highlight_data.matrix}
+\alias{highlight_data.data.frame}
 \alias{highlight_data.default}
 \alias{highlight_rows}
 \alias{highlight_columns}
@@ -18,9 +25,23 @@ highlight_data(x, rows = NULL, columns = NULL, locations = NULL, ...)
 
 \method{highlight_data}{integer}(x, rows = NULL, columns = NULL, locations = NULL, ...)
 
+\method{highlight_data}{character}(x, rows = NULL, columns = NULL, locations = NULL, ...)
+
+\method{highlight_data}{logical}(x, rows = NULL, columns = NULL, locations = NULL, ...)
+
+\method{highlight_data}{complex}(x, rows = NULL, columns = NULL, locations = NULL, ...)
+
+\method{highlight_data}{factor}(x, rows = NULL, columns = NULL, locations = NULL, ...)
+
+\method{highlight_data}{Date}(x, rows = NULL, columns = NULL, locations = NULL, ...)
+
+\method{highlight_data}{POSIXct}(x, rows = NULL, columns = NULL, locations = NULL, ...)
+
 \method{highlight_data}{vector}(x, rows = NULL, columns = NULL, locations = NULL, ...)
 
 \method{highlight_data}{matrix}(x, rows = NULL, columns = NULL, locations = NULL, ...)
+
+\method{highlight_data}{data.frame}(x, rows = NULL, columns = NULL, locations = NULL, ...)
 
 \method{highlight_data}{default}(x, rows = NULL, columns = NULL, locations = NULL, ...)
 
@@ -31,32 +52,49 @@ highlight_columns(x, columns = NULL)
 highlight_locations(x, locations = NULL)
 }
 \arguments{
-\item{x}{A matrix.}
+\item{x}{A vector, factor, matrix, or data frame.}
 
-\item{rows}{An interger vector with valid row index locations.}
+\item{rows}{A vector of valid row locations, given either as integer
+indices, as row names, or as a logical mask.}
 
-\item{columns}{An integer vector containing valid column indexlocations.}
+\item{columns}{A vector of valid column locations, given either as integer
+indices, as column names, or as a logical mask.}
 
-\item{locations}{An m by 2 matrix with points listed in x, y format for a 2D object
-or a vector of integer indices in a 1D format.}
+\item{locations}{An m by 2 matrix with points listed in row, column format for
+a 2D object or a vector of integer indices in a 1D format.}
 
 \item{...}{Additional values (not used)}
 }
 \value{
 A logical matrix or vector with the required rows and/or columns or points set to
-\code{TRUE}. All other values are given as \code{FALSE}.
+\code{TRUE}. All other values are given as \code{FALSE}. The result always has the same
+shape as \code{x}: a logical vector of \code{length(x)} for 1D structures, and a logical
+matrix of \code{dim(x)} for matrices and data frames.
 }
 \description{
 Generate a logical structure codifies active areas.
 }
+\section{Supported structures}{
+
+Methods exist for \code{numeric}, \code{integer}, \code{character}, \code{logical}, \code{complex},
+\code{factor}, \code{Date}, \code{POSIXct}, \code{matrix}, and \code{data.frame}. Anything else is an
+error.
+
+There is deliberately no reliance on a \code{vector} method being \emph{dispatched}:
+\code{inherits(letters, "vector")} is \code{FALSE}, so \code{highlight_data.vector()} is never
+selected by \code{UseMethod()} for an atomic vector. The atomic methods are therefore
+fanned out explicitly, and each one forwards to \code{highlight_data.vector()} by a
+direct call.
+}
+
 \examples{
 ## 2D Highlighting for Matrices ----
 # Example data
 x <- matrix(1:12, nrow = 4)
 
-# Highlight points using an x, y pairing
-locations <- rbind( 
-  c(1, 3), 
+# Highlight points using a row, column pairing
+locations <- rbind(
+  c(1, 3),
   c(2, 2),
   c(4, 1)
 )
@@ -80,4 +118,14 @@ highlight_data(x, rows = 1, columns = 1)
 ## 1D Highlighting for Vectors ----
 vec <- c(3, NA, -1, 2, NaN, Inf, 42)
 highlight_data(vec, locations = c(2, 4, 6))
+
+# Character and logical vectors work the same way.
+highlight_locations(letters[1:5], c(2, 4))
+highlight_data(c(TRUE, FALSE, TRUE))
+
+## 2D Highlighting for Data Frames ----
+# Columns may be named instead of numbered.
+highlight_columns(iris[1:5, ], "Sepal.Width")
+highlight_rows(iris[1:5, ], rows = c(1, 3))
+highlight_locations(iris[1:5, ], rbind(c(1, 1), c(2, 5)))
 }

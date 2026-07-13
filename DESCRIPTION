@@ -16,7 +16,11 @@ License: GPL (>= 2)
 Encoding: UTF-8
 RoxygenNote: 7.3.2
 Roxygen: list(markdown = TRUE)
-Imports: 
+Imports:
     graphics
-Suggests: 
-    ggplot2
+Suggests:
+    ggplot2,
+    svglite,
+    testthat (>= 3.0.0),
+    withr
+Config/testthat/edition: 3
