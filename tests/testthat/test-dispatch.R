@@ -12,9 +12,6 @@
 #
 # Neither is caught by testing "does a numeric vector draw?". They are only caught by
 # looping every type across every painter, which is what this file does.
-#
-# The data frame painters and `paint_size()` do not exist yet, so the batteries that
-# cover them land with them.
 
 # `pdf(NULL)` is the test device: full strwidth()/par() support, no file I/O, and
 # no Rplots.pdf left in the working directory for R CMD check to complain about.
@@ -88,6 +85,33 @@ test_that("gpaint_matrix() draws every atomic type", {
     for (nm in names(inputs)) {
       m <- matrix(inputs[[nm]], ncol = 1)
       expect_no_error(print(gpaint_matrix(m)), message = nm)
+    }
+  })
+})
+
+test_that("paint_data_frame() draws every atomic type", {
+  withr_opt <- options(paintr.warn_floor = FALSE)
+  on.exit(options(withr_opt), add = TRUE)
+
+  with_null_pdf({
+    for (nm in names(inputs)) {
+      df <- data.frame(x = inputs[[nm]])
+      expect_no_error(paint_data_frame(df), message = nm)
+      expect_no_error(paint_df(df, show_types = FALSE), message = nm)
+    }
+  })
+})
+
+test_that("gpaint_data_frame() draws every atomic type", {
+  skip_if_not_installed("ggplot2")
+  withr_opt <- options(paintr.warn_floor = FALSE)
+  on.exit(options(withr_opt), add = TRUE)
+
+  with_null_pdf({
+    for (nm in names(inputs)) {
+      df <- data.frame(x = inputs[[nm]])
+      expect_no_error(print(gpaint_data_frame(df)), message = nm)
+      expect_no_error(print(gpaint_df(df)), message = nm)
     }
   })
 })
@@ -181,11 +205,14 @@ test_that("the matrix painter's type error names the matrix type (bug 7)", {
 test_that("the painters reject the wrong shape", {
   expect_error(paint_vector(matrix(1:4, 2)), "`vector` type")
   expect_error(paint_vector(iris), "`vector` type")
+  expect_error(paint_data_frame(1:3), "`data.frame` type")
+  expect_error(paint_data_frame(matrix(1:4, 2)), "`data.frame` type")
 })
 
 test_that("empty data stops", {
   expect_error(paint_vector(numeric(0)), "empty")
   expect_error(paint_matrix(matrix(numeric(0), nrow = 0, ncol = 0)), "empty")
+  expect_error(paint_data_frame(data.frame()), "empty")
 })
 
 test_that("show_indices is match.arg'd", {
@@ -251,6 +278,7 @@ test_that("paintr.ellipsis is honoured and is not a formal default", {
   # built, and changing it at run time would do nothing.
   expect_false("ellipsis" %in% names(formals(paint_matrix)))
   expect_false("ellipsis" %in% names(formals(paint_vector)))
+  expect_false("ellipsis" %in% names(formals(paint_data_frame)))
   expect_false("warn_floor" %in% names(formals(paint_matrix)))
 
   withr_opt <- options(paintr.warn_floor = FALSE)
@@ -287,6 +315,10 @@ test_that("a long structure elides its middle and carries a note", {
   labs <- cells$sig[cells$kind == "rowlabel"]
   expect_true("[30, ]" %in% labs)
   expect_true("[, 30]" %in% cells$sig[cells$kind == "collabel"])
+
+  # ... and a data frame's default is 10, not 20.
+  res_df <- with_null_pdf(paint_data_frame(iris))
+  expect_equal(sum(res_df$cells$kind == "value"), 9L * 5L)
 })
 
 test_that("show_all = TRUE draws every cell", {
@@ -323,8 +355,31 @@ test_that("show_all on a small device renders below the floor and warns once", {
 })
 
 # ---------------------------------------------------------------------------
-# a matrix is ONE formatting unit
+# the data frame is per-column, the matrix is one unit
 # ---------------------------------------------------------------------------
+
+test_that("a data frame formats each column independently", {
+  withr_opt <- options(paintr.warn_floor = FALSE)
+  on.exit(options(withr_opt), add = TRUE)
+
+  df <- data.frame(small = c(1, 2), huge = c(1e15, 2e15))
+  res <- with_null_pdf(paint_data_frame(df))
+  vals <- res$cells[res$cells$kind == "value", , drop = FALSE]
+
+  # Two formatting units, so the huge column flips to scientific and the small one
+  # does not.
+  expect_identical(sort(unique(vals$fmt_group)), c(1L, 2L))
+  small <- vals[vals$fmt_group == 1L, ]
+  huge <- vals[vals$fmt_group == 2L, ]
+  expect_identical(small$sig, c("1", "2"))
+  expect_identical(huge$sig, c("1.00e+15", "2.00e+15"))
+  # Hard rule: in scientific mode insig is "" -- the exponent is fully significant.
+  expect_identical(unique(huge$insig), "")
+
+  # The header and type rows are there, and they are ASCII.
+  expect_identical(res$cells$sig[res$cells$kind == "header"], c("small", "huge"))
+  expect_identical(res$cells$sig[res$cells$kind == "type"], c("<dbl>", "<dbl>"))
+})
 
 test_that("a matrix is ONE formatting unit: one 1e15 flips the whole thing", {
   withr_opt <- options(paintr.warn_floor = FALSE)
@@ -338,6 +393,22 @@ test_that("a matrix is ONE formatting unit: one 1e15 flips the whole thing", {
   expect_identical(vals$sig, c("1.00e+00", "2.00e+00", "3.00e+00", "1.00e+15"))
   # Hard rule: in scientific mode insig is "" -- the exponent is fully significant.
   expect_identical(unique(vals$insig), "")
+})
+
+test_that("show_names/show_types drop their rows", {
+  withr_opt <- options(paintr.warn_floor = FALSE)
+  on.exit(options(withr_opt), add = TRUE)
+
+  df <- head(iris, 3)
+  bare <- with_null_pdf(paint_data_frame(df, show_names = FALSE, show_types = FALSE))
+  expect_false(any(bare$cells$kind %in% c("header", "type")))
+
+  full <- with_null_pdf(paint_data_frame(df))
+  expect_true(any(full$cells$kind == "header"))
+  expect_true(any(full$cells$kind == "type"))
+  # Two extra drawn rows, and nothing else changed.
+  expect_equal(full$cells$row[full$cells$kind == "value"][1L], 3L)
+  expect_equal(bare$cells$row[bare$cells$kind == "value"][1L], 1L)
 })
 
 # ---------------------------------------------------------------------------
@@ -401,6 +472,81 @@ test_that("the grob refits when the device changes size (deferred sizing)", {
 })
 
 # ---------------------------------------------------------------------------
+# paint_size(): opens no device, reads no device
+# ---------------------------------------------------------------------------
+
+test_that("paint_size() works with no device open at all", {
+  # The situation it exists for is "my device is too small", so it must not need one.
+  expect_equal(length(grDevices::dev.list()), 0L)
+
+  s <- paint_size(matrix(1:400, nrow = 20), show_all = TRUE)
+  expect_named(s, c("width", "height"))
+  expect_true(all(is.finite(s)))
+  expect_true(all(s > 0))
+
+  # ... and it still opened none.
+  expect_equal(length(grDevices::dev.list()), 0L)
+  # ... and it wrote no Rplots.pdf, which is what dev.new() would have done.
+  expect_false(file.exists("Rplots.pdf"))
+})
+
+test_that("paint_size() grows with the data and honours min_pt and units", {
+  small <- paint_size(matrix(1:4, nrow = 2))
+  big <- paint_size(matrix(1:400, nrow = 20), show_all = TRUE)
+  expect_lt(small[["width"]], big[["width"]])
+  expect_lt(small[["height"]], big[["height"]])
+
+  # A bigger floor needs a bigger canvas, linearly.
+  a <- paint_size(matrix(1:100, nrow = 10), show_all = TRUE, min_pt = 5)
+  b <- paint_size(matrix(1:100, nrow = 10), show_all = TRUE, min_pt = 10)
+  expect_gt(b[["width"]], a[["width"]])
+
+  # A 2x2 of single digits at 5pt genuinely only needs a fraction of an inch of
+  # panel. That is the correct answer, not a bug: it is two tiny cells of 5pt text
+  # plus the chrome bands. So the unit assertions are about the CONVERSION, not
+  # about a magic size.
+  cm <- paint_size(matrix(1:4, nrow = 2), units = "cm")
+  px96 <- paint_size(matrix(1:4, nrow = 2), units = "px", dpi = 96)
+  px192 <- paint_size(matrix(1:4, nrow = 2), units = "px", dpi = 192)
+
+  expect_gt(cm[["width"]], small[["width"]])
+  # Pixels are whole pixels, and they scale with dpi (allowing a pixel of rounding).
+  expect_equal(px96[["width"]], ceiling(px96[["width"]]))
+  expect_equal(px192[["width"]], 2 * px96[["width"]], tolerance = 0.02)
+  # ... and pixels are inches times dpi, to within the round-up.
+  expect_lt(abs(px96[["width"]] - small[["width"]] * 96), 96 * 0.1)
+})
+
+test_that("paint_size() actually clears the floor at the size it recommends", {
+  # The promise, verified end to end: draw at the recommended size and the warning
+  # does not fire. This is also what keeps `paint_size()`'s reserved chrome honest
+  # -- forget a band the painter draws, and the panel is shorter than the size was
+  # computed for, so the text lands UNDER the floor and `floored` comes back TRUE.
+  m <- matrix(seq_len(600), nrow = 30)
+  s <- paint_size(m, show_all = TRUE, max_rows = 30, max_cols = 20)
+
+  grDevices::pdf(NULL, width = s[["width"]], height = s[["height"]])
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  expect_no_warning(
+    res <- paint_matrix(m, show_all = TRUE, max_rows = 30, max_cols = 20)
+  )
+  expect_false(res$floored)
+})
+
+test_that("paint_size() clears the floor for a data frame too", {
+  # A data frame draws two extra rows (names, types) and formats per column, so its
+  # panel demand is not a matrix's. Same promise, the other structure.
+  s <- paint_size(iris, show_all = TRUE)
+
+  grDevices::pdf(NULL, width = s[["width"]], height = s[["height"]])
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  expect_no_warning(res <- paint_data_frame(iris, show_all = TRUE))
+  expect_false(res$floored)
+})
+
+# ---------------------------------------------------------------------------
 # the subtitle
 # ---------------------------------------------------------------------------
 #
@@ -425,6 +571,13 @@ test_that("the default subtitle describes the data", {
     expect_equal(
       paint_vector(letters[1:3])$graph_subtitle,
       "Length: 3 elements | Data Type: character"
+    )
+    # A data frame is a grid, so it gets the grid line -- rows, columns, class.
+    # Three painters, one contract: a default that two of them drew and the third
+    # did not would be the same drift as a subtitle only one backend draws.
+    expect_equal(
+      paint_data_frame(head(iris, 3))$graph_subtitle,
+      "Dimensions: 3 rows x 5 columns | Data Type: data.frame"
     )
   })
 })
@@ -468,6 +621,13 @@ test_that("the subtitle reports the ORIGINAL shape of an elided structure", {
     expect_equal(rv$graph_subtitle, "Length: 50 elements | Data Type: integer")
     expect_lt(max(rv$cells$row), 50L)
     expect_match(rv$note, "more rows")
+
+    rd <- paint_data_frame(iris)
+    expect_equal(
+      rd$graph_subtitle,
+      "Dimensions: 150 rows x 5 columns | Data Type: data.frame"
+    )
+    expect_match(rd$note, "more rows")
   })
 })
 
@@ -485,8 +645,13 @@ test_that("gpaint_* carries the same subtitle contract", {
     gpaint_vector(1:5)$labels$subtitle,
     "Length: 5 elements | Data Type: integer"
   )
+  expect_equal(
+    gpaint_data_frame(head(iris, 3))$labels$subtitle,
+    "Dimensions: 3 rows x 5 columns | Data Type: data.frame"
+  )
   expect_null(gpaint_matrix(m, graph_subtitle = NA)$labels$subtitle)
   expect_equal(gpaint_matrix(m, graph_subtitle = "mine")$labels$subtitle, "mine")
+  expect_null(gpaint_data_frame(head(iris, 3), graph_subtitle = NA)$labels$subtitle)
 })
 
 # ---------------------------------------------------------------------------
@@ -507,5 +672,8 @@ test_that("every base painter restores par()", {
   expect_equal(graphics::par(no.readonly = TRUE), before)
 
   paint_vector(1:4)
+  expect_equal(graphics::par(no.readonly = TRUE), before)
+
+  paint_data_frame(head(iris, 3))
   expect_equal(graphics::par(no.readonly = TRUE), before)
 })

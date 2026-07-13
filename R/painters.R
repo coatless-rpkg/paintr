@@ -177,7 +177,7 @@ gpaint_skin <- function(prep, graph_title = NULL, graph_subtitle = NULL) {
 # renderer: `base_mai()` would reserve a band for the literal string "NA", and
 # `ggplot2::labs(subtitle = NA_character_)` would happily draw it.
 
-#' The default subtitle for a matrix
+#' The default subtitle for a grid: a matrix or a data frame
 #'
 #' It describes the DATA, not the drawing. A 30-row matrix elided down to 20 drawn
 #' rows still reports 30: the "# 10 more rows" note is what tells the reader that
@@ -186,13 +186,18 @@ gpaint_skin <- function(prep, graph_title = NULL, graph_subtitle = NULL) {
 #' extent -- would silently make the two lines say the same thing twice, and lose
 #' the true shape entirely.
 #'
-#' @param data The matrix, before any elision.
+#' One function, not one per painter. `nrow()`, `ncol()` and `class()` read a data
+#' frame exactly as they read a matrix, so a `df_subtitle()` would be this body
+#' pasted a second time -- and a second body is a second thing to forget to change.
+#' The class is what distinguishes the two lines, and it is read from the data.
+#'
+#' @param data The matrix or data frame, before any elision.
 #'
 #' @return A length-one character string.
 #'
 #' @keywords internal
 #' @noRd
-matrix_subtitle <- function(data) {
+grid_subtitle <- function(data) {
   paste0(
     "Dimensions: ", nrow(data), " rows x ", ncol(data), " columns", " | ",
     "Data Type: ", paste(class(data), collapse = ", ")
@@ -217,7 +222,7 @@ vector_subtitle <- function(data) {
 #' Apply the subtitle contract
 #'
 #' @param graph_subtitle What the user passed: `NULL`, `NA`, `""`, or a string.
-#' @param default What [matrix_subtitle()] or [vector_subtitle()] computed.
+#' @param default What [grid_subtitle()] or [vector_subtitle()] computed.
 #'
 #' @return A length-one character string to draw, or `NULL` to draw nothing.
 #'

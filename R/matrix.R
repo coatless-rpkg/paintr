@@ -127,7 +127,7 @@ paint_matrix <- function(
   }
   show_indices <- match.arg(show_indices)
   subtle_digits <- match.arg(subtle_digits)
-  graph_subtitle <- resolve_subtitle(graph_subtitle, matrix_subtitle(data))
+  graph_subtitle <- resolve_subtitle(graph_subtitle, grid_subtitle(data))
 
   prep <- painter_prep(
     data = data,
@@ -199,7 +199,7 @@ gpaint_matrix <- function(
   }
   show_indices <- match.arg(show_indices)
   subtle_digits <- match.arg(subtle_digits)
-  graph_subtitle <- resolve_subtitle(graph_subtitle, matrix_subtitle(data))
+  graph_subtitle <- resolve_subtitle(graph_subtitle, grid_subtitle(data))
 
   prep <- painter_prep(
     data = data,
