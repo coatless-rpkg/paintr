@@ -7,46 +7,104 @@
 \usage{
 paint_matrix(
   data,
-  show_indices = "none",
-  highlight_area = matrix(FALSE, nrow = nrow(data), ncol = ncol(data)),
+  show_indices = c("none", "cell", "row", "column", "all"),
+  highlight_area = NULL,
   highlight_color = "lemonchiffon",
   graph_title = paste0("Data Object: ", deparse(substitute(data))),
-  graph_subtitle = paste0("Dimensions: ", paste(n_row, "rows x", n_col, "columns"),
-    " | ", "Data Type: ", paste(class(data), collapse = ", "))
+  graph_subtitle = NULL,
+  sigfig = 3L,
+  subtle_digits = c("insignificant", "rounded", "none"),
+  max_chars = 12L,
+  max_rows = 20L,
+  max_cols = 15L,
+  show_all = FALSE,
+  fontsize = NULL,
+  family = "mono"
 )
 
 gpaint_matrix(
   data,
-  show_indices = "none",
-  highlight_area = matrix(FALSE, nrow(data), ncol(data)),
+  show_indices = c("none", "cell", "row", "column", "all"),
+  highlight_area = NULL,
   highlight_color = "lemonchiffon",
   graph_title = paste0("Data Object: ", deparse(substitute(data))),
-  graph_subtitle = paste0("Dimensions: ", paste(n_row, "rows x", n_col, "columns"),
-    " | ", "Data Type: ", paste(class(data), collapse = ", "))
+  graph_subtitle = NULL,
+  sigfig = 3L,
+  subtle_digits = c("insignificant", "rounded", "none"),
+  max_chars = 12L,
+  max_rows = 20L,
+  max_cols = 15L,
+  show_all = FALSE,
+  fontsize = NULL,
+  family = "mono"
 )
 }
 \arguments{
-\item{data}{A object that has the class of \code{matrix}.}
+\item{data}{An object that has the class of \code{matrix}.}
 
 \item{show_indices}{Display indices based on location. Options are:
-\code{"none"}: no indices, \code{"cell"}:  matrix cell indices \verb{[i, j]},
+\code{"none"}: no indices, \code{"cell"}: matrix cell indices \verb{[i, j]},
 \code{"row"}: row indices \verb{[i, ]} to the left of the matrix,
-\code{"column"}: column indices \verb{[,j]} above matrix, and
-\code{"all"}: row, column, and inside options. Default: \code{"none"}.}
+\code{"column"}: column indices \verb{[, j]} above the matrix, and
+\code{"all"}: row, column, and cell options. Default: \code{"none"}.}
 
-\item{highlight_area}{Matrix of logical values that provide a mask for what
-cells should be filled. Default: None.}
+\item{highlight_area}{Logical matrix the same shape as \code{data}, marking the
+cells to fill. A length-one logical is recycled.
+Default: \code{NULL}, which highlights nothing.}
 
 \item{highlight_color}{Color to use to fill the background of a cell.}
 
 \item{graph_title}{Title to appear in the upper left hand corner of the graph.}
 
-\item{graph_subtitle}{Subtitle to appear immediately under the graph title
-in the upper left hand side of the graph.}
+\item{graph_subtitle}{Subtitle to appear immediately under the graph title.}
+
+\item{sigfig}{Significant digits drawn in black. Digits past the
+\code{sigfig}-th are drawn in grey; nothing is discarded.
+Must be in \code{1:15}.}
+
+\item{subtle_digits}{Which digits are drawn grey. \code{"insignificant"} (the
+default) greys everything past the \code{sigfig}-th
+significant digit; \code{"rounded"} greys only digits the
+rendering actually lost; \code{"none"} draws everything black.}
+
+\item{max_chars}{Strings longer than this are truncated with an ellipsis.}
+
+\item{max_rows, max_cols}{Elide the middle of the matrix when it has more rows
+or columns than this. The decision is made on the
+dimensions alone, with no device consulted, so the same
+object elides the same way on every device.}
+
+\item{show_all}{Draw every cell, however small the text becomes. Warns
+when the text falls below the legibility floor.}
+
+\item{fontsize}{Font size in points. \code{NULL} (the default) fits the text
+to the device.}
+
+\item{family}{Font family. \code{"mono"} by default.}
+}
+\value{
+\code{paint_matrix()} invisibly returns the resolved cell table: a list with the
+components \code{cells}, \code{fontsize}, \code{floored}, \code{u}, \code{x0}, \code{y0}, \code{usr} and \code{pin}.
+\code{gpaint_matrix()} returns a \code{ggplot} object.
 }
 \description{
 Generate a graph showing the contents of a matrix.
 }
+\details{
+\code{paint_matrix()} draws on the current base graphics device.
+\code{gpaint_matrix()} returns a \code{ggplot} object.
+}
+\section{The ggplot object is a shell}{
+
+\code{gpaint_matrix()} returns a \code{ggplot} whose only layer is an
+\code{annotation_custom()} holding a grid grob, over a meaningless \verb{0..1}
+coordinate system. It stays a real \code{ggplot} -- \code{+ theme()}, \code{ggsave()} and
+printing all work -- but \code{ggplot_build()} sees an empty layer, and adding a
+geom or a scale to it will not do anything useful. This is not a shortcut: text
+cannot be measured at build time and \code{geom_text()} cannot draw two-tone digits,
+so a custom grob is the only mechanism that exists.
+}
+
 \examples{
 # Base graphics
 
@@ -57,23 +115,26 @@ paint_matrix(mat_3x3)
 # Show the cell indices
 paint_matrix(mat_3x3, show_indices = "cell")
 
+# Character data renders as the strings it contains.
+paint_matrix(matrix(letters[1:6], nrow = 2))
+
 # Highlight a row
 mat_4x4 = matrix(seq_len(16), nrow = 4)
 paint_matrix(
-  mat_4x4, show_indices = "row", 
+  mat_4x4, show_indices = "row",
   highlight_area = highlight_rows(mat_4x4, rows = 1)
 )
 
 # Highlight values above 5
 mat_2x4 = matrix(round(rnorm(16, 5, 2), 2), ncol = 4)
-paint_matrix(mat_2x4, highlight_area = mat_2x4 > 2) 
+paint_matrix(mat_2x4, highlight_area = mat_2x4 > 2)
 # ggplot2 graphics ----
 
 # Visualize a 3x3
 mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
 gpaint_matrix(mat_3x3)
 
-# View the matrix without indices present
+# View the matrix without any highlighting
 gpaint_matrix(mat_3x3, highlight_area = FALSE)
 
 # Highlight a row
@@ -83,5 +144,5 @@ gpaint_matrix(mat_2x2, highlight_area = mat_2x2_mask)
 
 # Highlight values above 5
 mat_3x5 = matrix(round(rnorm(15, 5, 2), 2), ncol = 5)
-gpaint_matrix(mat_3x5, highlight_area = mat_3x5 > 2) 
+gpaint_matrix(mat_3x5, highlight_area = mat_3x5 > 2)
 }

@@ -2,39 +2,98 @@
 % Please edit documentation in R/vector.R
 \name{paint_vector}
 \alias{paint_vector}
+\alias{gpaint_vector}
 \title{Visualize Data Inside of a Vector}
 \usage{
 paint_vector(
   data,
   layout = c("vertical", "horizontal"),
   show_indices = c("none", "inside", "outside"),
-  highlight_area = rep(FALSE, length(data)),
+  highlight_area = NULL,
   highlight_color = "lemonchiffon",
   graph_title = paste0("Data Object: ", deparse(substitute(data))),
-  graph_subtitle = paste0("Length: ", length(data), " elements | ", "Data Type: ",
-    paste(class(data), collapse = ", "))
+  graph_subtitle = NULL,
+  sigfig = 3L,
+  subtle_digits = c("insignificant", "rounded", "none"),
+  max_chars = 12L,
+  max_rows = 20L,
+  max_cols = 15L,
+  show_all = FALSE,
+  fontsize = NULL,
+  family = "mono"
+)
+
+gpaint_vector(
+  data,
+  layout = c("vertical", "horizontal"),
+  show_indices = c("none", "inside", "outside"),
+  highlight_area = NULL,
+  highlight_color = "lemonchiffon",
+  graph_title = paste0("Data Object: ", deparse(substitute(data))),
+  graph_subtitle = NULL,
+  sigfig = 3L,
+  subtle_digits = c("insignificant", "rounded", "none"),
+  max_chars = 12L,
+  max_rows = 20L,
+  max_cols = 15L,
+  show_all = FALSE,
+  fontsize = NULL,
+  family = "mono"
 )
 }
 \arguments{
-\item{data}{A object that has the class of \code{vector}.}
+\item{data}{An object that has the class of \code{vector}. Factors,
+Dates and other classed atomic vectors are accepted too.}
 
 \item{layout}{Orientation of the vector. Default: \code{"vertical"}.}
 
-\item{show_indices}{Display data indices either: \code{"inside"}, \code{"outside"}, or \code{"none"}
-the vector cell, e.g. \verb{[i]}. Default: \code{"none"}}
+\item{show_indices}{Display data indices either \code{"inside"} the cell,
+\code{"outside"} it, or \code{"none"}. Default: \code{"none"}.}
 
-\item{highlight_area}{Vector of logical values that provide a mask for what
-cells should be filled. Default: None.}
+\item{highlight_area}{Logical vector the same length as \code{data}, marking the
+cells to fill. A length-one logical is recycled.
+Default: \code{NULL}, which highlights nothing.}
 
 \item{highlight_color}{Color to use to fill the background of a cell.}
 
 \item{graph_title}{Title to appear in the upper left hand corner of the graph.}
 
-\item{graph_subtitle}{Subtitle to appear immediately under the graph title
-in the upper left hand side of the graph.}
+\item{graph_subtitle}{Subtitle to appear immediately under the graph title.}
+
+\item{sigfig}{Significant digits drawn in black. Digits past the
+\code{sigfig}-th are drawn in grey; nothing is discarded.
+Must be in \code{1:15}.}
+
+\item{subtle_digits}{Which digits are drawn grey. \code{"insignificant"} (the
+default) greys everything past the \code{sigfig}-th
+significant digit; \code{"rounded"} greys only digits the
+rendering actually lost; \code{"none"} draws everything black.}
+
+\item{max_chars}{Strings longer than this are truncated with an ellipsis.}
+
+\item{max_rows, max_cols}{Elide the middle of the vector when it is longer than
+this. A vertical vector is elided by \code{max_rows}, a
+horizontal one by \code{max_cols}.}
+
+\item{show_all}{Draw every cell, however small the text becomes. Warns
+when the text falls below the legibility floor.}
+
+\item{fontsize}{Font size in points. \code{NULL} (the default) fits the text
+to the device.}
+
+\item{family}{Font family. \code{"mono"} by default.}
+}
+\value{
+\code{paint_vector()} invisibly returns the resolved cell table.
+\code{gpaint_vector()} returns a \code{ggplot} object. See \code{paint_matrix()} for what that
+object is and is not.
 }
 \description{
-Generate a graph showing the contents of a Vector
+Generate a graph showing the contents of a vector.
+}
+\details{
+\code{paint_vector()} draws on the current base graphics device.
+\code{gpaint_vector()} returns a \code{ggplot} object.
 }
 \examples{
 # Base graphics
@@ -43,19 +102,21 @@ Generate a graph showing the contents of a Vector
 vec_5 <- round(rnorm(5, 0, 4), 2)
 paint_vector(vec_5)
 
-# Visualize a 6 element vector with indices underneath data
+# Character vectors render as the strings they contain.
+paint_vector(letters[1:5], layout = "horizontal")
+
+# Visualize a 6 element vector with indices underneath the data
 vec_6 <- c(-3, 5, NA, Inf, 2, 1)
 paint_vector(vec_6, layout = "horizontal", show_indices = "inside")
 
 # Highlight the 2nd, 4th, and 6th cell with indices shown outside
 paint_vector(
-  vec_6, show_indices = "outside", 
+  vec_6, show_indices = "outside",
   highlight_area = highlight_locations(vec_6, c(2, 4, 6))
 )
+# ggplot2 graphics ----
 
-# Highlight the 4th-6th cells with indices shown inside
-paint_vector(
-  vec_6, show_indices = "inside", 
-  highlight_area = highlight_locations(vec_6, 4:6)
-)
+gpaint_vector(c(-3, 5, NA, Inf, 2, 1))
+
+gpaint_vector(letters[1:5], layout = "horizontal", show_indices = "outside")
 }
