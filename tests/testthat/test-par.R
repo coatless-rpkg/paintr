@@ -633,6 +633,46 @@ test_that("settable_plt() draws the line where par() actually draws it", {
 })
 
 # ---------------------------------------------------------------------------
+# ... and `omd` is the THIRD sibling, restored `pin`'s way
+# ---------------------------------------------------------------------------
+#
+# `omd` is the outer margin region, in NDC -- derived from the device size and
+# `oma`/`omi`, exactly as `pin` is derived from `mai`/`mar` and `pty`. On a
+# device too small for the CALLER's own outer margins it is negative before
+# `render_base()` ever runs, and `par()` refuses a negative `omd` outright, so a
+# plain `par(op)` throws on the restore -- after the picture already drew.
+#
+# Unlike `pin`/`plt`, `omd` is not an independent slot: setting it directly
+# moves `oma`/`omi` to match (verified by hand: `par(omd = )` changes
+# `par("omi")`), so there is no caller state that restoring `oma`/`omi` alone
+# could fail to reproduce, and no "step 4" for it to lose to. That is why it is
+# dropped unconditionally, `pin`'s way, rather than guarded with a
+# `settable_omd()` and an explicit re-set the way `plt` was.
+
+test_that("a device too small for the CALLER's own outer margins does not error on restore", {
+  # The reproduction from the bug report, verbatim: a 0.4 x 6in device with the
+  # caller's own `oma` already too wide for it.
+  local_null_pdf(width = 0.4, height = 6)
+  graphics::par(oma = c(2, 2, 2, 2), cex = 0.8, mex = 1.3)
+  before <- graphics::par(no.readonly = TRUE)
+
+  # Non-vacuous, twice over: the caller's own `omd` really is negative, and
+  # `par()` really does refuse it -- so a fix that merely avoided drawing small
+  # would not pass this by accident.
+  expect_true(any(before$omd < 0))
+  expect_error(graphics::par(omd = before$omd), "omd")
+
+  # `suppressWarnings()`: a fixture this small also trips the legibility floor,
+  # which is a separate, expected warning -- not the thing under test here.
+  expect_no_error(suppressWarnings(draw(fixtures()$matrix)))
+
+  expect_equal(graphics::par(no.readonly = TRUE), before)
+  expect_equal(graphics::par("oma"), c(2, 2, 2, 2))
+  expect_equal(graphics::par("cex"), 0.8)
+  expect_equal(graphics::par("mex"), 1.3)
+})
+
+# ---------------------------------------------------------------------------
 # the bands are reserved in INCHES, not in `mar` lines
 # ---------------------------------------------------------------------------
 

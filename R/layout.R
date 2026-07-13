@@ -605,7 +605,8 @@ fit_fontsize <- function(cells, col_w, u, measure, opts) {
   avail_w <- u * col_w[cells$col] * (1 - opts$pad)
   # The nudge is spent out of the height budget, at both ends of the box. `pmax()`
   # is a floor against a nudge so large that no size fits inside the cell at all;
-  # `cellindex_dy` is 0.2 and the budget stays comfortably positive.
+  # `cellindex_dy` is -0.3 and the budget stays comfortably positive (2 * 0.3 =
+  # 0.6, against 1 - pad = 0.88 at the default `pad`).
   avail_h <- u * pmax((1 - opts$pad) - 2 * abs(dy), 0)
 
   by_w <- ifelse(req > 0, avail_w / (req * sz), Inf)

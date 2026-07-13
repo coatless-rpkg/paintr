@@ -190,6 +190,23 @@ note_line <- 0.4
 #' Verified: on both devices above, `par("plt")` comes back bit-for-bit without
 #' step 4 ever running.
 #'
+#' **`omd` is the third sibling, and it is `pin`'s, not `plt`'s.** `omd` is the
+#' outer margin region in NDC -- derived from the device size and `oma`/`omi` --
+#' and it degenerates the same way `pin` does: on a device too small for the
+#' CALLER's own outer margins (set before `render_base()` ever runs; the renderer
+#' itself never touches `oma`/`omi`), `omd` is already negative at entry. Measured:
+#'
+#' ```
+#' pdf(NULL, 0.4, 6); par(oma = c(2, 2, 2, 2))
+#' par("omd")                             # 1.04 -0.04 0.069 0.931
+#' ```
+#'
+#' and `par(omd = <negative>)` errors exactly like `par(pin = <negative>)` does.
+#' Unlike `plt`, nothing in this file ever sets `oma`/`omi` -- there is no step 4
+#' for `omd` to lose to -- so there is no "independent slot" case to cover: `op$omd`
+#' is simply dropped, same as `op$pin`, and it re-derives from the `oma`/`omi` that
+#' `op` already carries and step 1 restores regardless.
+#'
 #' The order below reproduces the caller's whole
 #' `(cex, csi, mex, mar/mai, oma/omi, pin/plt, mfg, new)` state exactly, rather
 #' than hoping `par(op)` will. **Every step is ordered against a measured side
@@ -259,6 +276,13 @@ restore_par <- function(op, csi0, csi_unit = NA_real_, laid_out = TRUE) {
     # <negative>)` errors, so restoring it directly would throw here even
     # though the picture already drew. Let it come back on its own.
     op$pin <- NULL
+    # And so is `omd` -- the outer margin region, `pin`'s sibling one level up.
+    # It is derived from the device size and `oma`/`omi`, and on a device too
+    # small for the CALLER's own outer margins it is already negative at entry
+    # (nothing in this file ever touches `oma`/`omi`, so there is no "step 4" for
+    # it to lose to the way `plt` can). Drop it and let it re-derive from the
+    # `oma`/`omi` that `op` carries and this same call restores anyway.
+    op$omd <- NULL
     # And so is `plt`, on exactly the devices that make `pin` negative -- it is
     # `mai` over `fin`, so once the margins outgrow the device the fraction goes
     # negative too, and `par()` refuses a negative `plt`. Drop it and let it
