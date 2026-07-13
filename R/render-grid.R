@@ -20,31 +20,17 @@
 #
 # One mechanism, two problems. It is load-bearing, not decorative.
 
-# The grey the insignificant span is drawn in.
+# The grey the insignificant span is drawn in is `opts$grey`, read straight, in
+# THIS file and in `render-base.R` alike. It used to be a `subtle_grey()` helper
+# here and a hand-inlined `if (is.null(opts$grey)) "grey70"` there -- one value,
+# two definitions, which is the shape of every bug in this package's history. The
+# knob those two were both waiting for now exists (`paint_opts(grey =)`), so both
+# fallbacks are gone and there is one source of truth again.
 #
-# `render-base.R` carries the identical fallback, and the two backends MUST agree
-# or they silently draw different pictures. This is a knob waiting to happen:
-# collapse both onto `opts$grey` (a 7th knob on `paint_opts()`) and delete both
-# constants. Until then, `subtle_grey()` reads `opts$grey` when it exists so that
-# adding the knob is a one-line change that both renderers pick up at once.
-fallback_grey <- "grey70"
-
-#' The colour of the insignificant span
-#'
-#' Every cell with a non-empty `insig` is a finite number, so this is a constant
-#' rather than a cell-table column: "NA", "Inf" and "NaN" carry no insignificant
-#' digits (`split_sig()` finds no digits to count past), and in scientific mode
-#' `insig` is forced to `""`.
-#'
-#' @param opts From `paint_opts()`.
-#'
-#' @return A length-one colour string.
-#'
-#' @keywords internal
-#' @noRd
-subtle_grey <- function(opts) {
-  if (is.null(opts$grey)) fallback_grey else opts$grey
-}
+# It is an option rather than a cell-table column because every cell with a
+# non-empty `insig` is a finite number: "NA", "Inf" and "NaN" carry no
+# insignificant digits (`split_sig()` finds none to count past), and in scientific
+# mode `insig` is forced to `""`. One colour serves the whole plot.
 
 # ---------------------------------------------------------------------------
 # the legibility-floor warning
@@ -175,22 +161,28 @@ paintr_grob <- function(cells, col_w, n_row, opts = paint_opts(),
 paintr_children <- function(res, opts) {
   cells <- res$cells
   family <- opts$family
-  grey <- subtle_grey(opts)
+  grey <- opts$grey
   kids <- list()
 
   # -- rectangles -------------------------------------------------------------
-  boxed <- cells[!is.na(cells$fill) | !is.na(cells$border), , drop = FALSE]
+  # Fill, border AND STROKE WEIGHT, all three straight off the table. The weight is
+  # what was missing: this grob folded the outline in with the ordinary cells and
+  # never set `lwd`, so it drew the heavy border at 1 while `draw_base()` drew it
+  # at 2 -- the two backends drew different pictures, and the outline that makes
+  # the block read as one object was absent from every ggplot2 rendering.
+  #
+  # `boxed_cells()` is shared with `draw_base()`: it selects the same cells and
+  # puts them in the same order (heaviest stroke last, so the cell borders cannot
+  # paint over the outline). Neither renderer names a `kind`.
+  boxed <- boxed_cells(cells)
   if (nrow(boxed) > 0L) {
-    # The outline draws last so that the value cells' own borders cannot paint
-    # over it. `order()` is stable, so everything else keeps its table order.
-    boxed <- boxed[order(boxed$kind == "outline"), , drop = FALSE]
     kids[[length(kids) + 1L]] <- grid::rectGrob(
       x = grid::unit(boxed$xl, "in"),
       y = grid::unit(boxed$yb, "in"),
       width = grid::unit(boxed$xr - boxed$xl, "in"),
       height = grid::unit(boxed$yt - boxed$yb, "in"),
       just = c("left", "bottom"),
-      gp = grid::gpar(fill = boxed$fill, col = boxed$border),
+      gp = grid::gpar(fill = boxed$fill, col = boxed$border, lwd = boxed$lwd),
       name = "paintr.rect"
     )
   }

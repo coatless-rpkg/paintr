@@ -496,31 +496,29 @@ draw_base <- function(resolved, opts) {
   ux <- function(inches) usr[[1L]] + inches * usr_per_in
   uy <- function(inches) usr[[3L]] + inches * usr_per_in
 
-  # Defensive: an `opts` built before `grey` was a knob still renders.
-  grey <- if (is.null(opts$grey)) "grey70" else opts$grey
+  # The one grey both backends draw the insignificant span in. It is `opts$grey`,
+  # read straight, in both: a local fallback here would be a second source of
+  # truth, and a second source of truth is a divergence with a start date.
+  grey <- opts$grey
 
-  # -- the rectangles -------------------------------------------------------
+  # -- the rectangles: ONE call -----------------------------------------------
   # `rect()` takes NA for "no fill" and NA for "no border", vectorised, so the
-  # cells that have neither simply contribute nothing.
-  boxed <- cells$kind != "outline" & (!is.na(cells$fill) | !is.na(cells$border))
-  if (any(boxed)) {
-    b <- cells[boxed, , drop = FALSE]
+  # cells that have neither simply contribute nothing -- and it recycles `lwd`
+  # across the rectangles, so the outline's heavier stroke is carried by the same
+  # call as everything else.
+  #
+  # There is deliberately no `kind` test here, and there was one: the outline used
+  # to be pulled out and drawn in a second call at a hard-coded `lwd = 2`, which
+  # `paintr_children()` knew nothing about, so the two backends drew different
+  # pictures. The weight is a column now, and `boxed_cells()` -- shared by both
+  # renderers -- puts the heavy stroke last so the cell borders cannot paint over
+  # it. This backend no longer knows that an outline exists.
+  b <- boxed_cells(cells)
+  if (nrow(b) > 0L) {
     graphics::rect(
       xleft = ux(b$xl), ybottom = uy(b$yb),
       xright = ux(b$xr), ytop = uy(b$yt),
-      col = b$fill, border = b$border
-    )
-  }
-
-  # The outline goes on top of the cell borders, and heavier, so the block reads
-  # as one object. Its rectangle was rewritten to the whole value block by
-  # `paint_resolve()`, so both backends draw the same box.
-  out <- cells[cells$kind == "outline", , drop = FALSE]
-  if (nrow(out) > 0L) {
-    graphics::rect(
-      xleft = ux(out$xl), ybottom = uy(out$yb),
-      xright = ux(out$xr), ytop = uy(out$yt),
-      col = NA, border = out$border, lwd = 2
+      col = b$fill, border = b$border, lwd = b$lwd
     )
   }
 

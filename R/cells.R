@@ -86,14 +86,36 @@ drawn_pos <- function(keep, gap) {
 #'
 #' Pluralised, with either half omitted when nothing is hidden in that direction.
 #'
+#' **A VECTOR HAS NO COLUMNS, AND IT HAS NO ROWS EITHER.** It is drawn on a grid
+#' -- an n by 1 one when `layout = "vertical"`, a 1 by n one when it is
+#' `"horizontal"` -- and that grid is an artefact of the drawing, not a fact about
+#' the data. Reading the hidden count straight off the grid told a student that
+#' `seq_len(40)` laid out horizontally has "26 more columns", which is precisely
+#' the thing this package exists to un-teach. So the structure is threaded in as
+#' data and a vector's elision is counted in ELEMENTS, in both layouts.
+#'
+#' A vector elides in exactly one direction -- whichever one it is laid out along
+#' -- so the two counts are summed rather than reported separately: the other is
+#' always 0.
+#'
 #' @param hidden_rows,hidden_cols Counts from [elide_index()].
+#' @param is_vec Is the structure a vector? Then it has elements, not rows and
+#'   columns.
 #'
 #' @return A length-one character string, or `NA_character_` when nothing is
 #'   hidden.
 #'
 #' @keywords internal
 #' @noRd
-elide_note <- function(hidden_rows, hidden_cols) {
+elide_note <- function(hidden_rows, hidden_cols, is_vec = FALSE) {
+  if (isTRUE(is_vec)) {
+    n <- hidden_rows + hidden_cols
+    if (n <= 0L) {
+      return(NA_character_)
+    }
+    return(paste0("# ", n, " more element", if (n != 1L) "s" else ""))
+  }
+
   parts <- character(0)
   if (hidden_rows > 0L) {
     parts <- c(parts, paste0(hidden_rows, " more row", if (hidden_rows != 1L) "s" else ""))
@@ -140,10 +162,29 @@ elide_note <- function(hidden_rows, hidden_cols) {
 # rather than assumes.
 cellindex_dy <- -0.3
 
+# How heavily the outline is stroked, as a multiple of an ordinary cell border.
+#
+# It is here, on the cell table, and NOT in a renderer, for exactly the reason
+# `dy_rel` is: a renderer that has to know what an "outline" IS has to be taught
+# twice, and the second teacher is always late. It WAS in a renderer -- base drew
+# the outline in its own `rect()` call at a hard-coded `lwd = 2` while grid folded
+# it into the ordinary cell rects and never set `lwd` at all -- and the two
+# backends drew different pictures for a whole release: measured on `svglite`, base
+# emitted nine rects at stroke-width 0.75 and ONE at 1.50, and ggplot2 emitted ten
+# at 0.75. The heavy border that makes the block read as one object was simply
+# absent from every `gpaint_*()` picture, and nothing in the suite noticed, because
+# the only thing that could have noticed was a renderer asking a question no
+# renderer is allowed to ask.
+#
+# As a column it is just a stroke weight on a rectangle. Both renderers pass it
+# through to `rect(lwd =)` / `gpar(lwd =)` without knowing which row is which, and
+# they cannot disagree.
+outline_lwd <- 2
+
 #' One chunk of the cell table
 #'
 #' Every cell in the table -- value, label, header, gap, outline -- is built by
-#' this one constructor, so every chunk carries exactly the same seventeen columns
+#' this one constructor, so every chunk carries exactly the same eighteen columns
 #' in exactly the same order and `rbind()` can never surprise us.
 #'
 #' @param kind One of `"value"`, `"outline"`, `"rowlabel"`, `"collabel"`,
@@ -151,6 +192,9 @@ cellindex_dy <- -0.3
 #' @param row,col Drawn positions, 1-based, row 1 at the top.
 #' @param i,j Original data indices, `NA` where the cell is not a datum.
 #' @param head Defaults to `sig`, which is right for every non-numeric cell.
+#' @param lwd Stroke weight of the cell's border, as a multiple of an ordinary
+#'   one. `1` for every kind but `"outline"`. It is data, not a renderer's rule --
+#'   see `outline_lwd`.
 #' @param dy_rel Vertical nudge away from the cell's centre, in row heights.
 #'   Negative is downwards. `0` -- dead centre -- for every kind but
 #'   `"cellindex"`, which shares its `(row, col)` with a value and has to sit
@@ -165,6 +209,7 @@ cell_rows <- function(kind, row, col,
                       fmt_group = NA_integer_,
                       sig = "", insig = "", head = NULL, tail = "",
                       ink = "black", fill = NA_character_, border = NA_character_,
+                      lwd = 1,
                       align = "center", size_rel = 1, dy_rel = 0, fit = TRUE) {
   n <- max(length(row), length(col))
   if (is.null(head)) {
@@ -183,6 +228,7 @@ cell_rows <- function(kind, row, col,
     ink = rep_len(as.character(ink), n),
     fill = rep_len(as.character(fill), n),
     border = rep_len(as.character(border), n),
+    lwd = rep_len(as.double(lwd), n),
     align = rep_len(as.character(align), n),
     size_rel = rep_len(as.double(size_rel), n),
     dy_rel = rep_len(as.double(dy_rel), n),
@@ -285,9 +331,9 @@ strip_asis <- function(x) {
 #'
 #' @return A bare data frame with one row per drawn cell and the columns `i`, `j`,
 #'   `row`, `col`, `fmt_group`, `sig`, `insig`, `head`, `tail`, `ink`, `fill`,
-#'   `border`, `align`, `size_rel`, `dy_rel`, `fit`, `kind`; plus the attributes
-#'   `n_row`, `n_col` (the drawn extent, in cells), `note` (the "# 18 more rows"
-#'   string, or `NA`), `hidden_rows` and `hidden_cols`.
+#'   `border`, `lwd`, `align`, `size_rel`, `dy_rel`, `fit`, `kind`; plus the
+#'   attributes `n_row`, `n_col` (the drawn extent, in cells), `note` (the
+#'   "# 18 more rows" string, or `NA`), `hidden_rows` and `hidden_cols`.
 #'
 #' @keywords internal
 #' @noRd
@@ -453,10 +499,13 @@ paint_cells <- function(data,
   i_v <- ki[g$ri]
   j_v <- kj[g$ci]
 
+  # The heavy border that makes the block read as one object. `lwd` is the whole
+  # of what makes it heavy, and it is a column like any other -- so neither
+  # renderer has to know that an "outline" exists to stroke it correctly.
   outline <- cell_rows(
     kind = "outline",
     row = lab_rows + 1L, col = lab_cols + 1L,
-    border = "black", align = "center",
+    border = "black", lwd = outline_lwd, align = "center",
     fit = FALSE
   )
 
@@ -565,7 +614,9 @@ paint_cells <- function(data,
   attr(out, "n_col") <- as.integer(n_col)
   attr(out, "hidden_rows") <- as.integer(er$hidden)
   attr(out, "hidden_cols") <- as.integer(ec$hidden)
-  attr(out, "note") <- elide_note(er$hidden, ec$hidden)
+  # `is_vec` is threaded in because a vector has ELEMENTS. The grid it is drawn on
+  # is the renderer's business, not the student's.
+  attr(out, "note") <- elide_note(er$hidden, ec$hidden, is_vec)
   out
 }
 
@@ -604,6 +655,41 @@ outline_box <- function(cells) {
     row0 = o$row[1L], col0 = o$col[1L],
     row1 = max(b$row), col1 = max(b$col)
   )
+}
+
+#' The cells that get a rectangle, in the order they are drawn
+#'
+#' A cell is drawn as a rectangle when it has a fill or a border; `rect()` and
+#' `rectGrob()` both take `NA` for "neither", vectorised, so the rest simply
+#' contribute nothing.
+#'
+#' **Draw order is decided here, once, for both backends, and it is decided on the
+#' DATA.** The rule is "a heavier stroke goes on top": `order()` is stable, so the
+#' ordinary cells keep their table order and the outline -- the one row with a
+#' weight above 1 -- lands last, where the cell borders it shares its edges with
+#' cannot paint over it.
+#'
+#' That is deliberately not `order(kind == "outline")`, which is what
+#' `paintr_children()` used to say. A renderer that sorts on `kind` is a renderer
+#' that knows what an outline is, and the moment one of them knows something the
+#' other does not, the two draw different pictures -- which is exactly what
+#' happened to the outline's line weight. Sorting on the stroke weight itself needs
+#' no such knowledge, and it generalises for free: a cell table that one day grows
+#' a second emphasised box gets the same treatment without either renderer being
+#' told.
+#'
+#' @param cells A cell table from [paint_cells()], usually already resolved.
+#'
+#' @return The subset of `cells` that is drawn as rectangles, in draw order.
+#'
+#' @keywords internal
+#' @noRd
+boxed_cells <- function(cells) {
+  b <- cells[!is.na(cells$fill) | !is.na(cells$border), , drop = FALSE]
+  if (nrow(b) == 0L) {
+    return(b)
+  }
+  b[order(b$lwd), , drop = FALSE]
 }
 
 # ---------------------------------------------------------------------------

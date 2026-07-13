@@ -60,6 +60,28 @@ kid <- function(kids, nm) {
 # is the point: it is what actually reaches the device.
 sig_fontsize <- function(kids) max(kid(kids, "paintr.sig")$gp$fontsize)
 
+# What `draw_base()` actually hands `graphics::rect()`.
+#
+# Base graphics draws into a device and forgets, so there is no drawn object to
+# interrogate the way there is in grid -- the only place a base rectangle can be
+# read back is at the call itself. Mocking `graphics::rect` is therefore not a
+# shortcut around the renderer: it IS the renderer's output, caught at the one
+# moment it exists.
+base_rects <- function(f, opts = paint_opts()) {
+  got <- NULL
+  testthat::local_mocked_bindings(
+    rect = function(...) {
+      got <<- list(...)
+      invisible(NULL)
+    },
+    .package = "graphics"
+  )
+  grDevices::pdf(NULL, width = 7, height = 7)
+  on.exit(grDevices::dev.off(), add = TRUE)
+  render_base(f$cells, f$col_w, f$n_row, opts = opts, warn_floor = FALSE)
+  got
+}
+
 # ---------------------------------------------------------------------------
 # construction: pure, and it touches no device
 # ---------------------------------------------------------------------------
@@ -291,6 +313,78 @@ test_that("both backends put the cell index the same distance below its value", 
       all(base$gap > 0),
       info = paste("base", lab, "worst ink gap", signif(min(base$gap), 3), "in")
     )
+  }
+})
+
+test_that("both backends stroke the outline at the SAME weight, and heavier", {
+  # THE OTHER DRIFT GUARD, and unlike the one above it shipped BROKEN -- because
+  # nothing here asserted it.
+  #
+  # `draw_base()` used to pull the outline out by its `kind` and draw it in a second
+  # `rect()` call at a hard-coded `lwd = 2`. `paintr_children()` knew nothing about
+  # that: it folded the outline in with the ordinary cell borders and never set `lwd`
+  # at all. Measured on svglite, base emitted nine rects at stroke-width 0.75 and ONE
+  # at 1.50, and ggplot2 emitted ten at 0.75 -- the heavy border that makes the block
+  # read as one object was absent from every `gpaint_*()` picture.
+  #
+  # The weight is DATA now: an `lwd` column, set once in `paint_cells()`, passed
+  # through by both renderers without either asking what a cell IS.
+  #
+  # This reads the weight back out of what each backend ACTUALLY EMITS -- the `lwd`
+  # base hands `rect()`, the `lwd` grid puts in the rectGrob's `gp` -- and NOT out of
+  # the shared cell table that computed it. Deleting the weight from EITHER renderer
+  # must fail this test; reading the table would catch neither.
+  for (case in list(
+    list(matrix(1:9, nrow = 3)),
+    list(matrix(1:900, nrow = 30), show_indices = "all"),
+    list(iris),
+    list(1:5, show_indices = "outside")
+  )) {
+    f <- do.call(fx, case)
+    opts <- paint_opts(family = "mono")
+    lab <- paste(class(case[[1L]])[[1L]], nrow(f$cells), "cells")
+
+    # -- base: the arguments that reached graphics::rect() ---------------------
+    b <- base_rects(f, opts)
+    expect_false(is.null(b$lwd), info = paste("base passed no lwd at all:", lab))
+    b_lwd <- rep_len(b$lwd, length(b$xleft))
+    b_area <- abs((b$xright - b$xleft) * (b$ytop - b$ybottom))
+
+    # -- grid: the gp that reached the rectGrob --------------------------------
+    g <- paintr_grob(f$cells, f$col_w, f$n_row, opts = opts, warn_floor = FALSE)
+    got <- with_panel(7, {
+      r <- kid(grid::makeContent(g)$children, "paintr.rect")
+      list(
+        lwd = r$gp$lwd,
+        n = length(r$x),
+        area = grid::convertWidth(r$width, "in", valueOnly = TRUE) *
+          grid::convertHeight(r$height, "in", valueOnly = TRUE)
+      )
+    })
+    expect_false(is.null(got$lwd), info = paste("the rectGrob's gp carries no lwd:", lab))
+    g_lwd <- rep_len(got$lwd, got$n)
+
+    # The same rectangles, in both.
+    expect_equal(length(b_lwd), length(g_lwd), info = lab)
+
+    # Exactly ONE rectangle is stroked heavily, in each backend, and it is the one
+    # that spans the whole block -- the largest box drawn. That is the outline,
+    # identified by its geometry rather than by its name, because a renderer is not
+    # allowed to know its name.
+    heavy_b <- which(b_lwd > 1)
+    heavy_g <- which(g_lwd > 1)
+    expect_length(heavy_b, 1L)
+    expect_length(heavy_g, 1L)
+    expect_equal(heavy_b, which.max(b_area), info = lab)
+    expect_equal(heavy_g, which.max(got$area), info = lab)
+
+    # Everything else is an ordinary cell border, at weight 1.
+    expect_true(all(b_lwd[-heavy_b] == 1), info = lab)
+    expect_true(all(g_lwd[-heavy_g] == 1), info = lab)
+
+    # AND THE TWO AGREE. This is the invariant: both backends draw the same picture.
+    expect_equal(b_lwd[heavy_b], g_lwd[heavy_g], info = lab)
+    expect_equal(b_lwd[heavy_b], outline_lwd, info = lab)
   }
 })
 

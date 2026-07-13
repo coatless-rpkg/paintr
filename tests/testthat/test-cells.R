@@ -93,6 +93,56 @@ test_that("elide_note() pluralises and omits empty halves", {
   expect_true(is.na(elide_note(0L, 0L)))
 })
 
+test_that("elide_note() counts a VECTOR in elements, never rows or columns", {
+  # A vector is 1-D, and this is a TEACHING package: the n x 1 (or 1 x n) grid it is
+  # drawn on is an artefact of the drawing, not a fact about the data. It elides in
+  # exactly one direction -- whichever one it is laid out along -- so both halves
+  # read the same way.
+  expect_equal(elide_note(26L, 0L, is_vec = TRUE), "# 26 more elements")
+  expect_equal(elide_note(0L, 26L, is_vec = TRUE), "# 26 more elements")
+  # Pluralised, in the singular too.
+  expect_equal(elide_note(1L, 0L, is_vec = TRUE), "# 1 more element")
+  expect_equal(elide_note(0L, 1L, is_vec = TRUE), "# 1 more element")
+  expect_true(is.na(elide_note(0L, 0L, is_vec = TRUE)))
+
+  # And a matrix or a data frame still has rows and columns.
+  expect_equal(elide_note(18L, 12L, is_vec = FALSE), "# 18 more rows, 12 more columns")
+  expect_equal(elide_note(1L, 1L, is_vec = FALSE), "# 1 more row, 1 more column")
+})
+
+test_that("a painted vector is told it has ELEMENTS, in both layouts", {
+  # The bug, exactly as a student met it: `paint_vector(seq_len(40), layout =
+  # "horizontal")` read "# 26 more columns". A vector has no columns.
+  expect_equal(
+    attr(paint_cells(seq_len(40), layout = "horizontal"), "note"),
+    "# 26 more elements"
+  )
+  expect_equal(
+    attr(paint_cells(seq_len(40), layout = "vertical"), "note"),
+    "# 21 more elements"
+  )
+  expect_equal(attr(paint_cells(letters), "note"), "# 7 more elements")
+
+  # Neither word appears in a vector's note, in either layout, whatever it holds.
+  for (lay in c("vertical", "horizontal")) {
+    for (x in list(seq_len(40), letters, as.character(seq_len(30)))) {
+      note <- attr(paint_cells(x, layout = lay), "note")
+      expect_false(grepl("row|column", note), info = paste(lay, class(x)))
+      expect_match(note, "^# [0-9]+ more elements$")
+    }
+  }
+
+  # Nothing hidden, nothing said.
+  expect_true(is.na(attr(paint_cells(1:5), "note")))
+
+  # ... while a matrix and a data frame keep their rows and their columns.
+  expect_equal(
+    attr(paint_cells(matrix(1:900, nrow = 30)), "note"),
+    "# 11 more rows, 16 more columns"
+  )
+  expect_equal(attr(paint_cells(iris), "note"), "# 141 more rows")
+})
+
 # ---------------------------------------------------------------------------
 # BUG 4 -- the fmt_group rule, expressed as data
 # ---------------------------------------------------------------------------
@@ -269,7 +319,7 @@ test_that("paint_cells() returns a BARE data frame with the exact columns", {
     names(cells),
     c(
       "i", "j", "row", "col", "fmt_group", "sig", "insig", "head", "tail",
-      "ink", "fill", "border", "align", "size_rel", "dy_rel", "fit", "kind"
+      "ink", "fill", "border", "lwd", "align", "size_rel", "dy_rel", "fit", "kind"
     )
   )
   expect_type(cells$i, "integer")
@@ -277,6 +327,7 @@ test_that("paint_cells() returns a BARE data frame with the exact columns", {
   expect_type(cells$row, "integer")
   expect_type(cells$col, "integer")
   expect_type(cells$fmt_group, "integer")
+  expect_type(cells$lwd, "double")
   expect_type(cells$size_rel, "double")
   expect_type(cells$dy_rel, "double")
   expect_type(cells$fit, "logical")
@@ -472,9 +523,12 @@ test_that("a vector paints as an n x 1 or a 1 x n grid", {
   expect_equal(hv$col, 1:3)
   expect_equal(horiz$sig[horiz$kind == "collabel"], c("[1]", "[2]", "[3]"))
 
-  # A long horizontal vector elides on columns.
+  # A long horizontal vector elides along the lane it is drawn on -- but the LANE is
+  # the drawing's business. What the note tells the student is elements: the grid is
+  # 1 x 15 because that is how a 1-D thing was laid across the page, and calling
+  # those 15 boxes "columns" is exactly the miseducation this package exists to undo.
   long <- paint_cells(seq_len(60), layout = "horizontal")
-  expect_equal(attr(long, "note"), "# 46 more columns")
+  expect_equal(attr(long, "note"), "# 46 more elements")
   expect_equal(attr(long, "n_col"), 15L)
   expect_equal(attr(long, "n_row"), 1L)
 })
@@ -509,6 +563,41 @@ test_that("the outline is one cell, and its box is the value block", {
   expect_equal(box$col0, 2L)
   expect_equal(box$row1, attr(cells, "n_row"))
   expect_equal(box$col1, attr(cells, "n_col"))
+})
+
+test_that("the outline's line weight is DATA, and it is the only heavy stroke", {
+  # What makes the outline heavy is a number on the cell table, not a rule inside a
+  # renderer. It was a rule inside a renderer -- one renderer -- and the other one
+  # never learned it, so ggplot2 drew no outline at all for a whole release.
+  for (x in list(matrix(1:9, nrow = 3), iris, letters, matrix(1:900, nrow = 30))) {
+    cells <- paint_cells(x)
+    o <- cells[cells$kind == "outline", ]
+
+    expect_equal(nrow(o), 1L)
+    expect_equal(o$lwd, outline_lwd)
+    expect_gt(o$lwd, 1)
+    # Every other cell is stroked like an ordinary cell border.
+    expect_true(all(cells$lwd[cells$kind != "outline"] == 1))
+  }
+})
+
+test_that("boxed_cells() draws the heaviest stroke LAST, and names no kind", {
+  cells <- paint_cells(matrix(1:9, nrow = 3), show_indices = "all")
+  b <- boxed_cells(cells)
+
+  # Only the cells that actually get a rectangle.
+  expect_equal(nrow(b), sum(!is.na(cells$fill) | !is.na(cells$border)))
+  expect_false(any(is.na(b$fill) & is.na(b$border)))
+
+  # The heavy stroke is last, so the cell borders it shares its edges with cannot
+  # paint over it. The rule is `order(lwd)` -- a fact about the data -- and the
+  # outline lands there because it is heavy, not because it is called "outline".
+  expect_equal(b$kind[[nrow(b)]], "outline")
+  expect_equal(b$lwd[[nrow(b)]], max(b$lwd))
+  expect_true(all(b$lwd[-nrow(b)] == 1))
+  # Stable: everything else keeps its table order.
+  rest <- b[-nrow(b), ]
+  expect_equal(rest$kind, cells$kind[cells$kind == "value"])
 })
 
 test_that("paint_cells() refuses the impossible", {

@@ -713,7 +713,10 @@ test_that("the subtitle reports the ORIGINAL shape of an elided structure", {
     rv <- paint_vector(seq_len(50))
     expect_equal(rv$graph_subtitle, "Length: 50 elements | Data Type: integer")
     expect_lt(max(rv$cells$row), 50L)
-    expect_match(rv$note, "more rows")
+    # ELEMENTS. The subtitle one line above already says so, and the note used to
+    # contradict it: a vector drawn down the page was told it had "31 more rows",
+    # and laid across it, "more columns". It has neither.
+    expect_match(rv$note, "^# 31 more elements$")
 
     rd <- paint_data_frame(iris)
     expect_equal(
