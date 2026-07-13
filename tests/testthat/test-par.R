@@ -74,16 +74,17 @@ test_that("par() survives a user's own non-default settings", {
   # A caller who has already customised their device. We must give back THEIR
   # values, not the defaults.
   #
-  # `col` IS THE MOST IMPORTANT ENTRY IN THIS FIXTURE. `par(op)` sets
-  # `mfrow`/`mfcol`, and setting either of those resets BOTH `cex` AND `col` --
-  # so a renderer that re-applies only `cex` on exit still hands the caller back
-  # a black `col` they never asked for, and this whole file stays green while it
-  # happens. A fixture that omits `col` cannot see that bug. `lwd`, `lty` and
-  # `pch` are here for the same reason: to make the round trip prove itself over
-  # more than the parameters we happen to set.
+  # `col` AND `mex` ARE THE MOST IMPORTANT ENTRIES IN THIS FIXTURE. `par(op)` sets
+  # `mfrow`/`mfcol`, and setting either of those resets `cex` AND `mex` to 1; `op`
+  # also carries `fg`, and setting `fg` resets `col`. So a renderer that re-applies
+  # only `cex` on exit still hands the caller back a black `col` and an `mex` of 1
+  # that they never asked for, and this whole file stays green while it happens. A
+  # fixture that omits them cannot see those bugs. `lwd`, `lty` and `pch` are here
+  # for the same reason: to make the round trip prove itself over more than the
+  # parameters we happen to set.
   graphics::par(
     mar = c(3, 4, 5, 6), cex = 1.3, ps = 9, bg = "ivory", pty = "s",
-    col = "red", lwd = 2, lty = 3, pch = 17
+    col = "red", lwd = 2, lty = 3, pch = 17, mex = 1.5
   )
   before <- graphics::par(no.readonly = TRUE)
 
@@ -102,6 +103,9 @@ test_that("par() survives a user's own non-default settings", {
   # `par()` normalises the line type to its name, so 3 comes back as "dotted".
   expect_equal(graphics::par("lty"), "dotted")
   expect_equal(graphics::par("pch"), 17)
+  # The one the SECOND fix missed. `mai == mar * csi * mex`, so an `mex` that comes
+  # back wrong drags `mar` (or `mai`) with it.
+  expect_equal(graphics::par("mex"), 1.5)
 })
 
 test_that("par(op) alone does NOT restore col -- the same lossy idiom, second casualty", {
@@ -218,6 +222,124 @@ test_that("a caller half way through an mfrow layout keeps their panel, and thei
 })
 
 # ---------------------------------------------------------------------------
+# ...and `mex` is the FOURTH casualty, for exactly the same reason
+# ---------------------------------------------------------------------------
+#
+# `mai == mar * csi * mex`. `csi` is the lazy, read-only half of that product;
+# `mex` is the half that IS in `op` and that `par(op)` throws away anyway, because
+# setting `mfrow` clears it to 1 just as it clears `cex` and `col`. Put `csi` back
+# but not `mex` and the margin refresh runs at `mex = 1`, which re-derives `mar`
+# from `mai` off by exactly the caller's `mex`.
+
+test_that("par(op) alone does NOT restore mex -- the same lossy idiom, fourth casualty", {
+  local_null_pdf()
+  graphics::par(mex = 1.5)
+  op <- graphics::par(no.readonly = TRUE)
+  graphics::par(op) # a bare round trip; nothing at all happens in between
+  expect_equal(graphics::par("mex"), 1) # ...and mex is gone
+  expect_equal(op$mex, 1.5)
+  # And it takes `mai` down with it: `mai` is re-derived from `mar` at `mex = 1`.
+  expect_false(isTRUE(all.equal(graphics::par("mai"), op$mai)))
+})
+
+test_that("render_base() restores mex, and does not rescale mar behind the caller's back", {
+  # FINDING 1's exact failure: `par(mex = 2)` and nothing else. Before the fix the
+  # caller got back mar = 10.2 8.2 8.2 4.2 (from 5.1 4.1 4.1 2.1) and mex = 1. The
+  # next plot still LOOKS right, because `mai` is invariant -- but every later
+  # `par(mar =)` and `mtext(line =)` in their session is then at half scale.
+  local_null_pdf(width = 7, height = 5)
+  graphics::par(mex = 2)
+  before <- graphics::par(no.readonly = TRUE)
+  expect_equal(before$mar, c(5.1, 4.1, 4.1, 2.1)) # or the assertion below is empty
+
+  draw(fixtures()$matrix, graph_title = "t")
+
+  expect_equal(graphics::par("mex"), 2)
+  expect_equal(graphics::par("mar"), c(5.1, 4.1, 4.1, 2.1))
+  expect_equal(graphics::par("mai"), before$mai)
+  expect_equal(graphics::par(no.readonly = TRUE), before)
+})
+
+test_that("mex survives whichever order the caller set it in, with cex and mar", {
+  # `csi` is path-dependent, so the ORDER the caller wrote is part of the state.
+  # `cex` BEFORE `mar` is the ordering that hid the original `mai` leak; add `mex`
+  # to it and it is the ordering that hides this one.
+  orders <- list(
+    cex_then_mar = function() {
+      graphics::par(col = "red", cex = 1.3, mex = 1.5)
+      graphics::par(mar = c(3, 4, 5, 6))
+    },
+    mar_then_cex = function() {
+      graphics::par(mar = c(3, 4, 5, 6))
+      graphics::par(col = "red", cex = 1.3, mex = 1.5)
+    },
+    mex_last = function() {
+      graphics::par(col = "red", cex = 1.3)
+      graphics::par(mar = c(3, 4, 5, 6))
+      graphics::par(mex = 1.5)
+    }
+  )
+  for (nm in names(orders)) {
+    local_null_pdf(width = 7, height = 5)
+    orders[[nm]]()
+    before <- graphics::par(no.readonly = TRUE)
+    csi_before <- graphics::par("csi")
+
+    draw(fixtures()$matrix, graph_title = "t", note = "# 1 more row")
+
+    expect_equal(graphics::par(no.readonly = TRUE), before, info = nm)
+    expect_equal(graphics::par("mex"), 1.5, info = nm)
+    expect_equal(graphics::par("mar"), c(3, 4, 5, 6), info = nm)
+    expect_equal(graphics::par("mai"), before$mai, info = nm)
+    expect_equal(graphics::par("cex"), 1.3, info = nm)
+    expect_equal(graphics::par("col"), "red", info = nm)
+    # `csi` is read-only, so it is not in `before` -- and it is the hidden state
+    # that makes `mar` and `mai` agree. Check it by hand.
+    expect_equal(graphics::par("csi"), csi_before, info = nm)
+    expect_equal(
+      graphics::par("mai"),
+      graphics::par("mar") * graphics::par("csi") * graphics::par("mex"),
+      info = nm
+    )
+  }
+})
+
+test_that("restoring mex does not regress mar for a caller mid-way through a 2x2", {
+  # THE TRAP. Restoring `mex` in the LAST step -- alongside `cex` and `col` -- fixes
+  # every `mex` fixture above and quietly breaks this one: setting `mex` refreshes
+  # `csi` at whatever `cex` is current, and by the last step that is the caller's
+  # `cex`, not the `cex` their `csi` was actually computed at. In a 2x2 the two
+  # differ (`mfrow` drops the base `cex` to 0.83), so `csi` lands wrong and drags
+  # `mar` with it. `mex` has to go back BEFORE the margins are re-derived, not
+  # after. Measured, with the naive ordering: mar and csi both leak here.
+  for (grid in list(c(2, 2), c(3, 3))) {
+    local_null_pdf(width = 10, height = 8)
+    graphics::par(mfrow = grid)
+    plot(1:10) # panel 1 is theirs; the panel pointer has moved on
+    # `mar` is trimmed because the default 5.1/4.1 lines, scaled by cex 1.3 and mex
+    # 1.5, are TALLER than a 3x3 panel -- which leaves the CALLER with a negative
+    # par("pin"), a state R itself cannot round trip (a bare `par(op)` errors on it
+    # too). That is a caller-side pathology, not the one under test here.
+    graphics::par(col = "red", cex = 1.3, mex = 1.5, mar = c(2, 2, 2, 2))
+    before <- graphics::par(no.readonly = TRUE)
+    csi_before <- graphics::par("csi")
+    expect_true(all(before$pin > 0)) # the fixture is a restorable one
+
+    draw(fixtures()$matrix, graph_title = "t")
+
+    info <- paste0(grid[[1L]], "x", grid[[2L]])
+    expect_equal(graphics::par(no.readonly = TRUE), before, info = info)
+    expect_equal(graphics::par("csi"), csi_before, info = info)
+    expect_equal(graphics::par("mar"), before$mar, info = info)
+    expect_equal(graphics::par("mex"), 1.5, info = info)
+    expect_equal(graphics::par("cex"), 1.3, info = info)
+    # Still on their own panel, and not primed to overdraw it.
+    expect_equal(graphics::par("mfg"), before$mfg, info = info)
+    expect_false(graphics::par("new"))
+  }
+})
+
+# ---------------------------------------------------------------------------
 # csi's laziness bites on the way IN as well: the note band
 # ---------------------------------------------------------------------------
 
@@ -252,6 +374,104 @@ test_that("the note band is reserved with the csi the draw USES, not the caller'
   # And the caller's stale csi would have reserved a visibly smaller band.
   mai_stale <- base_mai(NULL, NULL, f$note, csi = csi_caller)
   expect_lt(mai_stale[[1L]], mai_used[[1L]])
+})
+
+test_that("the note is NOT bisected by the device edge when the caller has set mex", {
+  # `base_mai()` reserves `note_line * csi` inches for the note. `draw_bands()` puts
+  # it there with `mtext(line = note_line)`, and a margin line is `csi * mex` inches.
+  # So the band we reserve and the band we draw into are the same band ONLY at
+  # `mex == 1` -- which is why `render_base()` pins it. Without the pin, a caller at
+  # `par(mex = 2)` gets the note drawn twice as far down as the space kept for it,
+  # and the bottom of the device slices it in half.
+  #
+  # MEASURED, not eyeballed: svglite writes the note's baseline as an absolute `y`
+  # in px from the top of the device, so the clipping is arithmetic.
+  skip_if_not_installed("svglite")
+
+  height_in <- 5
+  height_px <- height_in * 72 # svglite's user unit is 1/72 in
+
+  # `y` is the note's baseline, in px from the TOP of the device; `csi` is the
+  # margin line the draw actually ran at.
+  note_y <- function(mex) {
+    svg <- withr::local_tempfile(fileext = ".svg")
+    svglite::svglite(svg, width = 7, height = height_in)
+    graphics::par(mex = mex)
+    f <- fx(matrix(1:600, nrow = 30, ncol = 20))
+    expect_true(has_text(f$note)) # or this test is vacuous
+    suppressWarnings(draw(f, note = f$note))
+    graphics::par(cex = 1, mex = 1) # the units the draw used
+    csi <- graphics::par("csi")
+    grDevices::dev.off()
+
+    hit <- grep(f$note, readLines(svg, warn = FALSE), fixed = TRUE, value = TRUE)
+    expect_length(hit, 1L) # the note reached the device exactly once
+    list(
+      y = as.numeric(sub(".*y='([0-9.]+)'.*", "\\1", hit)),
+      band = base_mai(NULL, NULL, f$note, csi = csi)[[1L]] * 72 # reserved, in px
+    )
+  }
+
+  plain <- note_y(1)
+  doubled <- note_y(2)
+
+  for (m in list(plain, doubled)) {
+    # The baseline is ON the device -- it has not fallen off the bottom edge.
+    expect_gt(height_px - m$y, 0)
+    # ...and it is inside the band `base_mai()` kept for it. The band is a whole
+    # `lead(note_pt)` deep, which is the note's ascent AND its descent, so a
+    # baseline inside the band means the ink is inside the device. That is the
+    # agreement between the two functions, and it is the thing that broke.
+    expect_lt(height_px - m$y, m$band)
+  }
+
+  # And the invariant behind it: WHERE the note lands is a function of the DEVICE,
+  # not of the caller's `par()`. Before the pin this failed by `note_line * csi *
+  # (mex - 1) * 72` = 5.76px, which put the baseline at 361.76 on a 360px device --
+  # below the bottom edge entirely, with the note sliced in half by it.
+  expect_equal(doubled$y, plain$y)
+  expect_equal(doubled$band, plain$band)
+})
+
+test_that("`new` does not leak when the device is too small to draw on", {
+  # The size guard fires BEFORE `plot.new()`, so on a fresh device nothing has been
+  # drawn yet -- and on such a device `par(op)` sets `new = TRUE` through its `mfg`
+  # element (isolated: `par(op["mfg"])` does it, `par(op["mfrow"])` does not), while
+  # `par(new = FALSE)` is silently ignored. The restore therefore cannot take it
+  # back, and the fix is to not do it: on this path the renderer has changed nothing
+  # but `cex` and `mex`, so it puts those two back and leaves `mfrow`/`mfg` alone.
+  local_null_pdf(width = 3, height = 0.5)
+  graphics::par(mar = c(0, 0, 0, 0)) # so the CALLER's own par() is a valid one
+  before <- graphics::par(no.readonly = TRUE)
+  expect_false(before$new)
+
+  f <- fx(matrix(1:4, 2))
+  expect_error(
+    draw(f, graph_title = "t", graph_subtitle = "s"),
+    "too small"
+  )
+
+  expect_false(graphics::par("new"))
+  expect_equal(graphics::par(no.readonly = TRUE), before)
+})
+
+test_that("a caller mid-mfrow whose device is too small keeps their panel too", {
+  # The other half of the same gate. Here the device is NOT fresh, and the caller is
+  # half way through a layout -- so skipping the `mfrow`/`mfg` restore must not cost
+  # them their panel. It does not, because on this path nothing touched it.
+  local_null_pdf(width = 3, height = 1)
+  graphics::par(mfrow = c(2, 2), mar = c(0, 0, 0, 0))
+  plot(1:10)
+  graphics::par(col = "red", cex = 1.3)
+  before <- graphics::par(no.readonly = TRUE)
+
+  f <- fx(matrix(1:4, 2))
+  expect_error(draw(f, graph_title = "t", graph_subtitle = "s"), "too small")
+
+  expect_equal(graphics::par(no.readonly = TRUE), before)
+  expect_equal(graphics::par("mfg"), before$mfg)
+  expect_equal(graphics::par("col"), "red")
+  expect_false(graphics::par("new"))
 })
 
 test_that("par(op) alone does NOT restore cex -- the idiom is lossy, and we fix it", {
