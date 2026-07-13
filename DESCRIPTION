@@ -18,6 +18,7 @@ RoxygenNote: 7.3.2
 Roxygen: list(markdown = TRUE)
 Imports:
     graphics,
+    grDevices,
     grid
 Suggests:
     ggplot2,
