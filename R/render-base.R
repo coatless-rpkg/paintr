@@ -147,6 +147,17 @@ note_line <- 0.4
 #' does not follow from their `mai`, so `plt` has to be put back last of the
 #' layout parameters.
 #'
+#' **`op$pin` itself is never set.** `pin` is *derived* -- from the device size,
+#' `mai`/`mar` and `pty` -- and `op` carries the caller's derived value, not a
+#' free parameter. On a device too small for the caller's own margins, that
+#' derived value is negative (measured: a 1.8in square device with the default
+#' margins gives `pin = c(0.56, -0.04)`), and `par(pin = <negative>)` errors --
+#' so a plain `par(op)` throws on the restore, *after* the picture already drew
+#' correctly. `plt` has no such floor (it is a fraction of the figure region,
+#' not an inch count) and is what step 4 uses to reproduce `pin` anyway, so
+#' dropping `pin` from `op` before step 1 costs nothing: the margins and `pty`
+#' it would have been derived from are restored regardless, in steps 1 and 4.
+#'
 #' The order below reproduces the caller's whole
 #' `(cex, csi, mex, mar/mai, oma/omi, pin/plt, mfg, new)` state exactly, rather
 #' than hoping `par(op)` will. **Every step is ordered against a measured side
@@ -203,6 +214,13 @@ note_line <- 0.4
 #' @noRd
 restore_par <- function(op, csi0, csi_unit = NA_real_, laid_out = TRUE) {
   if (isTRUE(laid_out)) {
+    # `pin` is derived from the device size, `mai`/`mar` and `pty` -- all of
+    # which this list restores anyway (step 1 sets `mai`; step 4 below sets
+    # `plt`, which re-derives `pin` from it). On a device too small for the
+    # caller's own margins the derived value is negative, and `par(pin =
+    # <negative>)` errors, so restoring it directly would throw here even
+    # though the picture already drew. Let it come back on its own.
+    op$pin <- NULL
     graphics::par(op)
   }
 

@@ -528,6 +528,30 @@ test_that("par() is restored even when render_base() errors", {
   expect_equal(graphics::par(no.readonly = TRUE), before)
 })
 
+test_that("a device too small for the CALLER's own margins does not error on restore", {
+  # `op$pin` is the caller's, captured before render_base() touches anything --
+  # and on a device this small, the default R margins alone (5.1 4.1 4.1 2.1
+  # lines) already leave no room: `pin` is negative before the picture is even
+  # drawn. `pin` is derived (from the device size, mai/mar and pty), so
+  # restoring it directly is both unnecessary and, here, an error -- `par(pin =
+  # <negative>)` is not a settable state. `restore_par()` must not attempt it.
+  for (side in c(1.8, 1.0)) {
+    local_null_pdf(width = side, height = side)
+    before <- graphics::par(no.readonly = TRUE)
+    # Non-vacuous: the caller's own pin really is unrestorable on this device,
+    # so a fix that merely avoided drawing small wouldn't pass this by
+    # accident.
+    expect_true(before$pin[[2L]] < 0, info = paste0(side, "in"))
+
+    # `suppressWarnings()`: a fixture this small also trips the legibility
+    # floor, which is a separate, expected warning -- not the thing under
+    # test here.
+    expect_no_error(suppressWarnings(draw(fixtures()$matrix)))
+
+    expect_equal(graphics::par(no.readonly = TRUE), before, info = paste0(side, "in"))
+  }
+})
+
 # ---------------------------------------------------------------------------
 # the bands are reserved in INCHES, not in `mar` lines
 # ---------------------------------------------------------------------------
