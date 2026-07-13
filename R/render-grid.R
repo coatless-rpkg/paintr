@@ -1,0 +1,274 @@
+# Tier 3: the grid renderer.
+#
+# THIS FILE DEPENDS ON `grid` ALONE. It names no plotting package from Suggests,
+# and it must not acquire one: that is what lets the hardest code in the package
+# -- the deferred font fit -- be tested with zero Suggests installed and stay
+# immune to the layered backend's 4.x churn. `gpaint_*()` is a ~25-line skin over
+# `paintr_grob()`, and the skin is the only place that backend may appear.
+#
+# (The prose below is deliberately free of the string that names that backend, so
+# that a `grep -i` over this file comes back empty. The dependency is `grid`, and
+# nothing else. Please do not "helpfully" reintroduce the name.)
+#
+# Why a custom grob at all, when it looks like an optimisation:
+#
+#   1. THE LAYERED BACKEND CANNOT MEASURE TEXT AT BUILD TIME. Its panel is a
+#      `null` unit and `convertWidth(unit(1, "null"), "in")` returns 0 outside a
+#      layout, while the fitting size swings 4.7x across plausible devices. So the
+#      font size MUST be computed at DRAW time, inside `makeContent()`, where the
+#      panel is finally real. A size baked into the cell table is wrong on every
+#      device but one.
+#   2. TWO-TONE TEXT IS IMPOSSIBLE IN A LAYER. `geom_text()`'s `colour` is one
+#      value per row, and the offset between the two spans is intrinsically in
+#      inches (it derives from the font size) while `nudge_x` is in data units.
+#
+# One mechanism, two problems. It is load-bearing, not decorative.
+
+# The grey the insignificant span is drawn in.
+#
+# `render-base.R` carries the identical fallback, and the two backends MUST agree
+# or they silently draw different pictures. This is a knob waiting to happen:
+# collapse both onto `opts$grey` (a 7th knob on `paint_opts()`) and delete both
+# constants. Until then, `subtle_grey()` reads `opts$grey` when it exists so that
+# adding the knob is a one-line change that both renderers pick up at once.
+fallback_grey <- "grey70"
+
+#' The colour of the insignificant span
+#'
+#' Every cell with a non-empty `insig` is a finite number, so this is a constant
+#' rather than a cell-table column: "NA", "Inf" and "NaN" carry no insignificant
+#' digits (`split_sig()` finds no digits to count past), and in scientific mode
+#' `insig` is forced to `""`.
+#'
+#' @param opts From `paint_opts()`.
+#'
+#' @return A length-one colour string.
+#'
+#' @keywords internal
+#' @noRd
+subtle_grey <- function(opts) {
+  if (is.null(opts$grey)) fallback_grey else opts$grey
+}
+
+# ---------------------------------------------------------------------------
+# the legibility-floor warning
+# ---------------------------------------------------------------------------
+#
+# `floor_message()` itself lives in `R/warn.R`, shared with `render-base.R`. The
+# once-per-object latch below is grid-specific: a base plot is drawn exactly once
+# per `render_base()` call, but a grob is re-drawn on every device resize, page
+# refresh and `ggsave()` replay.
+
+#' Warn about the legibility floor at most once per grob
+#'
+#' A grob is re-drawn every time its device is resized, its page is refreshed, or
+#' `ggsave()` replays it. Warning on each of those would be a torrent. The gTree
+#' carries a small `environment()` as a field, which survives `makeContent()`
+#' returning a modified copy of the grob (environments are references), so the
+#' flag is per-object and exactly one warning is emitted no matter how many times
+#' the object is drawn.
+#'
+#' @param state The grob's state environment.
+#' @param enabled The grob's `warn_floor` field, threaded down from the painter.
+#' @param resolved,opts,dev_in Passed to `floor_message()` (in `R/warn.R`).
+#'
+#' @return `TRUE` if a warning was emitted, invisibly.
+#'
+#' @keywords internal
+#' @noRd
+warn_floor_once <- function(state, enabled, resolved, opts, dev_in) {
+  # Two gates, and both are deliberate. `enabled` is the option threaded down as
+  # plain data by the painter (nothing below the painter is allowed to depend on
+  # the user's .Rprofile for its *defaults*). The `getOption()` re-read is a live
+  # kill switch: a plot object is built long before it is drawn, so a user who
+  # sets the option between the two would otherwise still be shouted at.
+  if (!isTRUE(enabled) || !isTRUE(getOption("paintr.warn_floor", TRUE))) {
+    return(invisible(FALSE))
+  }
+  if (isTRUE(state$warned)) {
+    return(invisible(FALSE))
+  }
+  state$warned <- TRUE
+  warning(floor_message(resolved, opts, dev_in), call. = FALSE)
+  invisible(TRUE)
+}
+
+# ---------------------------------------------------------------------------
+# the grob
+# ---------------------------------------------------------------------------
+
+#' A grid grob that fits its own text at draw time
+#'
+#' Holds the cell table and defers every device-dependent decision to
+#' [makeContent.paintr_grob()]. Constructing it opens no device, reads no device,
+#' and measures no text -- which is precisely why it can be handed to
+#' `annotation_custom()`, whose panel does not exist yet.
+#'
+#' @param cells A cell table from `paint_cells()`.
+#' @param col_w Column widths in layout units, from `column_widths()`.
+#' @param n_row Drawn rows, from `attr(cells, "n_row")`.
+#' @param opts From `paint_opts()`.
+#' @param warn_floor Warn when the fitted size falls below `opts$min_pt`? The
+#'   painter threads `getOption("paintr.warn_floor", TRUE)` in here as plain
+#'   data.
+#' @param name,vp Passed to [grid::gTree()].
+#'
+#' @return A gTree of class `"paintr_grob"`.
+#'
+#' @keywords internal
+#' @noRd
+paintr_grob <- function(cells, col_w, n_row, opts = paint_opts(),
+                        warn_floor = TRUE, name = NULL, vp = NULL) {
+  if (!is.data.frame(cells) || nrow(cells) == 0L) {
+    stop("`cells` must be a non-empty cell table data frame.")
+  }
+  if (!is.numeric(col_w) || length(col_w) < max(cells$col)) {
+    stop(
+      "`col_w` has ", length(col_w), " widths but the cell table draws ",
+      max(cells$col), " columns."
+    )
+  }
+  if (length(n_row) != 1L || is.na(n_row) || n_row < 1) {
+    stop("`n_row` must be a single positive number.")
+  }
+
+  # Reference semantics on purpose: `makeContent()` gets a *copy* of the grob, so
+  # a plain logical field could never be flipped in a way the next draw would
+  # see.
+  state <- new.env(parent = emptyenv())
+  state$warned <- FALSE
+
+  grid::gTree(
+    cells = cells,
+    col_w = as.double(col_w),
+    n_row = as.integer(n_row),
+    opts = opts,
+    warn_floor = isTRUE(warn_floor),
+    state = state,
+    name = name,
+    vp = vp,
+    cl = "paintr_grob"
+  )
+}
+
+#' The children of a resolved cell table
+#'
+#' One `rectGrob` for every cell that has a fill or a border, and **one
+#' `textGrob` per span** -- so two text calls for the whole plot, not two per
+#' cell. That is the only mechanism that draws two-tone text in grid *or* in
+#' base: a single call with `col = c("black", "grey70")` and one `x` draws one
+#' span and warns.
+#'
+#' Both spans are LEFT-anchored (`hjust = 0`) at `x + dx`, which is what makes
+#' `dx_insig = dx_sig + w(sig)` land the grey digits exactly where the black ones
+#' stop.
+#'
+#' @param res The list returned by `paint_resolve()`.
+#' @param opts From `paint_opts()`.
+#'
+#' @return A [grid::gList()].
+#'
+#' @keywords internal
+#' @noRd
+paintr_children <- function(res, opts) {
+  cells <- res$cells
+  family <- opts$family
+  grey <- subtle_grey(opts)
+  kids <- list()
+
+  # -- rectangles -------------------------------------------------------------
+  boxed <- cells[!is.na(cells$fill) | !is.na(cells$border), , drop = FALSE]
+  if (nrow(boxed) > 0L) {
+    # The outline draws last so that the value cells' own borders cannot paint
+    # over it. `order()` is stable, so everything else keeps its table order.
+    boxed <- boxed[order(boxed$kind == "outline"), , drop = FALSE]
+    kids[[length(kids) + 1L]] <- grid::rectGrob(
+      x = grid::unit(boxed$xl, "in"),
+      y = grid::unit(boxed$yb, "in"),
+      width = grid::unit(boxed$xr - boxed$xl, "in"),
+      height = grid::unit(boxed$yt - boxed$yb, "in"),
+      just = c("left", "bottom"),
+      gp = grid::gpar(fill = boxed$fill, col = boxed$border),
+      name = "paintr.rect"
+    )
+  }
+
+  # -- the black span ---------------------------------------------------------
+  sig <- cells[!is.na(cells$sig) & nzchar(cells$sig), , drop = FALSE]
+  if (nrow(sig) > 0L) {
+    kids[[length(kids) + 1L]] <- grid::textGrob(
+      label = sig$sig,
+      x = grid::unit(sig$x, "in") + grid::unit(sig$dx_sig, "in"),
+      y = grid::unit(sig$y, "in"),
+      hjust = 0,
+      vjust = 0.5,
+      gp = grid::gpar(
+        col = sig$ink,
+        fontsize = sig$fontsize,
+        fontfamily = family
+      ),
+      name = "paintr.sig"
+    )
+  }
+
+  # -- the grey span ----------------------------------------------------------
+  insig <- cells[!is.na(cells$insig) & nzchar(cells$insig), , drop = FALSE]
+  if (nrow(insig) > 0L) {
+    kids[[length(kids) + 1L]] <- grid::textGrob(
+      label = insig$insig,
+      x = grid::unit(insig$x, "in") + grid::unit(insig$dx_insig, "in"),
+      y = grid::unit(insig$y, "in"),
+      hjust = 0,
+      vjust = 0.5,
+      gp = grid::gpar(
+        col = grey,
+        fontsize = insig$fontsize,
+        fontfamily = family
+      ),
+      name = "paintr.insig"
+    )
+  }
+
+  do.call(grid::gList, kids)
+}
+
+#' Fit the text and build the children, at draw time
+#'
+#' The whole reason the grob exists. `convertWidth(unit(1, "npc"), "in")` is `0`
+#' at build time and the true panel width here, so this is the first and only
+#' moment the font size can honestly be chosen.
+#'
+#' It calls the **shared** `paint_resolve()` -- the same function, on the same
+#' cell table, that `render_base()` calls -- with `measure_grid()` swapped in for
+#' `measure_base()`. Nothing about the fit is reimplemented here, which is what
+#' makes "both backends draw the same picture" a property of one function rather
+#' than a coincidence between two.
+#'
+#' @param x A `paintr_grob`.
+#'
+#' @return `x`, with its children set.
+#'
+#' @keywords internal
+#' @noRd
+#' @exportS3Method grid::makeContent
+makeContent.paintr_grob <- function(x) {
+  panel <- panel_grid()
+  res <- paint_resolve(
+    x$cells, x$col_w, x$n_row,
+    panel = panel,
+    measure = measure_grid(x$opts$family),
+    opts = x$opts
+  )
+
+  if (isTRUE(res$floored)) {
+    warn_floor_once(
+      state = x$state,
+      enabled = x$warn_floor,
+      resolved = res,
+      opts = x$opts,
+      dev_in = grDevices::dev.size("in")
+    )
+  }
+
+  grid::setChildren(x, paintr_children(res, x$opts))
+}
