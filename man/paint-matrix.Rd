@@ -19,7 +19,9 @@ paint_matrix(
   max_cols = 15L,
   show_all = FALSE,
   fontsize = NULL,
-  family = "mono"
+  family = "mono",
+  show_dimnames = "all",
+  max_name_chars = 8L
 )
 
 gpaint_matrix(
@@ -36,7 +38,9 @@ gpaint_matrix(
   max_cols = 15L,
   show_all = FALSE,
   fontsize = NULL,
-  family = "mono"
+  family = "mono",
+  show_dimnames = "all",
+  max_name_chars = 8L
 )
 }
 \arguments{
@@ -95,6 +99,25 @@ when the text falls below the legibility floor.}
 to the device.}
 
 \item{family}{Font family. \code{"mono"} by default.}
+
+\item{show_dimnames}{Which of the matrix's \code{dimnames()} to draw. A character
+vector, because \code{dimnames()} is a \emph{list} with one slot
+per axis: \code{"none"}, \code{"row"}, \code{"column"}, or \code{"all"}
+(the default). \code{c("row", "column")} is the same as
+\code{"all"}, and an axis with no names draws no lane.
+
+An index lane the caller asks for \strong{wins} the axis it names: with
+\code{show_indices = "row"} the row lane draws \verb{[1, ]}, not the row names. To see
+both a name and an accessor, ask for \code{show_indices = "cell"} -- the cell index
+is drawn \emph{inside} the cell, so it composes with the names rather than
+competing for their lane.}
+
+\item{max_name_chars}{Longest a \emph{column} name may be drawn before it is
+truncated. Default: \code{8}. A matrix is one formatting unit,
+so every column of it is as wide as the widest: a long
+column name widens every cell in the picture. Row names
+sit in a gutter of their own, cost the values nothing, and
+are truncated at \code{max_chars} instead.}
 }
 \value{
 \code{paint_matrix()} invisibly returns the resolved cell table: a list with the
@@ -145,6 +168,22 @@ paint_matrix(mat_3x3, show_indices = "cell")
 
 # Character data renders as the strings it contains.
 paint_matrix(matrix(letters[1:6], nrow = 2))
+
+# A dimnamed matrix labels its rows and columns with its names, like print().
+mat_named = matrix(
+  c(21, 6, 22.8, 4), nrow = 2, byrow = TRUE,
+  dimnames = list(c("Mazda", "Datsun"), c("mpg", "cyl"))
+)
+paint_matrix(mat_named)
+
+# The name above the column, the accessor under the value: both at once.
+paint_matrix(mat_named, show_indices = "cell")
+
+# An index lane wins the axis it names.
+paint_matrix(mat_named, show_indices = "row")
+
+# Or draw no names at all.
+paint_matrix(mat_named, show_dimnames = "none")
 
 # Highlight a row
 mat_4x4 = matrix(seq_len(16), nrow = 4)

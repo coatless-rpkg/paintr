@@ -36,7 +36,13 @@
 #' @param max_rows,max_cols,show_all Elision, passed to `paint_cells()`.
 #' @param fontsize,family Passed to `paint_opts()`.
 #' @param layout Vectors only.
-#' @param show_names,show_types Data frames only.
+#' @param show_names Data frames (the column-name row) and vectors (their
+#'   `names()`).
+#' @param show_types Data frames only.
+#' @param show_dimnames Matrices only. Already checked by the painter.
+#' @param show_rownames Data frames only. `NULL` decides on the data.
+#' @param max_name_chars The cap on a name lane that shares a formatting unit with
+#'   the values under it.
 #' @param name_align,type_align Data frames only. Already matched by the painter.
 #'
 #' @return A list with `cells`, `col_w`, `n_row`, `note` (a string, or `NULL`
@@ -59,6 +65,9 @@ painter_prep <- function(data,
                          layout = "vertical",
                          show_names = TRUE,
                          show_types = TRUE,
+                         show_dimnames = "all",
+                         show_rownames = NULL,
+                         max_name_chars = 8L,
                          name_align = "center",
                          type_align = "center") {
   # The two options, read once, in the one place that is allowed to read them.
@@ -75,11 +84,14 @@ painter_prep <- function(data,
     layout = layout,
     show_names = show_names,
     show_types = show_types,
+    show_dimnames = show_dimnames,
+    show_rownames = show_rownames,
     name_align = name_align,
     type_align = type_align,
     sigfig = sigfig,
     subtle_digits = subtle_digits,
     max_chars = max_chars,
+    max_name_chars = max_name_chars,
     max_rows = max_rows,
     max_cols = max_cols,
     show_all = show_all,

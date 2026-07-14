@@ -20,7 +20,9 @@ paint_vector(
   max_cols = 15L,
   show_all = FALSE,
   fontsize = NULL,
-  family = "mono"
+  family = "mono",
+  show_names = TRUE,
+  max_name_chars = 8L
 )
 
 gpaint_vector(
@@ -38,7 +40,9 @@ gpaint_vector(
   max_cols = 15L,
   show_all = FALSE,
   fontsize = NULL,
-  family = "mono"
+  family = "mono",
+  show_names = TRUE,
+  max_name_chars = 8L
 )
 }
 \arguments{
@@ -91,6 +95,22 @@ when the text falls below the legibility floor.}
 to the device.}
 
 \item{family}{Font family. \code{"mono"} by default.}
+
+\item{show_names}{Draw the vector's \code{names()} in the label lane its layout
+gives it: a gutter to the left when the vector is
+vertical, a lane above it when it is horizontal.
+Default: \code{TRUE}. A logical scalar, because \code{names()}
+returns one vector. An unnamed vector draws no lane.
+
+\code{show_indices = "outside"} \strong{wins} that lane, because the caller asked for it
+by name. \code{show_indices = "inside"} draws the index \emph{within} the cell, so it
+composes with the names instead of competing with them.}
+
+\item{max_name_chars}{Longest a name may be drawn before it is truncated.
+Default: \code{8}. It bites only a \code{"horizontal"} vector,
+whose names sit over the cells and widen them; a vertical
+vector's names are in a gutter of their own and are
+truncated at \code{max_chars} instead.}
 }
 \value{
 \code{paint_vector()} invisibly returns the resolved cell table. See \code{\link[=paint_matrix]{paint_matrix()}}
@@ -135,6 +155,12 @@ paint_vector(vec_5)
 
 # Character vectors render as the strings they contain.
 paint_vector(letters[1:5], layout = "horizontal")
+
+# A named vector draws its names, like print() does.
+paint_vector(c(alpha = 1, beta = 2.5, gamma = -30))
+
+# The name beside the cell, the accessor inside it: both at once.
+paint_vector(c(alpha = 1, beta = 2.5), show_indices = "inside")
 
 # Visualize a 6 element vector with indices underneath the data
 vec_6 <- c(-3, 5, NA, Inf, 2, 1)

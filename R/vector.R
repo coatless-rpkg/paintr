@@ -26,6 +26,20 @@
 #'                        so its placements are mutually exclusive. (A matrix or
 #'                        data frame has independent row, column and cell lanes,
 #'                        and [paint_matrix()] does take several at once.)
+#' @param show_names      Draw the vector's `names()` in the label lane its layout
+#'                        gives it: a gutter to the left when the vector is
+#'                        vertical, a lane above it when it is horizontal.
+#'                        Default: `TRUE`. A logical scalar, because `names()`
+#'                        returns one vector. An unnamed vector draws no lane.
+#'
+#'   `show_indices = "outside"` **wins** that lane, because the caller asked for it
+#'   by name. `show_indices = "inside"` draws the index *within* the cell, so it
+#'   composes with the names instead of competing with them.
+#' @param max_name_chars  Longest a name may be drawn before it is truncated.
+#'                        Default: `8`. It bites only a `"horizontal"` vector,
+#'                        whose names sit over the cells and widen them; a vertical
+#'                        vector's names are in a gutter of their own and are
+#'                        truncated at `max_chars` instead.
 #' @param highlight_area  Logical vector the same length as `data`, marking the
 #'                        cells to fill. A length-one logical is recycled.
 #'                        Default: `NULL`, which highlights nothing.
@@ -79,6 +93,12 @@
 #' # Character vectors render as the strings they contain.
 #' paint_vector(letters[1:5], layout = "horizontal")
 #'
+#' # A named vector draws its names, like print() does.
+#' paint_vector(c(alpha = 1, beta = 2.5, gamma = -30))
+#'
+#' # The name beside the cell, the accessor inside it: both at once.
+#' paint_vector(c(alpha = 1, beta = 2.5), show_indices = "inside")
+#'
 #' # Visualize a 6 element vector with indices underneath the data
 #' vec_6 <- c(-3, 5, NA, Inf, 2, 1)
 #' paint_vector(vec_6, layout = "horizontal", show_indices = "inside")
@@ -103,7 +123,9 @@ paint_vector <- function(
     max_cols = 15L,
     show_all = FALSE,
     fontsize = NULL,
-    family = "mono") {
+    family = "mono",
+    show_names = TRUE,
+    max_name_chars = 8L) {
   force(graph_title)
 
   if (!is_paint_vector(data)) {
@@ -127,7 +149,9 @@ paint_vector <- function(
     show_all = show_all,
     fontsize = fontsize,
     family = family,
-    layout = layout
+    layout = layout,
+    show_names = show_names,
+    max_name_chars = max_name_chars
   )
 
   invisible(render_base(
@@ -165,7 +189,9 @@ gpaint_vector <- function(
     max_cols = 15L,
     show_all = FALSE,
     fontsize = NULL,
-    family = "mono") {
+    family = "mono",
+    show_names = TRUE,
+    max_name_chars = 8L) {
   force(graph_title)
   require_ggplot2()
 
@@ -190,7 +216,9 @@ gpaint_vector <- function(
     show_all = show_all,
     fontsize = fontsize,
     family = family,
-    layout = layout
+    layout = layout,
+    show_names = show_names,
+    max_name_chars = max_name_chars
   )
 
   gpaint_skin(prep, graph_title, graph_subtitle)

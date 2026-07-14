@@ -18,6 +18,23 @@ Two defaults changed, and both are visible in the picture:
 
 ## New features
 
+- **Names are drawn.** A named vector labels its cells with its `names()`, a
+  matrix with `dimnames()` labels its rows and columns with them, and a data
+  frame with row names of its own -- `mtcars`, not `iris` -- grows a row-name
+  gutter. The picture used to draw `[1]` and `[, 1]` over data that had names,
+  which made it *less* informative than `print()`. Turn the lanes off with
+  `show_names`, `show_dimnames = "none"` or `show_rownames = FALSE`.
+
+  An index lane you ask for wins the axis it names, so `show_indices = "row"`
+  still draws `[1, ]`. To see a name **and** an accessor, ask for
+  `show_indices = "cell"`: the cell index is drawn inside the cell, under the
+  value, so it composes with the names rather than competing for their lane.
+
+  A matrix is one formatting unit, so its longest column name widens every cell
+  in the picture; column names are truncated at `max_name_chars` (8) to bound the
+  cost. Row names sit in a gutter that holds no value, cost the cells nothing,
+  and are truncated at `max_chars` (12) like any other string.
+
 - **Data frames are supported.** `paint_data_frame()` and `gpaint_data_frame()`
   (aliases: `paint_df()`, `gpaint_df()`) draw a data frame with its column names
   and a `<dbl>` / `<chr>` / `<lgl>` type band beneath them (`show_names`,

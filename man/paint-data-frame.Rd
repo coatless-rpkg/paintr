@@ -24,6 +24,7 @@ paint_data_frame(
   family = "mono",
   show_types = TRUE,
   show_names = TRUE,
+  show_rownames = NULL,
   name_align = c("center", "left", "right"),
   type_align = c("center", "left", "right")
 )
@@ -45,6 +46,7 @@ gpaint_data_frame(
   family = "mono",
   show_types = TRUE,
   show_names = TRUE,
+  show_rownames = NULL,
   name_align = c("center", "left", "right"),
   type_align = c("center", "left", "right")
 )
@@ -66,6 +68,7 @@ paint_df(
   family = "mono",
   show_types = TRUE,
   show_names = TRUE,
+  show_rownames = NULL,
   name_align = c("center", "left", "right"),
   type_align = c("center", "left", "right")
 )
@@ -87,6 +90,7 @@ gpaint_df(
   family = "mono",
   show_types = TRUE,
   show_names = TRUE,
+  show_rownames = NULL,
   name_align = c("center", "left", "right"),
   type_align = c("center", "left", "right")
 )
@@ -152,6 +156,17 @@ column names. Default: \code{TRUE}.}
 
 \item{show_names}{Draw the column-name row. Default: \code{TRUE}.}
 
+\item{show_rownames}{Draw the row names, in a gutter to the left of the frame.
+\code{NULL} (the default) draws them when the frame has names
+of its own: \code{mtcars} does ("Mazda RX4"), and \code{iris} does
+not -- a gutter of \verb{1, 2, 3} is the row's position, not
+data about it. \code{TRUE} draws whatever \code{rownames()} returns;
+\code{FALSE} draws nothing.
+
+The gutter is what teaches the classic confusion: the car's name is \strong{not} a
+column of \code{mtcars}, which is why \code{mtcars$name} is \code{NULL}. \code{show_indices = "row"}
+wins the same lane, and draws \verb{[1, ]} instead.}
+
 \item{name_align}{How the column names sit over their column: \code{"center"}
 (the default), \code{"left"} or \code{"right"}.}
 
@@ -216,6 +231,11 @@ paint_data_frame(head(mtcars, 4), show_types = FALSE)
 
 # The two label lanes align independently. The values do not move.
 paint_data_frame(head(iris, 5), name_align = "left", type_align = "right")
+
+# A frame with row names of its own draws them in a gutter: the car's name is
+# not a column of mtcars, which is why `mtcars$name` is NULL. iris has no such
+# names, and draws no gutter -- a lane of 1, 2, 3 is a position, not data.
+paint_data_frame(head(mtcars, 4))
 
 # Long frames elide their middle and say so.
 paint_data_frame(iris)

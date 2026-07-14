@@ -34,6 +34,16 @@
 #' @param show_types      Draw the type-tag row (`<dbl>`, `<chr>`, ...) under the
 #'                        column names. Default: `TRUE`.
 #' @param show_names      Draw the column-name row. Default: `TRUE`.
+#' @param show_rownames   Draw the row names, in a gutter to the left of the frame.
+#'                        `NULL` (the default) draws them when the frame has names
+#'                        of its own: `mtcars` does ("Mazda RX4"), and `iris` does
+#'                        not -- a gutter of `1, 2, 3` is the row's position, not
+#'                        data about it. `TRUE` draws whatever `rownames()` returns;
+#'                        `FALSE` draws nothing.
+#'
+#'   The gutter is what teaches the classic confusion: the car's name is **not** a
+#'   column of `mtcars`, which is why `mtcars$name` is `NULL`. `show_indices = "row"`
+#'   wins the same lane, and draws `[1, ]` instead.
 #' @param name_align      How the column names sit over their column: `"center"`
 #'                        (the default), `"left"` or `"right"`.
 #' @param type_align      How the type tags sit over their column: `"center"`
@@ -87,6 +97,11 @@
 #' # The two label lanes align independently. The values do not move.
 #' paint_data_frame(head(iris, 5), name_align = "left", type_align = "right")
 #'
+#' # A frame with row names of its own draws them in a gutter: the car's name is
+#' # not a column of mtcars, which is why `mtcars$name` is NULL. iris has no such
+#' # names, and draws no gutter -- a lane of 1, 2, 3 is a position, not data.
+#' paint_data_frame(head(mtcars, 4))
+#'
 #' # Long frames elide their middle and say so.
 #' paint_data_frame(iris)
 #'
@@ -112,6 +127,7 @@ paint_data_frame <- function(
     family = "mono",
     show_types = TRUE,
     show_names = TRUE,
+    show_rownames = NULL,
     name_align = c("center", "left", "right"),
     type_align = c("center", "left", "right")) {
   force(graph_title)
@@ -146,6 +162,7 @@ paint_data_frame <- function(
     family = family,
     show_names = show_names,
     show_types = show_types,
+    show_rownames = show_rownames,
     name_align = name_align,
     type_align = type_align
   )
@@ -187,6 +204,7 @@ gpaint_data_frame <- function(
     family = "mono",
     show_types = TRUE,
     show_names = TRUE,
+    show_rownames = NULL,
     name_align = c("center", "left", "right"),
     type_align = c("center", "left", "right")) {
   force(graph_title)
@@ -218,6 +236,7 @@ gpaint_data_frame <- function(
     family = family,
     show_names = show_names,
     show_types = show_types,
+    show_rownames = show_rownames,
     name_align = name_align,
     type_align = type_align
   )

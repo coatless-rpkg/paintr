@@ -1019,3 +1019,95 @@ test_that("every base painter restores par()", {
   paint_data_frame(head(iris, 3))
   expect_equal(graphics::par(no.readonly = TRUE), before)
 })
+
+# ---------------------------------------------------------------------------
+# names and dimnames, through both backends
+#
+# The picture must not be less informative than `print()`.
+# ---------------------------------------------------------------------------
+
+lane_sig <- function(x, kind) {
+  cells <- painted_cells(x)
+  cells$sig[cells$kind == kind]
+}
+
+test_that("both backends draw a vector's names", {
+  skip_if_not_installed("ggplot2")
+  v <- c(alpha = 1, beta = 2, gamma = 3)
+
+  base <- with_null_pdf(paint_vector(v))
+  expect_equal(lane_sig(base, "rowlabel"), c("alpha", "beta", "gamma"))
+
+  g <- with_null_pdf(gpaint_vector(v))
+  expect_equal(lane_sig(g, "rowlabel"), c("alpha", "beta", "gamma"))
+
+  # Horizontal puts them over the cells instead.
+  h <- with_null_pdf(paint_vector(v, layout = "horizontal"))
+  expect_equal(lane_sig(h, "collabel"), c("alpha", "beta", "gamma"))
+
+  # And they compose with an in-cell index.
+  both <- with_null_pdf(paint_vector(v, show_indices = "inside"))
+  expect_equal(lane_sig(both, "rowlabel"), c("alpha", "beta", "gamma"))
+  expect_equal(lane_sig(both, "cellindex"), c("[1]", "[2]", "[3]"))
+
+  off <- with_null_pdf(paint_vector(v, show_names = FALSE))
+  expect_equal(length(lane_sig(off, "rowlabel")), 0L)
+  goff <- with_null_pdf(gpaint_vector(v, show_names = FALSE))
+  expect_equal(length(lane_sig(goff, "rowlabel")), 0L)
+})
+
+test_that("both backends draw a matrix's dimnames", {
+  skip_if_not_installed("ggplot2")
+  m <- matrix(1:6, nrow = 2, dimnames = list(c("r1", "r2"), c("c1", "c2", "c3")))
+
+  base <- with_null_pdf(paint_matrix(m))
+  expect_equal(lane_sig(base, "rowlabel"), c("r1", "r2"))
+  expect_equal(lane_sig(base, "collabel"), c("c1", "c2", "c3"))
+
+  g <- with_null_pdf(gpaint_matrix(m))
+  expect_equal(lane_sig(g, "rowlabel"), c("r1", "r2"))
+  expect_equal(lane_sig(g, "collabel"), c("c1", "c2", "c3"))
+
+  # The doc example: the name above the column, the accessor under the value.
+  both <- with_null_pdf(paint_matrix(m, show_indices = "cell"))
+  expect_equal(lane_sig(both, "collabel"), c("c1", "c2", "c3"))
+  expect_true("[2, 3]" %in% lane_sig(both, "cellindex"))
+
+  # An index lane the user asked for wins over the names on that axis.
+  idx <- with_null_pdf(paint_matrix(m, show_indices = "row"))
+  expect_equal(lane_sig(idx, "rowlabel"), c("[1, ]", "[2, ]"))
+  expect_equal(lane_sig(idx, "collabel"), c("c1", "c2", "c3"))
+
+  none <- with_null_pdf(paint_matrix(m, show_dimnames = "none"))
+  expect_equal(length(lane_sig(none, "rowlabel")), 0L)
+  expect_equal(length(lane_sig(none, "collabel")), 0L)
+
+  gnone <- with_null_pdf(gpaint_matrix(m, show_dimnames = c("none")))
+  expect_equal(length(lane_sig(gnone, "collabel")), 0L)
+
+  expect_error(paint_matrix(m, show_dimnames = "banana"), "must be one or more of")
+  expect_error(gpaint_matrix(m, show_dimnames = "banana"), "must be one or more of")
+})
+
+test_that("both backends draw a data frame's row names, when they are real", {
+  skip_if_not_installed("ggplot2")
+  df <- head(mtcars[, 1:3], 3)
+  # The gutter keeps `max_chars`, and "Mazda RX4 Wag" is one character over it.
+  rn <- c("Mazda RX4", "Mazda RX4...", "Datsun 710")
+
+  base <- with_null_pdf(paint_data_frame(df))
+  expect_equal(lane_sig(base, "rowlabel"), rn)
+  # And never the column names twice.
+  expect_equal(length(lane_sig(base, "collabel")), 0L)
+  expect_equal(lane_sig(base, "header"), names(df))
+
+  g <- with_null_pdf(gpaint_data_frame(df))
+  expect_equal(lane_sig(g, "rowlabel"), rn)
+
+  # iris has no row names of its own: a gutter of 1, 2, 3 is noise.
+  plain <- with_null_pdf(paint_data_frame(head(iris, 3)))
+  expect_equal(length(lane_sig(plain, "rowlabel")), 0L)
+
+  off <- with_null_pdf(paint_df(df, show_rownames = FALSE))
+  expect_equal(length(lane_sig(off, "rowlabel")), 0L)
+})
