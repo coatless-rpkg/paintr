@@ -873,6 +873,17 @@ test_that("axis_names() reads the accessor, and refuses a data frame's column ax
   expect_null(axis_names(c(1, 2), "row"))
 })
 
+test_that("axis_names() does not go out of bounds on a 1-D dimnamed array", {
+  # `dimnames()` on a 1-D array is a list of length 1, so the hard-coded
+  # `[[2L]]` a plain matrix gets away with is out of bounds here. Unreachable
+  # through paint_cells() today (both callers are guarded upstream), but the
+  # helper is meant to be reused, so it must degrade sanely on its own.
+  a <- array(1:3, 3, dimnames = list(c("x", "y", "z")))
+  expect_equal(length(dimnames(a)), 1L)
+  expect_equal(axis_names(a, "row"), c("x", "y", "z"))
+  expect_null(axis_names(a, "column"))
+})
+
 test_that("a named vector draws its names, in the lane its layout gives it", {
   v <- c(alpha = 1, beta = 2, gamma = 3)
 
@@ -1005,6 +1016,28 @@ test_that("a data frame grows a row-name gutter only when the names are real", {
   # And an index lane still wins over them.
   idx <- paint_cells(head(mtcars, 2), show_indices = "row")
   expect_equal(idx$sig[idx$kind == "rowlabel"], c("[1, ]", "[2, ]"))
+})
+
+test_that("has_row_names() is not fooled by ordinals wearing a different type", {
+  # `identical()` compares type as well as value: character row names reading
+  # "1", "2", "3" -- exactly what `as.data.frame(as.matrix(...))` produces --
+  # are not `identical()` to the integer `seq_len(n)`, and used to slip past
+  # the guard and draw the ordinal-noise gutter it exists to suppress.
+  d <- as.data.frame(as.matrix(head(iris, 3)))
+  expect_true(is.character(row.names(d)))
+  expect_equal(row.names(d), c("1", "2", "3"))
+  expect_false(has_row_names(d))
+  expect_equal(sum(paint_cells(d)$kind == "rowlabel"), 0L)
+
+  # Every previously verified case still holds.
+  expect_true(has_row_names(mtcars))
+  expect_false(has_row_names(iris))
+  expect_false(has_row_names(head(iris, 5)))
+  expect_true(has_row_names(iris[c(50, 100), ]))
+
+  df <- data.frame(x = 1:3)
+  rownames(df) <- c("alpha", "beta", "gamma")
+  expect_true(has_row_names(df))
 })
 
 test_that("names truncate at the cap on the shared lane and at max_chars on the free one", {

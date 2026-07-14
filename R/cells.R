@@ -407,7 +407,14 @@ axis_names <- function(data, axis = c("row", "column")) {
     if (is.null(dn)) {
       return(NULL)
     }
-    return(dn[[if (axis == "row") 1L else 2L]])
+    slot <- if (axis == "row") 1L else 2L
+    # A 1-D dimnamed array has a dimnames list of length 1: there is no
+    # second slot to ask for a column axis's names, and reaching for it
+    # unconditionally is out of bounds.
+    if (slot > length(dn)) {
+      return(NULL)
+    }
+    return(dn[[slot]])
   }
   names(data)
 }
@@ -444,7 +451,12 @@ has_row_names <- function(data) {
     return(FALSE)
   }
   rn <- attr(data, "row.names")
-  !identical(rn, seq_len(nrow(data)))
+  # `identical()` is type-strict: character row names reading "1", "2", "3"
+  # (which `as.data.frame(as.matrix(...))` produces) are not `identical()` to
+  # the integer `seq_len(n)`, and would otherwise slip past this guard and
+  # draw the ordinal-noise gutter it exists to suppress. Comparing as
+  # character on both sides catches that case without disturbing any other.
+  !identical(as.character(rn), as.character(seq_len(nrow(data))))
 }
 
 #' Names, with no `NA` left in them
