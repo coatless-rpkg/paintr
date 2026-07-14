@@ -18,8 +18,17 @@
 #'
 #' @section Supported structures:
 #' Methods exist for `numeric`, `integer`, `character`, `logical`, `complex`,
-#' `factor`, `Date`, `POSIXct`, `matrix`, `array`, `table`, and `data.frame`.
-#' Anything else is an error.
+#' `factor`, `Date`, `POSIXct`, `matrix`, `array`, `table`, `data.frame`, and a
+#' bare `list`. Anything else is an error.
+#'
+#' A **list**'s mask is positions by elements, because that is how [paint_list()]
+#' draws it: `columns` select elements (by name, `names(x)`, as well as by number)
+#' and `rows` select positions within them. It is as deep as the deepest element.
+#'
+#' A list carrying a class -- `as.POSIXlt(Sys.time())`, an `lm`, a `t.test()`
+#' result -- is **not** a list for these purposes and is refused, exactly as
+#' [paint_list()] refuses it. `is.list()` is TRUE for all of them, which is why the
+#' question is never asked that way; see the note on `is_paint_list()`.
 #'
 #' The governing invariant: **if a painter can draw a structure, `highlight_data()`
 #' must be able to mask it** -- and a *wrong* mask is worse than an error, so a
@@ -194,6 +203,34 @@ highlight_data.table <- function(x, rows = NULL, columns = NULL, locations = NUL
 
 #' @rdname highlight-data
 #' @export
+highlight_data.list <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
+  # THE GATE IS THE PAINTER'S, EXACTLY. `is_paint_list()` is what `paint_list()`
+  # will draw, and a mask for anything else is a mask nothing could consume. The
+  # dispatcher does almost all of the work already -- a POSIXlt, an lm, an htest and
+  # a by all dispatch on their OWN class and land in `.default` -- and this line
+  # closes the one door dispatch leaves open, a list carrying a `dim`.
+  if (!is_paint_list(x)) {
+    stop("We currently do not support the data structure of: ", class(x))
+  }
+
+  # A LIST'S MASK IS POSITIONS BY ELEMENTS. `rows` select positions WITHIN each
+  # element and `columns` select elements, which is what `paint_list()` draws: the
+  # elements are the columns. The mask is as deep as the DEEPEST element, so a
+  # ragged list's mask is the bounding box of the data -- the entries over the end
+  # of a short element name cells that do not exist, and the painter never reads
+  # them.
+  logical_matrix <- matrix(FALSE, nrow = list_mask_rows(x), ncol = length(x))
+
+  # Nothing to mark.
+  if (is.null(rows) && is.null(columns) && is.null(locations)) {
+    return(logical_matrix)
+  }
+
+  highlight_fill_2d(logical_matrix, x, rows, columns, locations)
+}
+
+#' @rdname highlight-data
+#' @export
 highlight_data.data.frame <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
 
   # Create a logical matrix with the same dimensions as 'x'
@@ -300,9 +337,16 @@ highlight_fill_2d <- function(mask, x, rows, columns, locations) {
   n_row <- nrow(mask)
   n_col <- ncol(mask)
 
-  # A data frame's row and column names do not live where a matrix's do.
+  # A data frame's row and column names do not live where a matrix's do -- and a
+  # list's live in a third place again. Its COLUMNS are its elements, so its column
+  # names are `names(x)`; its ROWS are positions inside an element, which have no
+  # names at all, and asking `dimnames()` for them would silently hand back NULL for
+  # both and lose `highlight_columns(l, "b")`.
   if (is.data.frame(x)) {
     row_names <- rownames(x)
+    col_names <- names(x)
+  } else if (is_paint_list(x)) {
+    row_names <- NULL
     col_names <- names(x)
   } else {
     dn <- dimnames(x)

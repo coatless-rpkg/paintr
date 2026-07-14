@@ -527,7 +527,7 @@ test_that("an invalid name_align or type_align is an error", {
   expect_error(paint_cells(df, type_align = "decimal"))
 })
 
-test_that("a long string truncates with an ASCII ellipsis, and a list column is a placeholder", {
+test_that("a long string truncates with an ASCII ellipsis, and a list column says what is in it", {
   df <- data.frame(s = "supercalifragilistic", stringsAsFactors = FALSE)
   df$lst <- list(1:3)
   cells <- paint_cells(df)
@@ -535,12 +535,16 @@ test_that("a long string truncates with an ASCII ellipsis, and a list column is 
 
   expect_equal(v$sig[v$j == 1], "supercali...")
   expect_equal(nchar(v$sig[v$j == 1]), 12L)
-  expect_equal(v$sig[v$j == 2], "<list>")
+  # PER ELEMENT, not one constant over the column. It used to say `<list>` in every
+  # cell of every list column -- the same six characters whatever was in there --
+  # which told the reader nothing at all, not even that the entries differed. The
+  # TYPE lane still says `<list>`, because the COLUMN genuinely is a list.
+  expect_equal(v$sig[v$j == 2], "<int [3]>")
   expect_equal(v$ink[v$j == 2], "grey50")
   expect_equal(cells$sig[cells$kind == "type"], c("<chr>", "<list>"))
 })
 
-test_that("an AsIs list column is still a <list> placeholder", {
+test_that("an AsIs list column still reaches paint_format.list()", {
   # data.frame(x = I(list(...))) is the ONLY way to build a list column with
   # data.frame(), and it gives the column class "AsIs". paint_format() then
   # dispatches to .default and renders "1, 2, 3". The cell builder strips the
@@ -550,7 +554,7 @@ test_that("an AsIs list column is still a <list> placeholder", {
 
   cells <- paint_cells(df)
   v <- cells[cells$kind == "value", ]
-  expect_equal(v$sig[v$j == 2], "<list>")
+  expect_equal(v$sig[v$j == 2], "<int [3]>")
   expect_equal(v$ink[v$j == 2], "grey50")
 
   # An AsIs atomic vector still reaches its own method.

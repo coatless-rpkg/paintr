@@ -98,8 +98,16 @@ paint_size <- function(data, ...,
   # `paint_cells()` has now vetted the structure, so this cannot be asked of a
   # 3-D array. A vector gets `paint_vector()`'s subtitle; a matrix and a data frame
   # get the one the grid painters use.
+  #
+  # A LIST NEEDS ITS OWN ARM, and it is not optional. `dims_subtitle()` calls
+  # `nrow()` and `ncol()`, both of which are NULL for a list, and `paste0()` DROPS a
+  # NULL instead of erroring -- so a list would reserve its chrome against the string
+  # "Dimensions:  rows x  columns", which is both a wrong width and, since the same
+  # default is what the painter itself will draw, a wrong picture.
   graph_subtitle <- if (is_paint_vector(data)) {
     vector_subtitle(data)
+  } else if (is_paint_list(data)) {
+    list_subtitle(data)
   } else {
     dims_subtitle(data)
   }

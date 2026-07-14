@@ -14,6 +14,7 @@
 \alias{highlight_data.matrix}
 \alias{highlight_data.array}
 \alias{highlight_data.table}
+\alias{highlight_data.list}
 \alias{highlight_data.data.frame}
 \alias{highlight_data.default}
 \alias{highlight_rows}
@@ -46,6 +47,8 @@ highlight_data(x, rows = NULL, columns = NULL, locations = NULL, ...)
 \method{highlight_data}{array}(x, rows = NULL, columns = NULL, locations = NULL, ...)
 
 \method{highlight_data}{table}(x, rows = NULL, columns = NULL, locations = NULL, ...)
+
+\method{highlight_data}{list}(x, rows = NULL, columns = NULL, locations = NULL, ...)
 
 \method{highlight_data}{data.frame}(x, rows = NULL, columns = NULL, locations = NULL, ...)
 
@@ -83,8 +86,17 @@ Generate a logical structure codifies active areas.
 \section{Supported structures}{
 
 Methods exist for \code{numeric}, \code{integer}, \code{character}, \code{logical}, \code{complex},
-\code{factor}, \code{Date}, \code{POSIXct}, \code{matrix}, \code{array}, \code{table}, and \code{data.frame}.
-Anything else is an error.
+\code{factor}, \code{Date}, \code{POSIXct}, \code{matrix}, \code{array}, \code{table}, \code{data.frame}, and a
+bare \code{list}. Anything else is an error.
+
+A \strong{list}'s mask is positions by elements, because that is how \code{\link[=paint_list]{paint_list()}}
+draws it: \code{columns} select elements (by name, \code{names(x)}, as well as by number)
+and \code{rows} select positions within them. It is as deep as the deepest element.
+
+A list carrying a class -- \code{as.POSIXlt(Sys.time())}, an \code{lm}, a \code{t.test()}
+result -- is \strong{not} a list for these purposes and is refused, exactly as
+\code{\link[=paint_list]{paint_list()}} refuses it. \code{is.list()} is TRUE for all of them, which is why the
+question is never asked that way; see the note on \code{is_paint_list()}.
 
 The governing invariant: \strong{if a painter can draw a structure, \code{highlight_data()}
 must be able to mask it} -- and a \emph{wrong} mask is worse than an error, so a

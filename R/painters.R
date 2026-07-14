@@ -36,9 +36,10 @@
 #' @param max_rows,max_cols,show_all Elision, passed to `paint_cells()`.
 #' @param fontsize,family Passed to `paint_opts()`.
 #' @param layout Vectors only.
-#' @param show_names Data frames (the column-name row) and vectors (their
+#' @param summarise Lists only: one cell per element, saying what it is.
+#' @param show_names Data frames and lists (the column-name row) and vectors (their
 #'   `names()`).
-#' @param show_types Data frames only.
+#' @param show_types Data frames and lists only.
 #' @param show_dimnames Matrices only. Already checked by the painter.
 #' @param show_rownames Data frames only. `NULL` decides on the data.
 #' @param max_name_chars The cap on a name lane that shares a formatting unit with
@@ -63,6 +64,7 @@ painter_prep <- function(data,
                          fontsize,
                          family,
                          layout = "vertical",
+                         summarise = FALSE,
                          show_names = TRUE,
                          show_types = TRUE,
                          show_dimnames = "all",
@@ -82,6 +84,7 @@ painter_prep <- function(data,
     highlight_color = highlight_color,
     show_indices = show_indices,
     layout = layout,
+    summarise = summarise,
     show_names = show_names,
     show_types = show_types,
     show_dimnames = show_dimnames,
@@ -243,6 +246,42 @@ vector_subtitle <- function(data) {
   )
 }
 
+#' The default subtitle for a list
+#'
+#' **A LIST HAS NO DIMENSIONS, AND `dims_subtitle()` WOULD SAY SO IN THE WORST
+#' POSSIBLE WAY.** `nrow()` and `ncol()` are NULL for a list, and `paste0()` drops a
+#' NULL rather than erroring, so the line would come out as the literal
+#' "Dimensions:  rows x  columns" -- a blank where the number should be, on every
+#' picture, silently. What a list has instead is a LENGTH, in elements, exactly as a
+#' vector does.
+#'
+#' The element lengths are what make it a list rather than a data frame, so the line
+#' reports their range. `list(a = 1:4, b = "x", c = c(TRUE, FALSE, NA))` reads "3
+#' elements of length 1 to 4"; a list whose elements happen to share a length -- a
+#' data frame in all but class -- reads "of length 3", and the reader can see for
+#' themselves that it is a rectangle.
+#'
+#' @param data The list, before any elision.
+#'
+#' @return A length-one character string.
+#'
+#' @keywords internal
+#' @noRd
+list_subtitle <- function(data) {
+  n <- lengths(data, use.names = FALSE)
+  span <- if (length(n) == 0L) {
+    ""
+  } else if (min(n) == max(n)) {
+    paste0(" of length ", min(n))
+  } else {
+    paste0(" of length ", min(n), " to ", max(n))
+  }
+  paste0(
+    "Length: ", length(data), " element", if (length(data) != 1L) "s" else "", span,
+    " | Data Type: ", paste(class(data), collapse = ", ")
+  )
+}
+
 #' Apply the subtitle contract
 #'
 #' @param graph_subtitle What the user passed: `NULL`, `NA`, `""`, or a string.
@@ -291,4 +330,45 @@ require_ggplot2 <- function() {
 #' @noRd
 is_paint_vector <- function(x) {
   is.atomic(x) && is.null(dim(x)) && !is.data.frame(x)
+}
+
+#' Is this something `paint_list()` will draw?
+#'
+#' **NOT `is.list(x) && !is.data.frame(x) && is.null(dim(x))`.** That test is the
+#' same family of trap as `inherits(1:3, "vector")` being FALSE, which this package
+#' has now been bitten by twice, and it is just as silent: R's list is a STORAGE
+#' MODE, not a concept, and every S3 class that keeps its innards in one answers
+#' `is.list()` with TRUE. All of these are verified:
+#'
+#' ```
+#' is.list(as.POSIXlt(Sys.time()))   # TRUE -- dim NULL, not a data frame
+#' is.list(lm(mpg ~ cyl, mtcars))    # TRUE
+#' is.list(t.test(1:10))             # TRUE
+#' is.list(by(...))                  # TRUE
+#' ```
+#'
+#' Under the naive test, `paint_list(as.POSIXlt(Sys.time()))` would draw a datetime
+#' as ELEVEN ragged columns of `sec`, `min`, `hour`, `mday`, `mon`, `year`, ... --
+#' a wrong picture of the object, produced confidently, with no error. A fitted
+#' model would draw as its internals. That is worse than refusing.
+#'
+#' A BARE LIST HAS NO CLASS ATTRIBUTE. `attr(list(a = 1), "class")` is NULL, and
+#' `attr()` -- unlike `class()`, which invents an implicit class for everything --
+#' answers the question actually being asked: has anyone declared this to be
+#' something more than a list? `oldClass()` would do as well; `attr()` says it
+#' plainly.
+#'
+#' `is.null(dim(x))` is not redundant. `dim(l) <- c(2, 2)` on a list is legal, and
+#' that object is a matrix of list cells, not a list of vectors.
+#'
+#' **`highlight_data()`'s method set must agree with this function exactly**, or the
+#' two disagree about what a list is. It does, and by construction rather than by
+#' coincidence: a bare list dispatches to `highlight_data.list()` on its implicit
+#' class, and every classed list above dispatches on its own class instead and lands
+#' in `.default`, which refuses. `test-dispatch.R` pins the whole battery.
+#'
+#' @keywords internal
+#' @noRd
+is_paint_list <- function(x) {
+  is.list(x) && is.null(attr(x, "class")) && is.null(dim(x))
 }

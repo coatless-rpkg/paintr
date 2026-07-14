@@ -116,6 +116,75 @@ test_that("gpaint_data_frame() draws every atomic type", {
   })
 })
 
+test_that("paint_list() draws every atomic type, as an element", {
+  withr_opt <- options(paintr.warn_floor = FALSE)
+  on.exit(options(withr_opt), add = TRUE)
+
+  with_null_pdf({
+    for (nm in names(inputs)) {
+      l <- list(x = inputs[[nm]], y = 1:2)
+      expect_no_error(paint_list(l), message = nm)
+      expect_no_error(paint_list(l, summarise = TRUE), message = nm)
+      expect_no_error(paint_list(l, show_indices = "cell"), message = nm)
+    }
+  })
+})
+
+test_that("gpaint_list() draws every atomic type, as an element", {
+  skip_if_not_installed("ggplot2")
+  withr_opt <- options(paintr.warn_floor = FALSE)
+  on.exit(options(withr_opt), add = TRUE)
+
+  with_null_pdf({
+    for (nm in names(inputs)) {
+      expect_no_error(print(gpaint_list(list(x = inputs[[nm]], y = 1:2))), message = nm)
+    }
+  })
+})
+
+test_that("THE TYPE GATE: every list-backed S3 class is refused, by painter and by mask", {
+  # `is.list()` is TRUE for every one of these, and a naive gate would draw
+  # as.POSIXlt(Sys.time()) as ELEVEN ragged columns of sec/min/hour/mday/... -- a
+  # wrong picture of a datetime, drawn confidently, with no error. It is the same
+  # family as `inherits(1:3, "vector")` being FALSE, which this package has already
+  # been bitten by twice.
+  #
+  # THE PAINTER AND THE MASK MUST AGREE ABOUT WHAT A LIST IS, or one of them draws
+  # what the other cannot describe. They are asserted together, here, on one battery.
+  classed <- list(
+    data.frame = data.frame(a = 1:2),
+    POSIXlt    = as.POSIXlt(Sys.time()),
+    lm         = stats::lm(mpg ~ cyl, mtcars),
+    htest      = stats::t.test(1:10),
+    by         = by(warpbreaks[, 1:2], warpbreaks[, "tension"], summary)
+  )
+
+  with_null_pdf({
+    for (nm in names(classed)) {
+      expect_true(is.list(classed[[nm]]), info = nm)
+      expect_false(is_paint_list(classed[[nm]]), info = nm)
+      expect_error(paint_list(classed[[nm]]), "`list` type", info = nm)
+      expect_error(gpaint_list(classed[[nm]]), "`list` type", info = nm)
+    }
+    # A data frame is masked (it is painted, by paint_data_frame()); the rest are not.
+    expect_no_error(highlight_data(classed$data.frame, columns = 1))
+    for (nm in setdiff(names(classed), "data.frame")) {
+      expect_error(highlight_data(classed[[nm]], rows = 1), "do not support", info = nm)
+    }
+    # A tibble is a data frame all the way down, and both halves agree about that.
+    # Built here rather than depended on: a tibble IS this object, and what is under
+    # test is the class vector, not the package.
+    tb <- structure(
+      list(a = 1:2),
+      class = c("tbl_df", "tbl", "data.frame"), row.names = c(NA, -2L)
+    )
+    expect_false(is_paint_list(tb))
+    expect_error(paint_list(tb), "`list` type")
+    expect_no_error(paint_data_frame(tb))
+    expect_no_error(highlight_data(tb, columns = 1))
+  })
+})
+
 # ---------------------------------------------------------------------------
 # Bug 5: highlight_data() on the types that used to fall through to .default
 # ---------------------------------------------------------------------------
@@ -838,7 +907,13 @@ test_that("paint_size(): the recommended size DRAWS, for every structure", {
     list(nm = "matrix",           d = matrix(1:600, nrow = 30), p = paint_matrix,   all = FALSE),
     list(nm = "matrix show_all",  d = matrix(1:600, nrow = 30), p = paint_matrix,   all = TRUE),
     list(nm = "data frame",       d = iris,                   p = paint_data_frame, all = FALSE),
-    list(nm = "data frame all",   d = iris,                   p = paint_data_frame, all = TRUE)
+    list(nm = "data frame all",   d = iris,                   p = paint_data_frame, all = TRUE),
+    # A list has no nrow() and no ncol(), so `dims_subtitle()` would reserve the
+    # chrome against the literal string "Dimensions:  rows x  columns" -- a wrong
+    # width, and the wrong line. The ragged one is the case that matters: its
+    # bounding box is not its size.
+    list(nm = "list",             d = list(a = 1:30, b = "x", c = 1:3), p = paint_list, all = FALSE),
+    list(nm = "list show_all",    d = list(a = 1:30, b = "x", c = 1:3), p = paint_list, all = TRUE)
   )
 
   for (cs in cases) {
@@ -1017,6 +1092,9 @@ test_that("every base painter restores par()", {
   expect_equal(graphics::par(no.readonly = TRUE), before)
 
   paint_data_frame(head(iris, 3))
+  expect_equal(graphics::par(no.readonly = TRUE), before)
+
+  paint_list(list(a = 1:4, b = "x"))
   expect_equal(graphics::par(no.readonly = TRUE), before)
 })
 

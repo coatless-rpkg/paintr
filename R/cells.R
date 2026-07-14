@@ -98,16 +98,25 @@ drawn_pos <- function(keep, gap) {
 #' -- so the two counts are summed rather than reported separately: the other is
 #' always 0.
 #'
+#' **A LIST HAS NEITHER.** Its columns are ELEMENTS and its rows are the VALUES
+#' inside an element, and calling those "rows" and "columns" would teach the very
+#' thing `paint_list()` exists to un-teach -- that the third value of one element
+#' and the third value of the next are a record. `nouns` is that fact, threaded in
+#' as data, exactly as `is_vec` is.
+#'
 #' @param hidden_rows,hidden_cols Counts from [elide_index()].
 #' @param is_vec Is the structure a vector? Then it has elements, not rows and
 #'   columns.
+#' @param nouns What this structure's rows and columns are called: `c("row",
+#'   "column")` for a grid, `c("value", "element")` for a list.
 #'
 #' @return A length-one character string, or `NA_character_` when nothing is
 #'   hidden.
 #'
 #' @keywords internal
 #' @noRd
-elide_note <- function(hidden_rows, hidden_cols, is_vec = FALSE) {
+elide_note <- function(hidden_rows, hidden_cols, is_vec = FALSE,
+                       nouns = c("row", "column")) {
   if (isTRUE(is_vec)) {
     n <- hidden_rows + hidden_cols
     if (n <= 0L) {
@@ -118,10 +127,14 @@ elide_note <- function(hidden_rows, hidden_cols, is_vec = FALSE) {
 
   parts <- character(0)
   if (hidden_rows > 0L) {
-    parts <- c(parts, paste0(hidden_rows, " more row", if (hidden_rows != 1L) "s" else ""))
+    parts <- c(parts, paste0(
+      hidden_rows, " more ", nouns[[1L]], if (hidden_rows != 1L) "s" else ""
+    ))
   }
   if (hidden_cols > 0L) {
-    parts <- c(parts, paste0(hidden_cols, " more column", if (hidden_cols != 1L) "s" else ""))
+    parts <- c(parts, paste0(
+      hidden_cols, " more ", nouns[[2L]], if (hidden_cols != 1L) "s" else ""
+    ))
   }
   if (length(parts) == 0L) {
     return(NA_character_)
@@ -510,34 +523,157 @@ lane_text <- function(nms, idx, max_chars = 8L, ellipsis = "...") {
   truncate_chr(normalize_names(nms), max_chars, ellipsis)
 }
 
+# ---------------------------------------------------------------------------
+# lists
+# ---------------------------------------------------------------------------
+
+#' Is this element drawn as CELLS, or as one token?
+#'
+#' A cell of `paint_list()` is one POSITION of a one-dimensional atomic vector.
+#' That is the whole of the rule, and everything else follows from it:
+#'
+#'   * a matrix element has no positions this picture can lay in a column -- it has
+#'     a *shape*, and flattening it into 4 cells would draw a wrong picture of it;
+#'   * a data frame element likewise;
+#'   * a SUBLIST has positions, and drawing them is exactly the NESTING this
+#'     painter refuses (see `?paint_list`);
+#'   * a zero-length element has no positions at all, and an empty column reads as
+#'     a bug rather than as `integer(0)`.
+#'
+#' Each of those is drawn as ONE cell holding [elem_sum()]'s description of it.
+#'
+#' `!is.null(x)` is not redundant with `is.atomic(x)`: `is.atomic(NULL)` was TRUE
+#' before R 4.4.0 and is FALSE from it, and this package supports R >= 4.2.0. The
+#' explicit test makes the answer the same on every one of them.
+#'
+#' @param x One element of a list.
+#'
+#' @return `TRUE` when the element is drawn as one cell per value.
+#'
+#' @keywords internal
+#' @noRd
+elem_expands <- function(x) {
+  !is.null(x) && is.atomic(x) && is.null(dim(x)) && length(x) > 0L
+}
+
+#' Rows of a list's highlight mask
+#'
+#' A list's mask is POSITIONS by ELEMENTS, and its shape is a fact about the DATA,
+#' so `summarise` -- which is a fact about the drawing -- must not change it: the
+#' same `highlight_columns(l, "b")` has to work with and without it. A summarised
+#' element's one cell is filled when ANY of its positions is marked.
+#'
+#' The `1L` floor keeps a list of nothing but `NULL`s from producing a mask with
+#' no rows, which nothing could then be indexed out of.
+#'
+#' @param data A bare list.
+#'
+#' @return A single integer.
+#'
+#' @keywords internal
+#' @noRd
+list_mask_rows <- function(data) {
+  max(1L, lengths(data, use.names = FALSE))
+}
+
+#' What a list's header lane draws over each element
+#'
+#' **THIS IS THE ONE PLACE IN THE PACKAGE WHERE A LABEL LANE FALLS BACK PER
+#' ELEMENT, AND IT IS DELIBERATE.** Every other lane holds exactly one thing --
+#' names, or indices, never a mixture -- because an axis is named or it is not. A
+#' LIST IS THE EXCEPTION: `names(list(a = 1, 2))` is `c("a", "")`, so an element is
+#' named or unnamed ON ITS OWN, and R itself falls back element by element:
+#'
+#' ```
+#' > print(list(a = 1, 2))
+#' $a
+#' [1] 1
+#'
+#' [[2]]
+#' [1] 2
+#' ```
+#'
+#' The lane draws what `print()` draws, and both halves are the expression that
+#' fetches the element -- which is the promise the whole package is built on.
+#'
+#' A name that is not a syntactic name gets `[["my name"]]` rather than
+#' `$my name`, because the second one is not something you can type. (`$` needs
+#' backticks there, and a label the reader cannot type is worse than a longer one
+#' they can.)
+#'
+#' @param nms `names(data)`, which may be `NULL`.
+#' @param j The drawn elements' original indices.
+#' @param max_chars Truncation width for a name. A list's header lane is FREE --
+#'   each element is its own formatting unit, so a long name widens its own column
+#'   and no other -- which is why it takes the full `max_chars` rather than a
+#'   matrix's tighter `max_name_chars` cap.
+#' @param ellipsis The truncation mark.
+#'
+#' @return A character vector as long as `j`.
+#'
+#' @keywords internal
+#' @noRd
+list_header <- function(nms, j, max_chars = 12L, ellipsis = "...") {
+  out <- paste0("[[", j, "]]")
+  if (is.null(nms)) {
+    return(out)
+  }
+  nm <- normalize_names(nms)[j]
+  named <- !is.na(nm) & nzchar(nm)
+  if (!any(named)) {
+    return(out)
+  }
+  # Syntacticness is asked of the WHOLE name, before truncation: a name is
+  # typeable or it is not, and a truncation is the reader's problem to see, not a
+  # fact about the object.
+  syntactic <- nm[named] == make.names(nm[named])
+  short <- truncate_chr(nm[named], max_chars, ellipsis)
+  out[named] <- ifelse(syntactic, paste0("$", short), paste0("[[\"", short, "\"]]"))
+  out
+}
+
 #' Build the cell table
 #'
-#' The one builder for all three structures. It elides first and formats second,
+#' The one builder for all four structures. It elides first and formats second,
 #' so the formatting unit is the *visible slice*: a hidden outlier cannot change
 #' how the visible cells look.
 #'
 #' The formatting unit is carried as data, in `fmt_group`: `1L` for every cell of
 #' a matrix or a vector (one unit, so the same value looks identical in every
-#' cell), and the column's own ordinal for a data frame (one unit per column,
-#' because a data frame's columns are independent variables).
+#' cell), and the column's own ordinal for a data frame or a list (one unit per
+#' column, because their columns are independent variables).
+#'
+#' RAGGEDNESS IS CARRIED AS DATA TOO, in `col_len` -- the drawn length of each data
+#' column. **`col_len` is to raggedness what `fmt_group` is to formatting:** every
+#' rectangular structure is the degenerate case where every entry is EQUAL, so
+#' there is no list code path, only a list *value*. It never reaches the cell
+#' table; it is local to this function, and its only consumer is `elide_index()`,
+#' which is asked the same question once per column instead of once per table.
+#'
+#' A data frame IS a list whose elements happen to share a length. That sentence is
+#' this function's structure, not a slogan about it.
 #'
 #' The result is a **bare** data frame. It deliberately has no class and no print
 #' method: a print method is a trap, because `expect_snapshot()` would dispatch to
 #' it and silently stop catching coordinate regressions.
 #'
-#' @param data A vector, matrix, or data frame.
+#' @param data A vector, matrix, data frame, or bare list.
 #' @param highlight_area `NULL`, a length-one logical, or a logical mask shaped
-#'   like `data`.
+#'   like `data`. A list's mask is POSITIONS by ELEMENTS -- see
+#'   [list_mask_rows()].
 #' @param highlight_color The fill for a highlighted cell.
 #' @param show_indices For a matrix or data frame, any number of `"none"`,
 #'   `"cell"`, `"row"`, `"column"`, `"all"` -- the lanes are independent, so
 #'   `c("row", "column")` turns on both. For a vector, exactly one of `"none"`,
-#'   `"inside"`, `"outside"`, which are mutually exclusive.
+#'   `"inside"`, `"outside"`, which are mutually exclusive. For a list, `"none"`,
+#'   `"cell"` or `"all"`, where `"cell"` draws `[[j]][i]` under each value.
 #' @param layout Vectors only: `"vertical"` (an n by 1 grid) or `"horizontal"`.
-#' @param show_names For a data frame, draw the column-name row. For a vector, draw
-#'   its `names()` in the label lane its layout gives it. A logical scalar, because
-#'   `names()` returns one vector.
-#' @param show_types Data frames only: draw the type-tag row.
+#' @param summarise Lists only: draw every element as ONE cell saying what it is
+#'   (`<int [3]>`) rather than as one cell per value.
+#' @param show_names For a data frame or a list, draw the column-name row. For a
+#'   vector, draw its `names()` in the label lane its layout gives it. A logical
+#'   scalar, because `names()` returns one vector.
+#' @param show_types Data frames and lists only: draw the type-tag row.
 #' @param show_dimnames Matrices only: any number of `"none"`, `"row"`, `"column"`,
 #'   `"all"`. A character VECTOR, because `dimnames()` returns a LIST with one slot
 #'   per axis and a scalar cannot express the rownames-only case.
@@ -557,7 +693,7 @@ lane_text <- function(nms, idx, max_chars = 8L, ellipsis = "...") {
 #'   [paint_format()].
 #' @param max_rows,max_cols Elision thresholds. `NULL` takes the default for the
 #'   structure: 20 for a matrix or vector, 10 for a data frame (its columns are
-#'   wide).
+#'   wide), and 10 by 8 for a list (its columns are as wide as a NAME).
 #' @param show_all Skip elision entirely.
 #'
 #' @return A bare data frame with one row per drawn cell and the columns `i`, `j`,
@@ -573,6 +709,7 @@ paint_cells <- function(data,
                         highlight_color = "lemonchiffon",
                         show_indices = "none",
                         layout = c("vertical", "horizontal"),
+                        summarise = FALSE,
                         show_names = TRUE,
                         show_types = TRUE,
                         show_dimnames = "all",
@@ -598,31 +735,67 @@ paint_cells <- function(data,
 
   # -- what are we drawing? ---------------------------------------------------
   is_df <- is.data.frame(data)
+  # A BARE list, and nothing else. `is.list()` alone is far too wide: it is TRUE
+  # for `as.POSIXlt(Sys.time())` (which would draw as ELEVEN ragged columns of
+  # sec/min/hour/... -- a wrong picture of a datetime), for `lm()`, for `t.test()`,
+  # for `by()`, and for every other S3 class that keeps its innards in a list. See
+  # `is_paint_list()`.
+  is_list <- !is_df && is_paint_list(data)
   dims <- dim(data)
   # A 1-D or 3-D array is neither a vector nor a grid. Catch it before it can be
   # silently flattened.
-  if (!is_df && !is.null(dims) && length(dims) != 2L) {
+  if (!is_df && !is_list && !is.null(dims) && length(dims) != 2L) {
     stop("paintr can only draw one- and two-dimensional structures.")
   }
-  is_mat <- !is_df && !is.null(dims)
-  is_vec <- !is_df && !is_mat
+  is_mat <- !is_df && !is_list && !is.null(dims)
+  is_vec <- !is_df && !is_mat && !is_list
 
-  if (is_df || is_mat) {
-    n_row_data <- nrow(data)
-    n_col_data <- ncol(data)
-  } else if (layout == "vertical") {
-    n_row_data <- length(data)
-    n_col_data <- 1L
-  } else {
-    n_row_data <- 1L
+  # THE ONE NEW CONCEPT. `col_len` is the drawn length of each DATA column, and a
+  # rectangle is the case where every entry of it is equal.
+  if (is_list) {
     n_col_data <- length(data)
+    # An element is drawn as cells when it is a 1-D atomic vector, and as ONE cell
+    # -- a description of itself -- when it is anything else. `summarise` turns
+    # every element into that one cell.
+    expanded <- !isTRUE(summarise) &
+      vapply(data, elem_expands, logical(1), USE.NAMES = FALSE)
+    col_len <- ifelse(expanded, lengths(data, use.names = FALSE), 1L)
+    n_row_data <- if (n_col_data == 0L) 0L else max(col_len)
+  } else {
+    if (is_df || is_mat) {
+      n_row_data <- nrow(data)
+      n_col_data <- ncol(data)
+    } else if (layout == "vertical") {
+      n_row_data <- length(data)
+      n_col_data <- 1L
+    } else {
+      n_row_data <- 1L
+      n_col_data <- length(data)
+    }
+    expanded <- rep(TRUE, n_col_data)
+    col_len <- rep(n_row_data, n_col_data)
   }
 
   if (n_row_data == 0L || n_col_data == 0L) {
     stop("Cannot paint an empty data structure.")
   }
   # Hard ceiling. It holds even under `show_all`.
-  if (as.double(n_row_data) * as.double(n_col_data) > 1e5) {
+  #
+  # A ragged list has no `n_row * n_col` -- the product is the BOUNDING BOX, and
+  # `list(1:1e5, 1)` would be refused for 2e5 cells it does not have. The data's
+  # size is what it holds, which is `sum(lengths())`.
+  n_cell <- if (is_list) {
+    sum(as.double(lengths(data, use.names = FALSE)))
+  } else {
+    as.double(n_row_data) * as.double(n_col_data)
+  }
+  if (n_cell > 1e5) {
+    if (is_list) {
+      stop(
+        "The list has ", n_col_data, " elements holding ", format(n_cell, scientific = FALSE),
+        " values, which is more than the 100000 cells paintr will draw."
+      )
+    }
     stop(
       "The data has ", n_row_data, " rows and ", n_col_data,
       " columns, which is more than the 100000 cells paintr will draw."
@@ -635,6 +808,23 @@ paint_cells <- function(data,
     idx_cell <- show_indices == "inside"
     idx_row <- show_indices == "outside" && layout == "vertical"
     idx_col <- show_indices == "outside" && layout == "horizontal"
+  } else if (is_list) {
+    # A THIRD VOCABULARY IS NOT BUILT HERE, AND THAT IS THE POINT. A list gets
+    # exactly one index lane -- the in-cell one -- because it is the only lane whose
+    # label is true of a list: `[[j]][i]` fetches the value it is written under.
+    #
+    # The lanes that were NOT built: a shared `[i]` gutter down the left would say
+    # that `l[[1]][2]` and `l[[2]][2]` are one record. In a data frame that reading
+    # is TRUE and is the entire point of the picture. IN A LIST IT IS FALSE, and a
+    # lane that teaches a falsehood is worse than no lane. A `[[j]]` lane along the
+    # top would say nothing the header does not already say better.
+    show_indices <- check_lanes(
+      show_indices, c("none", "cell", "all"), "show_indices",
+      example = c("none", "cell")
+    )
+    idx_cell <- any(show_indices %in% c("cell", "all"))
+    idx_row <- FALSE
+    idx_col <- FALSE
   } else {
     # A grid takes a VECTOR: its three lanes are independent, so `c("row",
     # "column")` means both. `any()`, not `==`, is what makes that work.
@@ -663,9 +853,17 @@ paint_cells <- function(data,
   #
   # The names are read once, here, so that only ONE thing below has to be true: a
   # lane draws `nm_row`/`nm_col` when it is not NULL, and its index otherwise.
+  #
+  # A LIST HAS NO NAME LANE AT ALL, and it is not an oversight: its names belong to
+  # its ELEMENTS, which are its columns, and the `header` lane already draws exactly
+  # that -- the lane that exists because a data frame's columns are named variables.
+  # A list's are too. That one reuse is what makes the whole painter fit with no new
+  # tier, no rowspan, and not one line in a renderer.
   nm_row <- NULL
   nm_col <- NULL
-  if (is_vec) {
+  if (is_list) {
+    nm_row <- NULL
+  } else if (is_vec) {
     # `names()` returns ONE vector, so this is a logical scalar. The lane it lands
     # in is whichever one the layout laid the vector's single axis on.
     if (isTRUE(show_names)) {
@@ -694,14 +892,18 @@ paint_cells <- function(data,
   lane_col <- idx_col || !is.null(nm_col)
 
   # -- elide FIRST ------------------------------------------------------------
-  if (is.null(max_rows)) max_rows <- if (is_df) 10L else 20L
-  if (is.null(max_cols)) max_cols <- if (is_df) 10L else 15L
+  if (is.null(max_rows)) max_rows <- if (is_df || is_list) 10L else 20L
+  if (is.null(max_cols)) max_cols <- if (is_df) 10L else if (is_list) 8L else 15L
 
-  er <- if (isTRUE(show_all)) {
-    list(keep = seq_len(n_row_data), gap = NA_integer_, hidden = 0L)
-  } else {
-    elide_index(n_row_data, max_rows)
+  elide_one <- function(n) {
+    if (isTRUE(show_all)) {
+      list(keep = seq_len(n), gap = NA_integer_, hidden = 0L)
+    } else {
+      elide_index(n, max_rows)
+    }
   }
+
+  er <- elide_one(n_row_data)
   ec <- if (isTRUE(show_all)) {
     list(keep = seq_len(n_col_data), gap = NA_integer_, hidden = 0L)
   } else {
@@ -710,9 +912,24 @@ paint_cells <- function(data,
   ki <- er$keep
   kj <- ec$keep
 
+  # ELISION IS ASKED PER COLUMN, of `col_len` -- which for every rectangular
+  # structure is the same number in every entry, so every column gets the same
+  # answer and that answer IS `er`. The rectangle is not a special case here; it is
+  # the case where the general question has one answer.
+  #
+  # It is what makes the ragged picture honest at both ends. `elide_index()`'s head
+  # and tail counts depend only on `max_rows`, so every elided column shares one gap
+  # row and one set of drawn rows -- but a column that hides NOTHING draws no gap
+  # (a length-2 element must not announce values it does not have), and a column
+  # that hides something draws its OWN tail rather than trailing off into the empty
+  # space under a deeper element's.
+  el <- lapply(kj, function(k) elide_one(col_len[[k]]))
+
   # -- the drawn grid ---------------------------------------------------------
-  header_on <- is_df && isTRUE(show_names)
-  type_on <- is_df && isTRUE(show_types)
+  # A list's elements are named variables laid out as columns, exactly as a data
+  # frame's are, so they get the same two lanes. This is the entire widening.
+  header_on <- (is_df || is_list) && isTRUE(show_names)
+  type_on <- (is_df || is_list) && isTRUE(show_types)
 
   lane <- 0L
   collab_row <- NA_integer_
@@ -750,18 +967,60 @@ paint_cells <- function(data,
     ellipsis = ellipsis
   )
 
-  # Column-major: `ri` varies fastest, which is the order every paint_format()
-  # result comes back in.
-  g <- expand.grid(ri = seq_along(ki), ci = seq_along(kj))
+  # THE DRAWN GRID, COLUMN BY COLUMN. Each drawn column contributes the positions
+  # its own element keeps, in order, and `ci` says which column each cell came
+  # from. Column-major -- one column's cells, then the next -- which is the order
+  # every `paint_format()` result comes back in.
+  #
+  # FOR EVERY RECTANGULAR STRUCTURE THIS IS EXACTLY `expand.grid(ri, ci)`, cell for
+  # cell, and `test-cell-order.R` says so against an independent reconstruction:
+  # `col_len` is constant, so `keep_i` is `ki` repeated once per column, `ci` is
+  # `seq_along(kj)` each-repeated, and the two `unlist()`s below are `ki[g$ri]` and
+  # `row_of[g$ri]`. The generalisation costs the rectangle nothing.
+  keep_i <- lapply(el, `[[`, "keep")
+  rows_i <- lapply(el, function(e) drawn_pos(e$keep, e$gap) + lab_rows)
+
+  ci <- rep(seq_along(kj), lengths(keep_i))
+  i_v <- as.integer(unlist(keep_i, use.names = FALSE))
+  j_v <- kj[ci]
+  row_v <- as.integer(unlist(rows_i, use.names = FALSE))
+  col_v <- col_of[ci]
+  # A summarised element's cell is the ELEMENT, not one of its positions, so it has
+  # no `i`. `[[2]]` is the accessor that returns it, and `[[2]][1]` is not.
+  if (is_list && any(!expanded)) {
+    i_v[!expanded[j_v]] <- NA_integer_
+  }
 
   if (is_df) {
     fs <- lapply(seq_along(kj), function(cc) {
-      do.call(paint_format, c(list(x = strip_asis(data[[kj[cc]]])[ki]), fmt_args))
+      do.call(paint_format, c(list(x = strip_asis(data[[kj[cc]]])[keep_i[[cc]]]), fmt_args))
     })
     f <- do.call(rbind, fs)
     # One formatting unit per column.
-    fmt_group <- rep(seq_along(kj), each = length(ki))
+    fmt_group <- as.integer(ci)
     col_tag <- vapply(fs, function(z) attr(z, "tag"), character(1))
+  } else if (is_list) {
+    fs <- lapply(seq_along(kj), function(cc) {
+      k <- kj[[cc]]
+      if (expanded[[k]]) {
+        return(do.call(paint_format, c(list(x = strip_asis(data[[k]])[keep_i[[cc]]]), fmt_args)))
+      }
+      # ONE cell for the whole element. `data[k]` -- single bracket -- is a
+      # length-one LIST, so this is `paint_format.list()`, whose token is
+      # `elem_sum()`'s description of the element.
+      do.call(paint_format, c(list(x = data[k]), fmt_args))
+    })
+    f <- do.call(rbind, fs)
+    # An element is its own formatting unit, exactly as a data frame's column is.
+    fmt_group <- as.integer(ci)
+    # AND ITS TAG IS NOT THE UNIT'S TAG. `paint_format(data[k])` comes back tagged
+    # `"<list>"` -- correctly, it was handed a list -- so reading the tag off it
+    # would print `<list>` in the type lane under a cell reading `<int [2 x 2]>`.
+    # The type lane is asked of the ELEMENT.
+    col_tag <- vapply(seq_along(kj), function(cc) {
+      k <- kj[[cc]]
+      if (expanded[[k]]) attr(fs[[cc]], "tag") else elem_type(data[[k]])
+    }, character(1))
   } else {
     vis <- if (is_vec) {
       data[if (layout == "vertical") ki else kj]
@@ -775,22 +1034,56 @@ paint_cells <- function(data,
     col_tag <- rep(attr(f, "tag"), length(kj))
   }
 
-  mask <- resolve_highlight(highlight_area, n_row_data, n_col_data, is_vec)
-  mask_vis <- mask[ki, kj, drop = FALSE]
+  # A list's mask is POSITIONS by ELEMENTS -- the bounding box of the DATA, not of
+  # the drawing -- so a summarised element still has a mask column to look at, and
+  # its one cell is filled when any of its positions is marked.
+  mask <- resolve_highlight(
+    highlight_area,
+    if (is_list) list_mask_rows(data) else n_row_data,
+    n_col_data, is_vec
+  )
+  mask_vis <- unlist(lapply(seq_along(kj), function(cc) {
+    k <- kj[[cc]]
+    if (expanded[[k]]) {
+      return(mask[keep_i[[cc]], k])
+    }
+    any(mask[seq_len(max(1L, length(data[[k]]))), k])
+  }), use.names = FALSE)
 
   # -- the chunks -------------------------------------------------------------
-  i_v <- ki[g$ri]
-  j_v <- kj[g$ci]
 
   # The heavy border that makes the block read as one object. `lwd` is the whole
   # of what makes it heavy, and it is a column like any other -- so neither
   # renderer has to know that an "outline" exists to stroke it correctly.
-  outline <- cell_rows(
-    kind = "outline",
-    row = lab_rows + 1L, col = lab_cols + 1L,
-    border = "black", lwd = outline_lwd, align = "center",
-    fit = FALSE
-  )
+  #
+  # A RAGGED LIST GETS NO OUTLINE, AND THAT IS A DECISION, NOT AN OMISSION.
+  # `outline_box()` runs to the bottom-right of the drawn cells, which for a list is
+  # the BOUNDING BOX of a shape that is not a rectangle: on a 4/1/3 list the heavy
+  # border would run down to the bottom of the deepest element, and the length-1
+  # element would sit at the top of a tall, empty, heavily-boxed column -- a box
+  # around cells THAT DO NOT EXIST. The arithmetic would be right and the picture
+  # would be a lie, and the lie is precisely the one this painter exists to kill:
+  # that a list is a rectangle with holes in it. It is not; it is a bag of vectors
+  # of different lengths, and its silhouette IS the fact being taught.
+  #
+  # Nothing is lost. Every cell still carries its own border, so the block still
+  # reads as a block -- it just reads as the ragged block it is. A list whose
+  # elements happen to share a length (a data frame in all but class) draws a
+  # perfect rectangle of cells, with a ragged-list-shaped hole in exactly none of it.
+  #
+  # It is expressed by NOT EMITTING A ROW. `outline_box()` already returns NULL when
+  # there is no outline cell, and both renderers already draw nothing for it. Zero
+  # lines in either.
+  outline <- if (is_list) {
+    NULL
+  } else {
+    cell_rows(
+      kind = "outline",
+      row = lab_rows + 1L, col = lab_cols + 1L,
+      border = "black", lwd = outline_lwd, align = "center",
+      fit = FALSE
+    )
+  }
 
   # A lane draws a NAME or an INDEX, never both, and the two differ only in what
   # they say and how loudly: a name is DATA -- it is part of the object, and
@@ -837,13 +1130,23 @@ paint_cells <- function(data,
   #
   # The values are untouched. Their alignment -- decimal for a numeric column --
   # is what anchors the digits, and it is not a label's business.
+  #
+  # A LIST'S HEADER FALLS BACK PER ELEMENT -- `$a`, then `[[2]]` -- and that is the
+  # single exception to the rule that a lane holds exactly one kind of thing. It is
+  # R-faithful: `names(list(a = 1, 2))` is `c("a", "")`, an element is named on its
+  # own, and `print()` falls back element by element in exactly this way. See
+  # `list_header()`, where the exception is written down.
   header <- NULL
   if (header_on && length(kj) > 0L) {
     header <- cell_rows(
       kind = "header",
       row = header_row, col = col_of,
       j = kj,
-      sig = truncate_chr(names(data)[kj], max_chars, ellipsis),
+      sig = if (is_list) {
+        list_header(names(data), kj, max_chars, ellipsis)
+      } else {
+        truncate_chr(names(data)[kj], max_chars, ellipsis)
+      },
       ink = "black", align = name_align, size_rel = 0.9
     )
   }
@@ -883,12 +1186,12 @@ paint_cells <- function(data,
 
   value <- cell_rows(
     kind = "value",
-    row = row_of[g$ri], col = col_of[g$ci],
+    row = row_v, col = col_v,
     i = i_v, j = j_v,
     fmt_group = fmt_group,
     sig = f$sig, insig = f$insig, head = f$head, tail = f$tail,
     ink = f$ink,
-    fill = ifelse(as.vector(mask_vis), highlight_color, "white"),
+    fill = ifelse(mask_vis, highlight_color, "white"),
     border = "black",
     align = f$align, size_rel = 1, fit = TRUE
   )
@@ -897,14 +1200,26 @@ paint_cells <- function(data,
   # -- and only `dy_rel` -- that keeps the two from being stamped on top of each
   # other. Without it the renderers centre both in the same cell and draw
   # `[1` + `10` + `1]` as one illegible smear.
+  #
+  # `[[j]][i]` IS THE BEST ACCESSOR LESSON IN THE PACKAGE. It is the expression
+  # students get wrong most often -- `l[2]` is a list, `l[[2]]` is the vector,
+  # `l[[2]][3]` is the value -- and here it is printed under the number it returns.
+  # A summarised element has no `i`, and its accessor is the one that returns the
+  # element itself: `[[j]]`.
   cellindex <- NULL
   if (idx_cell && nrow(value) > 0L) {
     cellindex <- cell_rows(
       kind = "cellindex",
-      row = row_of[g$ri], col = col_of[g$ci],
+      row = row_v, col = col_v,
       i = i_v, j = j_v,
       sig = if (is_vec) {
         paste0("[", if (layout == "vertical") i_v else j_v, "]")
+      } else if (is_list) {
+        ifelse(
+          is.na(i_v),
+          paste0("[[", j_v, "]]"),
+          paste0("[[", j_v, "]][", i_v, "]")
+        )
       } else {
         paste0("[", i_v, ", ", j_v, "]")
       },
@@ -914,13 +1229,30 @@ paint_cells <- function(data,
   }
 
   # The gap is ordinary cell rows. No renderer ever learns that elision exists.
+  #
+  # THE ROW GAP IS PER COLUMN, and for a rectangle that is a distinction without a
+  # difference: every column hides the same rows, so every column draws the `"..."`
+  # and the set of gap cells is the whole gap row, exactly as before. A RAGGED LIST
+  # IS WHERE IT BITES. A length-2 element beside a length-40 one hides nothing, and
+  # a `"..."` over it would announce values it does not have -- which is the one
+  # thing a picture of a data structure must never do.
+  #
+  # The COLUMN gap -- the hidden ELEMENTS -- still runs the full depth of the block,
+  # because the deepest drawn column fills it and the lane has to read as a lane.
+  gap_row_of <- rep(NA_integer_, n_col)
+  for (cc in seq_along(kj)) {
+    if (!is.na(el[[cc]]$gap)) {
+      gap_row_of[[col_of[[cc]]]] <- el[[cc]]$gap + lab_rows
+    }
+  }
   gap <- NULL
-  if (!is.na(gap_row) || !is.na(gap_col)) {
+  if (any(!is.na(gap_row_of)) || !is.na(gap_col)) {
     grd <- expand.grid(
       row = seq.int(lab_rows + 1L, n_row),
       col = seq.int(lab_cols + 1L, n_col)
     )
-    hit <- (!is.na(gap_row) & grd$row == gap_row) | (!is.na(gap_col) & grd$col == gap_col)
+    want <- gap_row_of[grd$col]
+    hit <- (!is.na(want) & grd$row == want) | (!is.na(gap_col) & grd$col == gap_col)
     grd <- grd[hit, , drop = FALSE]
     # The row-label gutter shows the gap too, exactly as a tibble does.
     if (lane_row && !is.na(gap_row)) {
@@ -938,13 +1270,27 @@ paint_cells <- function(data,
   out <- rbind(outline, collabel, header, type, rowlabel, value, cellindex, gap)
   rownames(out) <- NULL
 
+  # What is hidden DOWN the drawing. A rectangle hides the same rows in every
+  # column, so one column's count IS the table's; a ragged list hides a different
+  # number of values in each, and what the reader wants to know is how many values
+  # are not on the page.
+  hidden_rows <- if (is_list) {
+    sum(vapply(el, function(e) as.integer(e$hidden), integer(1)))
+  } else {
+    er$hidden
+  }
+
   attr(out, "n_row") <- as.integer(n_row)
   attr(out, "n_col") <- as.integer(n_col)
-  attr(out, "hidden_rows") <- as.integer(er$hidden)
+  attr(out, "hidden_rows") <- as.integer(hidden_rows)
   attr(out, "hidden_cols") <- as.integer(ec$hidden)
   # `is_vec` is threaded in because a vector has ELEMENTS. The grid it is drawn on
-  # is the renderer's business, not the student's.
-  attr(out, "note") <- elide_note(er$hidden, ec$hidden, is_vec)
+  # is the renderer's business, not the student's. `nouns` is threaded in for the
+  # same reason: a list has ELEMENTS holding VALUES, and it has no rows at all.
+  attr(out, "note") <- elide_note(
+    hidden_rows, ec$hidden, is_vec,
+    nouns = if (is_list) c("value", "element") else c("row", "column")
+  )
   out
 }
 

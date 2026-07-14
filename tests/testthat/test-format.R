@@ -458,13 +458,46 @@ test_that("the default method handles Date, POSIXct, difftime and complex", {
   expect_equal(paint_format(as.Date(c("2024-01-01", NA)))$ink, c("black", "red"))
 })
 
-test_that("list columns are guarded with a grey <list> placeholder", {
+test_that("a list is described element by element, in grey", {
+  # It used to ignore its own `x` and stamp the constant "<list>" over every
+  # element, so a frame with a list column said `<list>` five times and the reader
+  # learned nothing -- not the type of what was in there, not even that the entries
+  # differed. print() on a tibble has said `<int [3]>` for years.
   f <- paint_format(list(1:3, letters, NULL))
-  expect_equal(f$sig, rep("<list>", 3))
+  expect_equal(f$sig, c("<int [3]>", "<chr [26]>", "<NULL>"))
   expect_equal(f$insig, rep("", 3))
   expect_equal(f$ink, rep("grey50", 3))
+  # The UNIT is still a list, and its tag still says so.
   expect_equal(attr(f, "tag"), "<list>")
   expect_equal(nrow(f), 3L)
+
+  # paste0(sig, insig) is the drawn token, as it is for every other method.
+  expect_equal(paste0(f$sig, f$insig), f$sig)
+  expect_equal(nrow(paint_format(list())), 0L)
+})
+
+test_that("elem_sum() describes a shape as a shape, in ASCII", {
+  expect_equal(elem_sum(1:3), "<int [3]>")
+  expect_equal(elem_sum("a"), "<chr [1]>")
+  expect_equal(elem_sum(matrix(1:4, 2)), "<int [2 x 2]>")
+  expect_equal(elem_sum(head(iris, 5)), "<df [5 x 5]>")
+  expect_equal(elem_sum(list(1, 2)), "<list [2]>")
+  expect_equal(elem_sum(NULL), "<NULL>")
+  expect_equal(elem_sum(integer(0)), "<int [0]>")
+  expect_equal(elem_sum(factor("a")), "<fct [1]>")
+  expect_equal(elem_sum(array(1:24, c(2, 3, 4))), "<int [2 x 3 x 4]>")
+
+  # ASCII "x", never U+00D7: pdf(), the device R CMD check draws on, cannot encode
+  # it. Checked on the bytes, not on the glyph.
+  for (s in c(elem_sum(matrix(1:4, 2)), elem_sum(head(iris, 5)))) {
+    expect_true(all(charToRaw(s) < as.raw(128)), info = s)
+  }
+
+  # The TYPE half, on its own: it is what a summarised element's type lane reads,
+  # and it must not be read off paint_format(), whose tag is "<list>".
+  expect_equal(elem_type(matrix(1:4, 2)), "<int>")
+  expect_equal(elem_type(NULL), "<NULL>")
+  expect_equal(attr(paint_format(list(matrix(1:4, 2))), "tag"), "<list>")
 })
 
 test_that("type_tag() names every type paintr can paint", {

@@ -16,7 +16,43 @@ Two defaults changed, and both are visible in the picture:
   replaced by a row of `...`, with a `# 130 more rows` note under the drawing.
   Pass `max_rows`, `max_cols`, or `show_all = TRUE` to draw every cell.
 
+- **A list column of a data frame says what is in it.** Every cell of a list
+  column used to read `<list>` -- the same six characters whatever it held, so
+  five different elements looked identical and the reader learned nothing. It now
+  reads `<int [3]>`, `<chr [1]>`, `<dbl [2 x 2]>`, one description per element,
+  which is what `print()` on a tibble has done for years. The type row still says
+  `<list>`, because the column genuinely is one.
+
 ## New features
+
+- **`paint_list()` and `gpaint_list()` draw a list.** The elements are the
+  columns and the values inside an element are the rows, so a list is drawn as
+  the picture a data frame already had -- with the shared length taken away.
+  **A data frame IS a list whose elements happen to share a length**, and
+  `paint_list(list(a = 1:3, b = 4:6))` next to
+  `paint_data_frame(data.frame(a = 1:3, b = 4:6))` is that sentence as a picture.
+  Take the shared length away and the rectangle breaks; nothing else about the
+  drawing changes.
+
+  A named element is labelled `$a` and an unnamed one `[[2]]`, exactly as
+  `print()` labels them. `show_indices = "cell"` draws `[[j]][i]` under each
+  value -- the accessor students get wrong most often, printed under the number
+  it returns. `summarise = TRUE` draws each element as one cell saying what it
+  is, which is what a forty-element list wants.
+
+  **The picture does not draw nesting.** A sublist is a grey `<list [2]>` and
+  stops there, as is any element that is not a plain vector: a matrix element
+  draws as `<int [2 x 2]>`, a data frame element as `<df [5 x 3]>`. Elision is
+  asked of each element separately, so a short element never draws a `...` for
+  values it does not have. And the block has no outline, because a ragged block
+  is not a rectangle and a heavy box around it would enclose cells that do not
+  exist.
+
+  A list carrying a class -- `as.POSIXlt(Sys.time())`, an `lm`, a `t.test()`
+  result -- is refused rather than drawn: `is.list()` is `TRUE` for all of them,
+  and a datetime drawn as eleven ragged columns of `sec`, `min`, `hour`, ... is a
+  wrong picture, not a picture of a list. `highlight_data()` gained a `list`
+  method that accepts exactly what the painter accepts.
 
 - **Names are drawn.** A named vector labels its cells with its `names()`, a
   matrix with `dimnames()` labels its rows and columns with them, and a data

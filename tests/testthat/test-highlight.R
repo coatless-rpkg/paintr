@@ -418,8 +418,11 @@ test_that("the table bug: a table of any rank but two is refused", {
 })
 
 test_that("unsupported structures still hit the .default error", {
+  # A BARE list is now painted, so it is now masked -- the invariant is that the two
+  # sets are the same set. A CLASSED list is neither.
+  expect_equal(dim(highlight_data(list(1, 2))), c(1L, 2L))
   expect_error(
-    highlight_data(list(1, 2)),
+    highlight_data(as.POSIXlt(Sys.time()), rows = 1),
     "We currently do not support the data structure of"
   )
   expect_error(

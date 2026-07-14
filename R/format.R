@@ -576,6 +576,61 @@ paint_format.factor <- function(x,
   format_frame(tok, rep("", n), tok, rep("", n), ink, rep("left", n), "<fct>", FALSE)
 }
 
+#' What one element of a list IS: its type and its size
+#'
+#' The token an element gets when it is not drawn as cells: `<int [3]>`,
+#' `<chr [1]>`, `<dbl [2 x 2]>`, `<df [5 x 3]>`, `<list [2]>`. It is a
+#' DESCRIPTION, not a value, which is why it is drawn grey.
+#'
+#' It replaces a constant. `paint_format.list()` used to ignore its own `x` and
+#' stamp the single string `"<list>"` over every element of a list column, so a
+#' frame with a list column said `<list>` five times and the reader learned
+#' nothing at all -- not the type of what was in there, not even that the five
+#' entries differed. `print()` on a tibble has said `<int [3]>` for years.
+#'
+#' The separator is an ASCII `"x"`, and it must stay ASCII: `pdf()` -- the device
+#' `R CMD check` draws on -- cannot encode U+00D7.
+#'
+#' @param x One element of a list. `NULL` is a legal element and gets `<NULL>`.
+#'
+#' @return A length-one character string.
+#'
+#' @keywords internal
+#' @noRd
+elem_sum <- function(x) {
+  if (is.null(x)) {
+    return("<NULL>")
+  }
+  tag <- elem_type(x)
+  inner <- substr(tag, 2L, nchar(tag) - 1L)
+  d <- if (is.data.frame(x)) c(nrow(x), ncol(x)) else dim(x)
+  size <- if (is.null(d)) as.character(length(x)) else paste(d, collapse = " x ")
+  paste0("<", inner, " [", size, "]>")
+}
+
+#' The type half of [elem_sum()], on its own
+#'
+#' The TYPE LANE OF A SUMMARISED ELEMENT CANNOT BE READ OFF `paint_format()`.
+#' Summarising an element means calling `paint_format(data[k])` -- a length-one
+#' LIST -- which dispatches to `paint_format.list()`, whose `tag` is `"<list>"`,
+#' because the thing it was handed genuinely is a list. So the type lane would
+#' read `<list>` under a cell reading `<int [2 x 2]>`, disagreeing with the cell
+#' directly above it. The tag has to come from the ELEMENT, and this is where it
+#' comes from.
+#'
+#' @param x One element of a list.
+#'
+#' @return A length-one character string.
+#'
+#' @keywords internal
+#' @noRd
+elem_type <- function(x) {
+  if (is.null(x)) {
+    return("<NULL>")
+  }
+  type_tag(x)
+}
+
 #' @rdname paint_format
 #' @export
 paint_format.list <- function(x,
@@ -587,10 +642,15 @@ paint_format.list <- function(x,
                               ...) {
   check_format_args(sigfig, max_chars, max_dec_width, subtle_digits)
   n <- length(x)
-  # format() renders a list column as the deparsed contents of every element,
-  # which overruns the cell and is unreadable. A placeholder is the honest
-  # answer; it is drawn grey because it is a description, not a value.
-  tok <- rep("<list>", n)
+  # format() renders a list as the deparsed contents of every element, which
+  # overruns the cell and is unreadable. A description is the honest answer; it is
+  # drawn grey because it describes the element rather than showing it.
+  #
+  # PER ELEMENT, not one constant for the whole unit. The token is deliberately
+  # NOT truncated at `max_chars`: half of `<dbl [2 x 2]>` is not a description of
+  # anything, and unlike a value this string's width is bounded by the structure
+  # rather than by the data.
+  tok <- vapply(x, elem_sum, character(1), USE.NAMES = FALSE)
   format_frame(tok, rep("", n), tok, rep("", n), rep("grey50", n), rep("left", n), "<list>", FALSE)
 }
 
