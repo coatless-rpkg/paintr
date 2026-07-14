@@ -15,8 +15,8 @@ paint_array(
   sigfig = 3L,
   subtle_digits = c("insignificant", "rounded", "none"),
   max_chars = 12L,
-  max_rows = 10L,
-  max_cols = 8L,
+  max_rows = NULL,
+  max_cols = NULL,
   max_slices = 4L,
   show_all = FALSE,
   fontsize = NULL,
@@ -35,8 +35,8 @@ gpaint_array(
   sigfig = 3L,
   subtle_digits = c("insignificant", "rounded", "none"),
   max_chars = 12L,
-  max_rows = 10L,
-  max_cols = 8L,
+  max_rows = NULL,
+  max_cols = NULL,
   max_slices = 4L,
   show_all = FALSE,
   fontsize = NULL,
@@ -83,10 +83,18 @@ rendering actually lost; \code{"none"} draws everything black.}
 \item{max_chars}{Strings longer than this are truncated with an ellipsis.}
 
 \item{max_rows, max_cols}{Elide the middle of each \emph{block} when the array has more
-rows or columns than this. Default: \code{10} by \code{8} -- tighter
-than \code{\link[=paint_matrix]{paint_matrix()}}'s \code{20} by \code{15}, because the picture
-is several blocks wide and they share the device between
-them. As always, the decision is made on the dimensions
+rows or columns than this. \code{NULL} (the default) takes the
+cap that suits the RANK of the thing being drawn: \code{10} by
+\code{8} for an array of rank 3 or more -- tighter than
+\code{\link[=paint_matrix]{paint_matrix()}}'s \code{20} by \code{15}, because the picture is
+several blocks wide and they share the device between them
+-- and \code{20} by \code{15} for a rank-2 array, \strong{because a rank-2
+array is a matrix and is drawn as one}. Passing \code{NULL}
+rather than \code{10} here is the whole of what makes
+\code{paint_array(m)} and \code{paint_matrix(m)} the same picture for
+a matrix of any size; a hard \code{10} would elide a 12x10 matrix
+that \code{paint_matrix()} draws whole. A number overrides both
+cases. As always, the decision is made on the dimensions
 alone, with no device consulted.}
 
 \item{max_slices}{Elide the slice axes when the array has more slices than
@@ -113,7 +121,18 @@ axis: \code{"none"}, \code{"row"}, \code{"column"}, \code{"slice"}, or \code{"al
 
 \code{"slice"} is what puts the names in the block titles: with it, a block of
 \code{Titanic} is titled \verb{, , Child, No}; without it, \verb{, , 1, 1}. An index lane the
-caller asks for \strong{wins} the axis it names, exactly as it does for a matrix.}
+caller asks for \strong{wins} the axis it names, exactly as it does for a matrix.
+Each name is truncated at \code{max_name_chars}, exactly as a column name is.
+
+The title is the block's \strong{subscript}, and not \code{print()}'s full subscript
+line. When an array's \code{dimnames()} are themselves \emph{named} -- \code{Titanic}'s are
+(\code{Class}, \code{Sex}, \code{Age}, \code{Survived}) -- \code{print()} writes
+\verb{, , Age = Child, Survived = No} where this writes \verb{, , Child, No}. The axis
+names are omitted because the title is fitted against the width of the block it
+spans, and the long form costs \code{Titanic} 48\% of its font (15.7pt to 8.2pt at
+7x5in); rank-3 tables such as \code{HairEyeColor} pay nothing for it, so the cost
+lands entirely on the largest arrays. \verb{, , Child, No} is still the accessor:
+\code{Titanic[, , 1, 1]} returns the block it sits over.}
 
 \item{max_name_chars}{Longest a \emph{column} name may be drawn before it is
 truncated. Default: \code{8}. A matrix is one formatting unit,
@@ -129,8 +148,8 @@ for its components.
 }
 \description{
 Generate a graph showing the contents of an array of any rank, laid out the way
-\code{print()} lays one out: a block per slice, each under the \verb{, , Male, Child} title
-that names it.
+\code{print()} lays one out: a block per slice, each under the \verb{, , Male, Child}
+subscript title that names it.
 }
 \details{
 \code{paint_array()} draws on the current base graphics device. \code{gpaint_array()}

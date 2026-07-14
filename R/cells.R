@@ -207,6 +207,113 @@ cellindex_dy <- -0.3
 # they cannot disagree.
 outline_lwd <- 2
 
+# ---------------------------------------------------------------------------
+# the lane contract -- ONE definition, for BOTH cell builders
+# ---------------------------------------------------------------------------
+
+# There are two cell builders in this file -- `paint_cells()` and `array_cells()`
+# -- and the package's whole teaching claim is that A BLOCK IS A MATRIX. A block
+# of `paint_array(Titanic)` and the picture of that same slice from
+# `paint_matrix()` must therefore be the same drawing, and "must be the same" is a
+# promise that nothing keeps unless something PINS it.
+#
+# These four helpers are that pin. Every constant a lane is drawn with lives here
+# and nowhere else, so re-tuning `grey40` re-tunes it in both builders at once and
+# they cannot drift apart. They are the same move `outline_lwd` and `cellindex_dy`
+# above already are, and the same move that lifted the span predicate into
+# `inked_cells()`: the alternative -- a comment saying "keep these in sync" -- has
+# already failed this codebase twice.
+
+# A lane draws a NAME or an INDEX, never both, and the two differ only in what they
+# say and how loudly: a name is DATA -- it is part of the object, and `print()`
+# draws it -- so it is inked black at the header's weight, while an index is
+# metadata ABOUT the drawing and stays grey and small.
+lane_ink <- function(named) if (named) "black" else "grey40"
+
+lane_size <- function(named) if (named) 0.9 else 0.8
+
+# The gap. It is ordinary cell rows -- no renderer ever learns that elision exists
+# -- and it is drawn identically wherever it appears: inside a block, down a
+# gutter, or standing in for a whole elided slice.
+gap_cells <- function(row, col, ellipsis) {
+  cell_rows(
+    kind = "ellipsis",
+    row = row, col = col,
+    sig = ellipsis,
+    ink = "grey50", align = "center", size_rel = 1,
+    fit = FALSE
+  )
+}
+
+# Elision on one axis, and `show_all` is the axis-independent way to skip it.
+# Keyed on SHAPE (`n`) and a cap, never on the data.
+elide_axis <- function(n, max_n, show_all) {
+  if (isTRUE(show_all)) {
+    list(keep = seq_len(n), gap = NA_integer_, hidden = 0L)
+  } else {
+    elide_index(n, max_n)
+  }
+}
+
+#' The two lanes of a GRID's axes, and which of them wins
+#'
+#' A matrix has a row axis and a column axis; so does every block of an array,
+#' because a block IS a matrix. Both builders ask this the same question and this
+#' is where it is answered ONCE.
+#'
+#' **PR 1's precedence rule lives here.** An index lane the caller asks for WINS
+#' the axis it names: ask for `show_indices = "row"` and the row gutter draws
+#' `[1, ]` rather than the row's dimname, because the caller asked for the
+#' accessor and the accessor is what the gutter is then for. A lane draws one kind
+#' of thing.
+#'
+#' `"slice"` is accepted here and names no axis of a matrix, which is the right
+#' answer rather than a lax one: a matrix REACHES this function from
+#' `paint_array()`, whose vocabulary has five values, and a matrix has no slice
+#' axis for the fifth to name. An axis with no names draws no lane; an axis that
+#' does not exist draws no lane either. `paint_matrix()`'s own front door still
+#' refuses it, on the four-value set.
+#'
+#' @param data A matrix, or the array whose first two axes are its blocks'.
+#' @param show_dimnames The user's `show_dimnames`, unchecked.
+#' @param idx_row,idx_col Did the caller ask for an index lane on this axis?
+#'
+#' @return `nm_row`, `nm_col` (the names each lane draws, or `NULL`), `lane_row`,
+#'   `lane_col` (is the lane drawn at all?), and `slice_named` (do the block
+#'   titles read `, , Child, No` or `, , 1, 1`?).
+#'
+#' @keywords internal
+#' @noRd
+grid_lanes <- function(data, show_dimnames, idx_row, idx_col) {
+  show_dimnames <- check_lanes(
+    show_dimnames, c("none", "row", "column", "slice", "all"), "show_dimnames"
+  )
+  nm_row <- if (any(show_dimnames %in% c("row", "all"))) {
+    axis_names(data, "row")
+  } else {
+    NULL
+  }
+  nm_col <- if (any(show_dimnames %in% c("column", "all"))) {
+    axis_names(data, "column")
+  } else {
+    NULL
+  }
+
+  # Rule 1: an index lane the user asked for takes the axis.
+  if (idx_row) nm_row <- NULL
+  if (idx_col) nm_col <- NULL
+
+  list(
+    nm_row = nm_row,
+    nm_col = nm_col,
+    lane_row = idx_row || !is.null(nm_row),
+    lane_col = idx_col || !is.null(nm_col),
+    # The slice axis has no index lane to lose to, so it simply follows
+    # `show_dimnames`. A matrix has no slice axis and ignores this.
+    slice_named = any(show_dimnames %in% c("slice", "all"))
+  )
+}
+
 #' One chunk of the cell table
 #'
 #' Every cell in the table -- value, label, header, gap, outline -- is built by
@@ -953,23 +1060,21 @@ paint_cells <- function(data,
     # `dimnames()` returns a LIST, one slot per axis, so this is a lane VECTOR:
     # `table()` and a model matrix produce the half-named cases daily.
     #
-    # `"slice"` is accepted and does nothing, which is the right answer rather than
-    # a lax one: a matrix REACHES this branch from `paint_array()`, whose vocabulary
-    # has five values, and a matrix has no slice axis for the fifth to name. An axis
-    # with no names draws no lane; an axis that does not exist draws no lane either.
-    # `paint_matrix()`'s own front door still refuses it, on the four-value set.
-    show_dimnames <- check_lanes(
-      show_dimnames, c("none", "row", "column", "slice", "all"), "show_dimnames"
-    )
-    if (any(show_dimnames %in% c("row", "all"))) nm_row <- axis_names(data, "row")
-    if (any(show_dimnames %in% c("column", "all"))) nm_col <- axis_names(data, "column")
+    # `grid_lanes()` is the SHARED definition, and `array_cells()` asks it the same
+    # question about a block. A matrix and a block of an array cannot draw different
+    # lanes, because there is only one answer to draw.
+    lanes <- grid_lanes(data, show_dimnames, idx_row, idx_col)
+    nm_row <- lanes$nm_row
+    nm_col <- lanes$nm_col
   } else {
     # A data frame's COLUMN names are the `header` lane's job, and `axis_names()`
     # returns NULL for that axis so they cannot also be drawn here.
     rn_on <- if (is.null(show_rownames)) has_row_names(data) else isTRUE(show_rownames)
     if (rn_on) nm_row <- axis_names(data, "row")
   }
-  # Rule 1: an index lane the user asked for takes the axis.
+  # Rule 1: an index lane the user asked for takes the axis. `grid_lanes()` has
+  # already applied it to the matrix; a data frame's and a vector's names are named
+  # here, so it is applied to them here.
   if (idx_row) nm_row <- NULL
   if (idx_col) nm_col <- NULL
 
@@ -980,20 +1085,8 @@ paint_cells <- function(data,
   if (is.null(max_rows)) max_rows <- if (is_df || is_list) 10L else 20L
   if (is.null(max_cols)) max_cols <- if (is_df) 10L else if (is_list) 8L else 15L
 
-  elide_one <- function(n) {
-    if (isTRUE(show_all)) {
-      list(keep = seq_len(n), gap = NA_integer_, hidden = 0L)
-    } else {
-      elide_index(n, max_rows)
-    }
-  }
-
-  er <- elide_one(n_row_data)
-  ec <- if (isTRUE(show_all)) {
-    list(keep = seq_len(n_col_data), gap = NA_integer_, hidden = 0L)
-  } else {
-    elide_index(n_col_data, max_cols)
-  }
+  er <- elide_axis(n_row_data, max_rows, show_all)
+  ec <- elide_axis(n_col_data, max_cols, show_all)
   ki <- er$keep
   kj <- ec$keep
 
@@ -1008,7 +1101,7 @@ paint_cells <- function(data,
   # (a length-2 element must not announce values it does not have), and a column
   # that hides something draws its OWN tail rather than trailing off into the empty
   # space under a deeper element's.
-  el <- lapply(kj, function(k) elide_one(col_len[[k]]))
+  el <- lapply(kj, function(k) elide_axis(col_len[[k]], max_rows, show_all))
 
   # -- the drawn grid ---------------------------------------------------------
   # A list's elements are named variables laid out as columns, exactly as a data
@@ -1154,7 +1247,7 @@ paint_cells <- function(data,
   # branch, because raggedness is a VALUE and not a code path.
   #
   # A RAGGED LIST GETS NO OUTLINE, AND THAT IS THE OTHER HALF OF THE SAME RULE.
-  # `outline_box()` runs to the bottom-right of the drawn cells, which for a ragged
+  # The outline runs to the bottom-right of the drawn cells, which for a ragged
   # list is the BOUNDING BOX of a shape that is not a rectangle: on a 4/1/3 list the
   # heavy border would run down to the bottom of the deepest element, and the
   # length-1 element would sit at the top of a tall, empty, heavily-boxed column --
@@ -1217,9 +1310,9 @@ paint_cells <- function(data,
         max_chars = max_name_chars,
         ellipsis = ellipsis
       ),
-      ink = if (named) "black" else "grey40",
+      ink = lane_ink(named),
       align = "center",
-      size_rel = if (named) 0.9 else 0.8
+      size_rel = lane_size(named)
     )
   }
 
@@ -1280,9 +1373,9 @@ paint_cells <- function(data,
         max_chars = max_chars,
         ellipsis = ellipsis
       ),
-      ink = if (named) "black" else "grey40",
+      ink = lane_ink(named),
       align = "right",
-      size_rel = if (named) 0.9 else 0.8
+      size_rel = lane_size(named)
     )
   }
 
@@ -1360,13 +1453,7 @@ paint_cells <- function(data,
     if (lane_row && !is.na(gap_row)) {
       grd <- rbind(data.frame(row = gap_row, col = 1L), grd)
     }
-    gap <- cell_rows(
-      kind = "ellipsis",
-      row = grd$row, col = grd$col,
-      sig = ellipsis,
-      ink = "grey50", align = "center", size_rel = 1,
-      fit = FALSE
-    )
+    gap <- gap_cells(grd$row, grd$col, ellipsis)
   }
 
   out <- rbind(outline, collabel, header, type, rowlabel, value, cellindex, gap)
@@ -1744,45 +1831,36 @@ array_cells <- function(data,
   if (is.null(max_cols)) max_cols <- 8L
   if (is.null(max_slices)) max_slices <- 4L
 
-  # -- lanes. The vocabulary is the matrix's, because a block IS a matrix.
+  # -- lanes. The vocabulary is the matrix's, because a block IS a matrix -- and so
+  # is the CODE, because `grid_lanes()` is where both builders ask the question.
+  # PR 1's precedence rule (an index lane the caller asks for WINS the axis it
+  # names) is stated once, there, and a block therefore cannot draw a lane a matrix
+  # would not.
   show_indices <- check_show_indices(show_indices)
   idx_cell <- any(show_indices %in% c("cell", "all"))
   idx_row <- any(show_indices %in% c("row", "all"))
   idx_col <- any(show_indices %in% c("column", "all"))
 
-  # `"slice"` is the third lane, and it is a lane like the other two: it decides
-  # whether the block titles read `, , Male, Child` or `, , 1, 1`. The precedence
-  # rule is PR 1's, unchanged -- an index lane the caller asks for WINS the axis it
-  # names -- and the slice axis has no index lane to lose to, so it simply follows
+  # `"slice"` is the third lane, and it is the one thing a block has that a matrix
+  # does not: it decides whether the block titles read `, , Male, Child` or
+  # `, , 1, 1`. The slice axis has no index lane to lose to, so it simply follows
   # `show_dimnames`.
-  show_dimnames <- check_lanes(
-    show_dimnames, c("none", "row", "column", "slice", "all"), "show_dimnames"
-  )
-  nm_row <- if (any(show_dimnames %in% c("row", "all"))) axis_names(data, 1L) else NULL
-  nm_col <- if (any(show_dimnames %in% c("column", "all"))) axis_names(data, 2L) else NULL
-  slice_named <- any(show_dimnames %in% c("slice", "all"))
-  if (idx_row) nm_row <- NULL
-  if (idx_col) nm_col <- NULL
-
-  lane_row <- idx_row || !is.null(nm_row)
-  lane_col <- idx_col || !is.null(nm_col)
+  lanes <- grid_lanes(data, show_dimnames, idx_row, idx_col)
+  nm_row <- lanes$nm_row
+  nm_col <- lanes$nm_col
+  slice_named <- lanes$slice_named
+  lane_row <- lanes$lane_row
+  lane_col <- lanes$lane_col
 
   # -- elide FIRST, on shape, on all four axes ------------------------------
   hi <- if (n_ax >= 4L) d[4:n_ax] else integer(0)
   n_bx_data <- d[[3L]]
   n_by_data <- if (length(hi)) as.integer(prod(hi)) else 1L
 
-  elide_one <- function(n, max_n) {
-    if (isTRUE(show_all)) {
-      list(keep = seq_len(n), gap = NA_integer_, hidden = 0L)
-    } else {
-      elide_index(n, max_n)
-    }
-  }
-  er <- elide_one(d[[1L]], max_rows)
-  ec <- elide_one(d[[2L]], max_cols)
-  ex <- elide_one(n_bx_data, max_slices)
-  ey <- elide_one(n_by_data, max_slices)
+  er <- elide_axis(d[[1L]], max_rows, show_all)
+  ec <- elide_axis(d[[2L]], max_cols, show_all)
+  ex <- elide_axis(n_bx_data, max_slices, show_all)
+  ey <- elide_axis(n_by_data, max_slices, show_all)
   ki <- er$keep
   kj <- ec$keep
   kx <- ex$keep
@@ -1864,10 +1942,39 @@ array_cells <- function(data,
     val0_r <- r0 + lab_rows_b
     val0_c <- c0 + lab_cols_b
 
-    # THE SLICE TITLE, and it is what `print()` writes: `, , Male, Child`. It SPANS
-    # its block -- `col_end` says so -- which is what lets it demand no width from
+    # THE SLICE TITLE. It is `print()`'s subscript line for this block, and it SPANS
+    # the block -- `col_end` says so -- which is what lets it demand no width from
     # any single column and still be fitted against a width it can live in. Left
     # aligned, at the block's leading edge, exactly where `print()` puts it.
+    #
+    # IT IS THE SUBSCRIPTS, AND NOT `print()`'S FULL SUBSCRIPT LINE. `Titanic`'s
+    # `dimnames()` are themselves NAMED (`Class`/`Sex`/`Age`/`Survived`), so
+    # `print(Titanic)` writes `, , Age = Child, Survived = No` where this writes
+    # `, , Child, No`. Honouring those names is more informative and it was measured
+    # rather than argued: on `Titanic` at 7x5in the picture falls from **15.70pt to
+    # 8.24pt** -- it loses 48% of its font -- because the title is fitted against the
+    # block it spans and `, , Age = Child, Survived = No` is 30 characters over a
+    # block two counts wide. And the cost is not paid evenly: `HairEyeColor` and
+    # `UCBAdmissions` pay NOTHING (15.59 and 11.16pt, unchanged), because a rank-3
+    # title carries ONE named component and still fits inside its span. A rule that
+    # is free on three slices and halves the font on four is not a rule, it is a trap
+    # that springs on the biggest array in the package -- the one the docs calibrate
+    # `max_slices = 4` against, at ~15pt over a `min_pt` of 5. Drawing the names only
+    # when they fit is worse still: the cell table would then depend on the DEVICE,
+    # and it is device-free by construction.
+    #
+    # So the title names the SLICE, which is the thing the reader has to be able to
+    # index -- and `a[, , 1, 2]` is the expression that returns this block, whatever
+    # its axes are called. The axis names are one `dimnames()` call away and they are
+    # not worth half the picture.
+    #
+    # `max_name_chars` caps each component, exactly as it caps the column lane. The
+    # title is the TIGHTEST lane in the picture, not the loosest: its budget is the
+    # width of one block, which is the narrowest budget any lane is fitted against.
+    # Uncapped, a 24-character dimname took `Titanic` from 15.96 to 7.87pt without
+    # ever overflowing or warning -- the span rule bounds it, so it comes out of the
+    # FONT rather than the layout. The three canonical arrays are untouched: `Child`,
+    # `Adult`, `Male`, `Female`, `No`, `Yes` and `A`..`F` are all inside 8.
     add(cell_rows(
       kind = "slicelabel",
       row = r0, col = c0, col_end = c0 + blk_cols - 1L,
@@ -1876,7 +1983,10 @@ array_cells <- function(data,
           seq_along(s),
           function(q) {
             nm <- if (slice_named) axis_names(data, q + 2L) else NULL
-            if (is.null(nm)) as.character(s[[q]]) else nm[[s[[q]]]]
+            truncate_chr(
+              if (is.null(nm)) as.character(s[[q]]) else nm[[s[[q]]]],
+              max_name_chars, ellipsis
+            )
           },
           character(1)
         ),
@@ -1894,9 +2004,9 @@ array_cells <- function(data,
           idx = paste0("[, ", kj, tail_s, "]"),
           max_chars = max_name_chars, ellipsis = ellipsis
         ),
-        ink = if (!is.null(nm_col)) "black" else "grey40",
+        ink = lane_ink(!is.null(nm_col)),
         align = "center",
-        size_rel = if (!is.null(nm_col)) 0.9 else 0.8
+        size_rel = lane_size(!is.null(nm_col))
       ))
     }
 
@@ -1909,9 +2019,9 @@ array_cells <- function(data,
           idx = paste0("[", ki, ", ", tail_s, "]"),
           max_chars = max_chars, ellipsis = ellipsis
         ),
-        ink = if (!is.null(nm_row)) "black" else "grey40",
+        ink = lane_ink(!is.null(nm_row)),
         align = "right",
-        size_rel = if (!is.null(nm_row)) 0.9 else 0.8
+        size_rel = lane_size(!is.null(nm_row))
       ))
     }
 
@@ -1965,10 +2075,7 @@ array_cells <- function(data,
       if (lane_row && !is.null(gr)) {
         grd <- rbind(data.frame(row = gr, col = c0), grd)
       }
-      add(cell_rows(
-        kind = "ellipsis", row = grd$row, col = grd$col,
-        sig = ellipsis, ink = "grey50", align = "center", size_rel = 1, fit = FALSE
-      ))
+      add(gap_cells(grd$row, grd$col, ellipsis))
     }
   }
 
@@ -1976,21 +2083,17 @@ array_cells <- function(data,
   # hidden slice is a hidden slice whichever axis hid it. One `"..."` per gap slot
   # per drawn block on the other axis, centred on the blocks it stands between.
   if (!is.na(ex$gap)) {
-    gc <- col0_of[[ex$gap]]
-    add(cell_rows(
-      kind = "ellipsis",
+    add(gap_cells(
       row = row0_of[by_pos[seq_along(ky)]] + lab_rows_b + (length(ki) - 1L) %/% 2L,
-      col = gc,
-      sig = ellipsis, ink = "grey50", align = "center", size_rel = 1, fit = FALSE
+      col = col0_of[[ex$gap]],
+      ellipsis = ellipsis
     ))
   }
   if (!is.na(ey$gap)) {
-    gr <- row0_of[[ey$gap]]
-    add(cell_rows(
-      kind = "ellipsis",
-      row = gr,
+    add(gap_cells(
+      row = row0_of[[ey$gap]],
       col = col0_of[bx_pos[seq_along(kx)]] + lab_cols_b + (length(kj) - 1L) %/% 2L,
-      sig = ellipsis, ink = "grey50", align = "center", size_rel = 1, fit = FALSE
+      ellipsis = ellipsis
     ))
   }
 
@@ -2062,12 +2165,27 @@ column_widths <- function(cells, char_w = 0.35, pad = 0.3, min_w = 1) {
   #   2. A cell that SPANS columns demands nothing from any SINGLE one of them.
   #
   # RULE 2 IS LOAD-BEARING AND IT IS NOT AN OPTIMISATION. A slice title spans its
-  # block, and the only other place to charge its width is its leftmost column --
-  # which for an array is a VALUE column, in the single formatting unit that every
-  # value column of every block shares. `out[k] <- max(raw[k])` below would then
-  # propagate the title's width into EVERY value column of EVERY block, and a
-  # 4x2x2x2 table of two-digit counts would draw cells wide enough to hold
-  # ", , Child, No". The title would bloat the whole picture to say nothing.
+  # block, and the only other place to charge its width is its LEFTMOST column --
+  # so what the rule costs depends on what sits in that column, and it was measured
+  # with the rule removed rather than argued:
+  #
+  #   * A BARE `array(1:16, c(2, 2, 2, 2))` has no dimnames, so it draws no row
+  #     gutter and the block's leftmost column IS a value column -- in the single
+  #     formatting unit that every value column of every block shares. Without the
+  #     rule, `out[k] <- max(raw[k])` below propagates the title's width into EVERY
+  #     value column of EVERY block, and cells holding one digit go from **1.00 to
+  #     2.82** -- wide enough to hold `, , 1, 1`. The title bloats the whole picture
+  #     to say nothing, which is exactly the failure the rule exists to prevent.
+  #
+  #   * `Titanic` is the case that does NOT witness it, and it is worth naming so
+  #     that nobody re-derives the rule from the wrong example. It is fully
+  #     dimnamed, so its blocks HAVE a row gutter: the title's leftmost column is
+  #     the gutter, whose `fmt_group` is NA, which sizes alone and propagates to
+  #     nothing. Without the rule its value columns stay at **2.19** and only the
+  #     gutter grows, 1.56 -> 4.71.
+  #
+  # So the rule bites precisely when a block has no name lane to absorb the title,
+  # and a bare array is the common case in teaching code.
   #
   # A spanning cell is not unconstrained, though -- it is fitted against the width
   # it ACTUALLY spans, by `span_widths()`, which is what keeps it inside its block.

@@ -15,8 +15,8 @@
 #' Visualize Data Inside of an Array
 #'
 #' Generate a graph showing the contents of an array of any rank, laid out the way
-#' `print()` lays one out: a block per slice, each under the `, , Male, Child` title
-#' that names it.
+#' `print()` lays one out: a block per slice, each under the `, , Male, Child`
+#' subscript title that names it.
 #'
 #' `paint_array()` draws on the current base graphics device. `gpaint_array()`
 #' returns a `ggplot` object.
@@ -72,6 +72,17 @@
 #'   `"slice"` is what puts the names in the block titles: with it, a block of
 #'   `Titanic` is titled `, , Child, No`; without it, `, , 1, 1`. An index lane the
 #'   caller asks for **wins** the axis it names, exactly as it does for a matrix.
+#'   Each name is truncated at `max_name_chars`, exactly as a column name is.
+#'
+#'   The title is the block's **subscript**, and not `print()`'s full subscript
+#'   line. When an array's `dimnames()` are themselves *named* -- `Titanic`'s are
+#'   (`Class`, `Sex`, `Age`, `Survived`) -- `print()` writes
+#'   `, , Age = Child, Survived = No` where this writes `, , Child, No`. The axis
+#'   names are omitted because the title is fitted against the width of the block it
+#'   spans, and the long form costs `Titanic` 48% of its font (15.7pt to 8.2pt at
+#'   7x5in); rank-3 tables such as `HairEyeColor` pay nothing for it, so the cost
+#'   lands entirely on the largest arrays. `, , Child, No` is still the accessor:
+#'   `Titanic[, , 1, 1]` returns the block it sits over.
 #' @param max_slices      Elide the slice axes when the array has more slices than
 #'                        this along either of them, drawing a `"..."` block in
 #'                        place of the hidden ones. Default: `4`.
@@ -81,10 +92,18 @@
 #'   three of its six departments and says `# 3 more slices`. Raise it (or set
 #'   `show_all`) to see them all, at a smaller size.
 #' @param max_rows,max_cols Elide the middle of each *block* when the array has more
-#'                        rows or columns than this. Default: `10` by `8` -- tighter
-#'                        than [paint_matrix()]'s `20` by `15`, because the picture
-#'                        is several blocks wide and they share the device between
-#'                        them. As always, the decision is made on the dimensions
+#'                        rows or columns than this. `NULL` (the default) takes the
+#'                        cap that suits the RANK of the thing being drawn: `10` by
+#'                        `8` for an array of rank 3 or more -- tighter than
+#'                        [paint_matrix()]'s `20` by `15`, because the picture is
+#'                        several blocks wide and they share the device between them
+#'                        -- and `20` by `15` for a rank-2 array, **because a rank-2
+#'                        array is a matrix and is drawn as one**. Passing `NULL`
+#'                        rather than `10` here is the whole of what makes
+#'                        `paint_array(m)` and `paint_matrix(m)` the same picture for
+#'                        a matrix of any size; a hard `10` would elide a 12x10 matrix
+#'                        that `paint_matrix()` draws whole. A number overrides both
+#'                        cases. As always, the decision is made on the dimensions
 #'                        alone, with no device consulted.
 #' @param highlight_area  Logical array the same shape as `data`, marking the cells
 #'                        to fill. Build it with [highlight_data()], which masks an
@@ -145,8 +164,8 @@ paint_array <- function(
     sigfig = 3L,
     subtle_digits = c("insignificant", "rounded", "none"),
     max_chars = 12L,
-    max_rows = 10L,
-    max_cols = 8L,
+    max_rows = NULL,
+    max_cols = NULL,
     max_slices = 4L,
     show_all = FALSE,
     fontsize = NULL,
@@ -215,8 +234,8 @@ gpaint_array <- function(
     sigfig = 3L,
     subtle_digits = c("insignificant", "rounded", "none"),
     max_chars = 12L,
-    max_rows = 10L,
-    max_cols = 8L,
+    max_rows = NULL,
+    max_cols = NULL,
     max_slices = 4L,
     show_all = FALSE,
     fontsize = NULL,

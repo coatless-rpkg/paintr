@@ -113,7 +113,6 @@ test_that("a matrix's labels are UNCHANGED -- rank 2 adds no subscripts", {
 
 test_that("paint_array() draws a matrix, and draws it as paint_matrix() does", {
   m <- matrix(c(1, 0.333, 123456.7, 20, -1, NA), nrow = 3)
-  expect_identical(paint_cells(m), paint_cells(m))
 
   # `is.array(matrix)` is TRUE, so the painter must accept it...
   expect_true(is.array(m))
@@ -122,27 +121,285 @@ test_that("paint_array() draws a matrix, and draws it as paint_matrix() does", {
   # ...and the two painters must produce the SAME cell table, because they run the
   # same code. This is the whole of the "k = 1 is the free degenerate case" claim,
   # and it is checked rather than asserted.
+  #
+  # THE MATRICES BELOW ARE BIGGER THAN THE ARRAY'S CAPS ON PURPOSE. A 3x2 cannot see
+  # this class of bug: it is under every threshold either painter has, so the two
+  # agree no matter WHOSE caps they used, and a suite calibrated on it will pass
+  # while `paint_array()` quietly elides a matrix that `paint_matrix()` draws whole.
+  # `paint_array()` used to hard-code `max_rows = 10, max_cols = 8` in its formals,
+  # and a rank-2 array carried the ARRAY's caps into the MATRIX builder: a 12x10 drew
+  # 63 of its 120 values and announced "# 3 more rows, 3 more columns" where
+  # `paint_matrix()` drew all 120 and said nothing. The formals are `NULL` now, so
+  # the builder picks the cap that suits the RANK, and 12x10 and 30x30 are here to
+  # keep it that way.
   with_null_pdf({
-    a <- paint_array(m)
-    b <- paint_matrix(m)
-    expect_equal(a$cells, b$cells)
-    expect_equal(a$fontsize, b$fontsize)
-
-    # A dimnamed matrix, too.
-    mn <- matrix(
-      c(21, 6, 22.8, 4), nrow = 2, byrow = TRUE,
-      dimnames = list(c("Mazda", "Datsun"), c("mpg", "cyl"))
+    battery <- list(
+      "3x2" = m,
+      "12x10, past the array's 10x8 and inside the matrix's 20x15" = matrix(1:120, 12),
+      "30x30, past BOTH -- it elides, but it must elide the SAME WAY" =
+        matrix(1:900, 30),
+      "12x10 dimnamed -- the name lanes must agree too" = matrix(
+        1:120, 12,
+        dimnames = list(paste0("r", seq_len(12)), paste0("c", seq_len(10)))
+      ),
+      "dimnamed 2x2" = matrix(
+        c(21, 6, 22.8, 4), nrow = 2, byrow = TRUE,
+        dimnames = list(c("Mazda", "Datsun"), c("mpg", "cyl"))
+      )
     )
-    expect_equal(paint_array(mn)$cells, paint_matrix(mn)$cells)
-    expect_equal(
-      paint_array(mn, show_indices = "cell")$cells,
-      paint_matrix(mn, show_indices = "cell")$cells
+    for (nm in names(battery)) {
+      mm <- battery[[nm]]
+      # `graph_title` deparses `substitute(data)` and the two painters are handed
+      # different expressions, so it is pinned -- everything else must match on its
+      # own.
+      a <- paint_array(mm, graph_title = "T")
+      b <- paint_matrix(mm, graph_title = "T")
+      expect_identical(a$cells, b$cells, info = nm)
+      expect_identical(a$fontsize, b$fontsize, info = nm)
+      expect_identical(a$note, b$note, info = nm)
+
+      # The point of the caps bug, stated as the reader would see it: every value the
+      # matrix painter draws, the array painter draws too.
+      expect_identical(
+        sum(a$cells$kind == "value"), sum(b$cells$kind == "value"),
+        info = nm
+      )
+    }
+
+    # A 12x10 is drawn WHOLE by both -- 120 values and no note. This is the
+    # regression itself, spelled out rather than inferred from an identity.
+    a <- paint_array(matrix(1:120, 12), graph_title = "T")
+    expect_identical(sum(a$cells$kind == "value"), 120L)
+    # `painter_prep()` hands the renderer `NULL` when nothing was elided.
+    expect_null(a$note)
+    expect_true(is.na(attr(paint_cells(matrix(1:120, 12)), "note")))
+
+    # An explicit cap still reaches a rank-2 array: `NULL` is a default, not a
+    # refusal.
+    a10 <- paint_array(matrix(1:120, 12), max_rows = 10L, max_cols = 8L,
+                       graph_title = "T")
+    m10 <- paint_matrix(matrix(1:120, 12), max_rows = 10L, max_cols = 8L,
+                        graph_title = "T")
+    expect_identical(a10$cells, m10$cells)
+    expect_lt(sum(a10$cells$kind == "value"), 120L)
+
+    # ...and a rank-3 array keeps the ARRAY's tighter caps, because it IS several
+    # blocks wide. `NULL` means "the cap that suits the rank", not "no cap".
+    big <- array(1:2400, c(12, 10, 2))
+    c3 <- paint_cells(big)
+    expect_identical(attr(c3, "hidden_rows"), 3L)
+    expect_identical(attr(c3, "hidden_cols"), 3L)
+
+    # A dimnamed matrix, with an index lane on it.
+    mn <- battery[["dimnamed 2x2"]]
+    expect_identical(
+      paint_array(mn, show_indices = "cell", graph_title = "T")$cells,
+      paint_matrix(mn, show_indices = "cell", graph_title = "T")$cells
     )
 
     # A 2-D table is an array and is drawn.
     tb <- table(c("a", "b", "a"), c("x", "x", "y"))
     expect_silent(paint_array(tb))
   })
+})
+
+# ---------------------------------------------------------------------------
+# THE SYNC GUARD: a block IS a matrix, and nothing else may be true of it
+# ---------------------------------------------------------------------------
+#
+# `array_cells()` is a SECOND cell builder. Rank 2 never enters it, so
+# `paint_array(m) == paint_matrix(m)` is true BY CONSTRUCTION and the test above
+# holds it there -- but the block builder still RESTATES the lane contract, and a
+# restatement is a thing that drifts. `lane_ink()`, `lane_size()`, `gap_cells()`,
+# `elide_axis()` and `grid_lanes()` were lifted so that there is only one statement
+# left to drift; this test is what makes the lift LOAD-BEARING, by failing if
+# someone re-inlines a constant into one builder and not the other.
+#
+# The claim under test is the package's own teaching claim: A BLOCK IS A MATRIX. So
+# take a 3-D array's block, take `paint_matrix()` of the very same 2-D slice, and
+# demand that the lanes are `identical()` -- ink, size_rel, align, fit, and the text
+# itself.
+test_that("a 3-D array's BLOCK lanes are IDENTICAL to paint_matrix()'s on that slice", {
+  # The block's lanes and the matrix's, stripped of the ONE thing that legitimately
+  # differs: WHERE they sit. A block is offset inside the grid of blocks and carries
+  # a title row the matrix has no need of, so `row`/`col` must differ. Everything
+  # else -- the text, the ink, the size, the alignment, the fit, the fill, the border,
+  # the formatting unit -- is the contract, and the contract must not.
+  lanes_of <- function(cells) {
+    x <- cells[cells$kind != "slicelabel" & cells$kind != "outline", , drop = FALSE]
+    x <- x[order(x$kind, x$i, x$j, x$sig), c(
+      "kind", "sig", "insig", "head", "tail", "ink", "fill", "border", "align",
+      "size_rel", "dy_rel", "fit", "fmt_group"
+    ), drop = FALSE]
+    rownames(x) <- NULL
+    x
+  }
+
+  # A RANK-3 ARRAY WITH ONE SLICE draws exactly one block, and that block is a
+  # picture of the same 2-D data `paint_matrix()` is handed. Rank 3, so it goes
+  # through `array_cells()`; one slice, so there is one block to compare.
+  cases <- list(
+    "dimnamed, both name lanes" = array(
+      1:8, c(4, 2, 1),
+      dimnames = list(c("1st", "2nd", "3rd", "Crew"), c("Male", "Female"), "Child")
+    ),
+    "bare, no name lane at all" = array(1:6, c(2, 3, 1)),
+    "row names only, half-named" = array(
+      1:6, c(2, 3, 1),
+      dimnames = list(c("a", "b"), NULL, NULL)
+    ),
+    "an ELIDING block -- the gap cells must match too" = array(1:240, c(24, 10, 1))
+  )
+  for (nm in names(cases)) {
+    a <- cases[[nm]]
+    slice <- a[, , 1L]
+    # The array's caps, applied to the matrix, so the two draw the same SHAPE. What
+    # is pinned here is the visual contract; the elision POLICY is pinned by the
+    # identity test above.
+    expect_identical(
+      lanes_of(array_cells(a)),
+      lanes_of(paint_cells(slice, max_rows = 10L, max_cols = 8L)),
+      info = nm
+    )
+  }
+
+  # And on a REAL multi-block array, every block draws the same LANE contract as the
+  # matrix does -- the tuple set has to match exactly, so re-tuning `grey40` in one
+  # builder and not the other fails here.
+  #
+  # The VALUE cells are deliberately not in this set, and the reason is a feature
+  # rather than a dodge: a value's `ink` and `align` come out of `paint_format()`,
+  # whose unit for an array is THE WHOLE ARRAY and for a matrix is the matrix (see
+  # "the formatting unit is the WHOLE array", below). `HairEyeColor` formats to
+  # `decimal` across both slices and its first slice alone formats to `left`, and
+  # that difference is the documented behaviour, not drift. What `array_cells()`
+  # RESTATES about a value -- `size_rel`, `fit`, `border`, `fmt_group` -- is pinned
+  # by the one-slice cases above, where the two formatting units coincide.
+  lane_contract <- function(cells) {
+    x <- cells[cells$kind %in% c("collabel", "rowlabel", "ellipsis"), , drop = FALSE]
+    x <- unique(x[, c("kind", "ink", "align", "size_rel", "dy_rel", "fit")])
+    x <- x[order(x$kind, x$ink, x$align, x$size_rel), , drop = FALSE]
+    rownames(x) <- NULL
+    x
+  }
+  multi <- list(
+    "named lanes, 2 blocks" = HairEyeColor,
+    "index lanes, 4 blocks" = array(1:24, c(2, 3, 4)),
+    "eliding on rows, cols AND slices" = array(1:2400, c(24, 20, 5))
+  )
+  for (nm in names(multi)) {
+    a <- multi[[nm]]
+    for (si in c("none", "all")) {
+      expect_identical(
+        lane_contract(array_cells(a, show_indices = si)),
+        lane_contract(
+          paint_cells(a[, , 1L], show_indices = si, max_rows = 10L, max_cols = 8L)
+        ),
+        info = paste(nm, si)
+      )
+    }
+  }
+})
+
+test_that("the lane contract has exactly ONE definition", {
+  # If someone re-inlines `if (named) "black" else "grey40"` into one builder and
+  # re-tunes only the other, the test above catches it. These pin the helpers
+  # themselves, so the failure names the constant rather than a diff of 200 rows.
+  expect_identical(lane_ink(TRUE), "black")
+  expect_identical(lane_ink(FALSE), "grey40")
+  expect_identical(lane_size(TRUE), 0.9)
+  expect_identical(lane_size(FALSE), 0.8)
+
+  g <- gap_cells(1L, 2L, "...")
+  expect_identical(g$ink, "grey50")
+  expect_identical(g$size_rel, 1)
+  expect_identical(g$fit, FALSE)
+  expect_identical(g$sig, "...")
+
+  # `elide_axis()` is `show_all`'s one definition, on every axis of every builder.
+  expect_identical(
+    elide_axis(30L, 10L, show_all = TRUE),
+    list(keep = seq_len(30L), gap = NA_integer_, hidden = 0L)
+  )
+  expect_identical(elide_axis(30L, 10L, show_all = FALSE), elide_index(30L, 10L))
+
+  # `grid_lanes()` is PR 1's precedence rule's one definition: an index lane the
+  # caller asks for WINS the axis it names.
+  mn <- matrix(1:4, 2, dimnames = list(c("a", "b"), c("x", "y")))
+  l <- grid_lanes(mn, "all", idx_row = TRUE, idx_col = FALSE)
+  expect_null(l$nm_row)
+  expect_identical(l$nm_col, c("x", "y"))
+  expect_true(l$lane_row)
+  expect_true(l$lane_col)
+  expect_true(l$slice_named)
+
+  l <- grid_lanes(mn, "none", idx_row = FALSE, idx_col = FALSE)
+  expect_null(l$nm_row)
+  expect_null(l$nm_col)
+  expect_false(l$lane_row)
+  expect_false(l$lane_col)
+  expect_false(l$slice_named)
+})
+
+# ---------------------------------------------------------------------------
+# the slice title is a lane, and it is capped like one
+# ---------------------------------------------------------------------------
+
+test_that("max_name_chars caps the SLICE TITLE, the tightest lane in the picture", {
+  # Uncapped, a hostile dimname came out of the FONT rather than the layout -- the
+  # span rule bounds the title's width, so it never overflowed and never warned, it
+  # just quietly took `Titanic` from 15.96pt to 7.87pt. It is the tightest lane
+  # there is: its budget is the width of ONE BLOCK.
+  a <- Titanic
+  dimnames(a)[[3L]] <- c(strrep("A", 24), strrep("B", 24))
+  cells <- paint_cells(a)
+  titles <- unique(cells$sig[cells$kind == "slicelabel"])
+
+  # `truncate_chr()` caps the name's TOTAL width at `max_name_chars`, ellipsis
+  # included -- which is exactly what it does to a column name, and the point is
+  # that the slice title is now capped by the SAME rule, not a parallel one.
+  expect_identical(
+    sort(titles),
+    sort(c(
+      ", , AAAAA..., No", ", , BBBBB..., No",
+      ", , AAAAA..., Yes", ", , BBBBB..., Yes"
+    ))
+  )
+  expect_false(any(grepl(strrep("A", 9), titles, fixed = TRUE)))
+  expect_true(all(nchar(titles) <= nchar(", , ") + 8L + 2L + 8L))
+
+  # The knob is a knob.
+  wide <- paint_cells(a, max_name_chars = 24L)
+  expect_true(any(grepl(strrep("A", 24), wide$sig[wide$kind == "slicelabel"])))
+
+  # AND THE CANONICAL ARRAYS ARE UNTOUCHED -- every slice dimname they carry is
+  # inside 8, so the cap costs the package's own examples exactly nothing.
+  expect_identical(
+    unique(paint_cells(Titanic)$sig[paint_cells(Titanic)$kind == "slicelabel"]),
+    c(", , Child, No", ", , Adult, No", ", , Child, Yes", ", , Adult, Yes")
+  )
+  hec <- paint_cells(HairEyeColor)
+  expect_identical(
+    unique(hec$sig[hec$kind == "slicelabel"]), c(", , Male", ", , Female")
+  )
+})
+
+test_that("the slice title is the SUBSCRIPT, not print()'s full subscript line", {
+  # `print(Titanic)` writes `, , Age = Child, Survived = No`, because its dimnames
+  # are themselves NAMED. The picture writes `, , Child, No` -- and that is a
+  # decision, not an oversight: the title is fitted against the block it spans, and
+  # the long form costs Titanic 48% of its font (15.7 -> 8.2pt at 7x5in) while
+  # costing a rank-3 table nothing at all. The accessor still runs, which is the
+  # promise that matters: `Titanic[, , 1, 1]` IS the block it titles.
+  expect_false(is.null(names(dimnames(Titanic))))
+  cells <- paint_cells(Titanic)
+  titles <- cells$sig[cells$kind == "slicelabel"]
+  expect_true(all(startsWith(titles, ", , ")))
+  expect_false(any(grepl("=", titles, fixed = TRUE)))
+  expect_true(", , Child, No" %in% titles)
+
+  # And the block that title names is the one `[, , 1, 1]` returns.
+  expect_identical(dim(Titanic[, , 1L, 1L]), c(4L, 2L))
 })
 
 test_that("a 2-D array draws NO slice title", {
@@ -171,7 +428,10 @@ test_that("a list carrying a dim is not an array", {
 # the slice titles
 # ---------------------------------------------------------------------------
 
-test_that("the slice title is what print() writes", {
+test_that("the slice title is the block's subscript, as print() lays it out", {
+  # NOT "what print() writes", which was a claim this package could not keep:
+  # `Titanic`'s dimnames are NAMED, so `print()` writes `, , Age = Child, Survived
+  # = No`. See the test below for what that costs and why the picture declines it.
   cells <- paint_cells(Titanic)
   titles <- cells$sig[cells$kind == "slicelabel"]
   expect_true(", , Child, No" %in% titles)
