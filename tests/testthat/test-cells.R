@@ -458,8 +458,18 @@ test_that("a data frame emits a header row and a type row", {
   expect_true(all(cells$row[cells$kind == "value"] >= 3L))
   expect_equal(cells$j[cells$kind == "header"], 1:5)
 
-  # A header is text: a numeric column's header aligns right, not "decimal".
-  expect_equal(cells$align[cells$kind == "header"], c("right", "right", "left", "left", "right"))
+  # A label names the WHOLE column, so it is centred over it -- it does not
+  # inherit the values' alignment. Both lanes, every column type.
+  expect_equal(cells$align[cells$kind == "header"], rep("center", 5L))
+  expect_equal(cells$align[cells$kind == "type"], rep("center", 5L))
+
+  # ... and the VALUES are untouched: the decimal anchoring survives.
+  v <- cells[cells$kind == "value", ]
+  expect_equal(unique(v$align[v$j == 1L]), "decimal") # dbl
+  expect_equal(unique(v$align[v$j == 2L]), "decimal") # int
+  expect_equal(unique(v$align[v$j == 3L]), "left") # chr
+  expect_equal(unique(v$align[v$j == 4L]), "left") # fct
+  expect_equal(unique(v$align[v$j == 5L]), "right") # lgl
 
   # Types can be switched off without disturbing the names.
   no_types <- paint_cells(df, show_types = FALSE)
@@ -470,6 +480,51 @@ test_that("a data frame emits a header row and a type row", {
   bare <- paint_cells(df, show_names = FALSE, show_types = FALSE)
   expect_equal(attr(bare, "n_row"), 2L)
   expect_true(all(bare$row[bare$kind == "value"] >= 1L))
+})
+
+test_that("name_align and type_align set their own lane and nothing else", {
+  df <- data.frame(
+    n = c(1.5, 2.5),
+    i = 1:2,
+    s = c("a", "b"),
+    f = factor(c("u", "v")),
+    l = c(TRUE, FALSE),
+    stringsAsFactors = FALSE
+  )
+  # What the values must still be doing, whatever the labels are told.
+  value_align <- c("decimal", "decimal", "left", "left", "right")
+  values_of <- function(cells) {
+    v <- cells[cells$kind == "value", ]
+    vapply(1:5, function(jj) unique(v$align[v$j == jj]), character(1))
+  }
+
+  for (a in c("left", "center", "right")) {
+    # One lane at a time: the OTHER lane must stay at its default.
+    only_name <- paint_cells(df, name_align = a)
+    expect_equal(only_name$align[only_name$kind == "header"], rep(a, 5L))
+    expect_equal(only_name$align[only_name$kind == "type"], rep("center", 5L))
+    expect_equal(values_of(only_name), value_align)
+
+    only_type <- paint_cells(df, type_align = a)
+    expect_equal(only_type$align[only_type$kind == "type"], rep(a, 5L))
+    expect_equal(only_type$align[only_type$kind == "header"], rep("center", 5L))
+    expect_equal(values_of(only_type), value_align)
+  }
+
+  # The two are genuinely independent: opposite ends at once.
+  both <- paint_cells(df, name_align = "right", type_align = "left")
+  expect_equal(both$align[both$kind == "header"], rep("right", 5L))
+  expect_equal(both$align[both$kind == "type"], rep("left", 5L))
+  expect_equal(values_of(both), value_align)
+})
+
+test_that("an invalid name_align or type_align is an error", {
+  df <- data.frame(n = 1:2)
+  expect_error(paint_cells(df, name_align = "middle"))
+  expect_error(paint_cells(df, type_align = "middle"))
+  # "decimal" is a VALUE alignment. A label is text; it is not on offer.
+  expect_error(paint_cells(df, name_align = "decimal"))
+  expect_error(paint_cells(df, type_align = "decimal"))
 })
 
 test_that("a long string truncates with an ASCII ellipsis, and a list column is a placeholder", {

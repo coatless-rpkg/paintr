@@ -367,6 +367,11 @@ check_show_indices <- function(show_indices) {
 #' @param layout Vectors only: `"vertical"` (an n by 1 grid) or `"horizontal"`.
 #' @param show_names,show_types Data frames only: draw the column-name row and the
 #'   type-tag row.
+#' @param name_align,type_align Data frames only: `"center"`, `"left"` or
+#'   `"right"`, for the column-name lane and the type-tag lane respectively. They
+#'   are independent of each other and of the values, which keep their own
+#'   alignment -- a numeric column's values stay decimal-anchored however its
+#'   label is set.
 #' @param sigfig,subtle_digits,max_chars,max_dec_width,ellipsis Passed to
 #'   [paint_format()].
 #' @param max_rows,max_cols Elision thresholds. `NULL` takes the default for the
@@ -389,6 +394,8 @@ paint_cells <- function(data,
                         layout = c("vertical", "horizontal"),
                         show_names = TRUE,
                         show_types = TRUE,
+                        name_align = c("center", "left", "right"),
+                        type_align = c("center", "left", "right"),
                         sigfig = 3L,
                         subtle_digits = c("insignificant", "rounded", "none"),
                         max_chars = 12L,
@@ -399,6 +406,11 @@ paint_cells <- function(data,
                         ellipsis = "...") {
   layout <- match.arg(layout)
   subtle_digits <- match.arg(subtle_digits)
+  # Single-valued by nature -- a lane has one alignment -- so `match.arg()` is
+  # the right tool here. It is NOT the right tool for `show_indices`, which is a
+  # vector: see `check_show_indices()`.
+  name_align <- match.arg(name_align)
+  type_align <- match.arg(type_align)
 
   # -- what are we drawing? ---------------------------------------------------
   is_df <- is.data.frame(data)
@@ -517,11 +529,6 @@ paint_cells <- function(data,
     # One formatting unit per column.
     fmt_group <- rep(seq_along(kj), each = length(ki))
     col_tag <- vapply(fs, function(z) attr(z, "tag"), character(1))
-    col_align <- vapply(
-      fs,
-      function(z) if (nrow(z) > 0L) z$align[1L] else "left",
-      character(1)
-    )
   } else {
     vis <- if (is_vec) {
       data[if (layout == "vertical") ki else kj]
@@ -533,10 +540,6 @@ paint_cells <- function(data,
     # same value looks identical in every cell.
     fmt_group <- rep(1L, nrow(f))
     col_tag <- rep(attr(f, "tag"), length(kj))
-    col_align <- rep(
-      if (nrow(f) > 0L) f$align[1L] else "left",
-      length(kj)
-    )
   }
 
   mask <- resolve_highlight(highlight_area, n_row_data, n_col_data, is_vec)
@@ -567,6 +570,15 @@ paint_cells <- function(data,
     )
   }
 
+  # The two label lanes are aligned by REQUEST, not by inheritance. They used to
+  # take the column's value alignment, so a name and a type tag wandered with the
+  # type of the thing underneath -- centred-ish over a character column, jammed
+  # right over a numeric one -- and a mixed frame's labels lined up on nothing at
+  # all. Centred is the default because a label names the WHOLE column, not its
+  # last digit; `name_align`/`type_align` override each lane on its own.
+  #
+  # The values are untouched. Their alignment -- decimal for a numeric column --
+  # is what anchors the digits, and it is not a label's business.
   header <- NULL
   if (header_on && length(kj) > 0L) {
     header <- cell_rows(
@@ -574,7 +586,7 @@ paint_cells <- function(data,
       row = header_row, col = col_of,
       j = kj,
       sig = truncate_chr(names(data)[kj], max_chars, ellipsis),
-      ink = "black", align = label_align(col_align), size_rel = 0.9
+      ink = "black", align = name_align, size_rel = 0.9
     )
   }
 
@@ -585,7 +597,7 @@ paint_cells <- function(data,
       row = type_row, col = col_of,
       j = kj,
       sig = col_tag,
-      ink = "grey50", align = label_align(col_align), size_rel = 0.8
+      ink = "grey50", align = type_align, size_rel = 0.8
     )
   }
 
@@ -665,17 +677,6 @@ paint_cells <- function(data,
   # is the renderer's business, not the student's.
   attr(out, "note") <- elide_note(er$hidden, ec$hidden, is_vec)
   out
-}
-
-#' Horizontal alignment of a column's header
-#'
-#' A header is text, never a number, so a `"decimal"` column's header is simply
-#' right-aligned -- which is what puts it over the last digit of its values.
-#'
-#' @keywords internal
-#' @noRd
-label_align <- function(align) {
-  ifelse(align == "decimal", "right", align)
 }
 
 #' The outline rectangle, as a drawn box

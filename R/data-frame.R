@@ -7,8 +7,11 @@
 # structural difference is expressed as DATA, not as a branch, which is why these
 # painters cannot drift away from the matrix ones.
 #
-# The two extra formals, `show_names` and `show_types`, are the only genuinely new
-# behaviour: a data frame gets a column-name row and a `<dbl>`/`<chr>` type row.
+# The extra formals are the only genuinely new behaviour: a data frame gets a
+# column-name row and a `<dbl>`/`<chr>` type row (`show_names`, `show_types`),
+# and each of those two lanes is aligned on its own (`name_align`, `type_align`).
+# A label names the whole column, so it is centred over it by default -- it does
+# not inherit the values' alignment, which exists to anchor DIGITS.
 #
 # `max_rows`/`max_cols` default to 10, not 20: a data frame's columns are wide.
 
@@ -31,6 +34,17 @@
 #' @param show_types      Draw the type-tag row (`<dbl>`, `<chr>`, ...) under the
 #'                        column names. Default: `TRUE`.
 #' @param show_names      Draw the column-name row. Default: `TRUE`.
+#' @param name_align      How the column names sit over their column: `"center"`
+#'                        (the default), `"left"` or `"right"`.
+#' @param type_align      How the type tags sit over their column: `"center"`
+#'                        (the default), `"left"` or `"right"`. Independent of
+#'                        `name_align`.
+#'
+#'                        Both control the label lanes *only*. The values keep
+#'                        their own alignment whatever the labels are told to do:
+#'                        a numeric column stays anchored on its decimal point, a
+#'                        character column stays left, a logical column stays
+#'                        right.
 #' @inheritParams paint_matrix
 #' @param max_rows,max_cols Elide the middle of the data frame when it has more
 #'                        rows or columns than this. Default: `10`, because a data
@@ -70,6 +84,9 @@
 #' # The type row can be turned off.
 #' paint_data_frame(head(mtcars, 4), show_types = FALSE)
 #'
+#' # The two label lanes align independently. The values do not move.
+#' paint_data_frame(head(iris, 5), name_align = "left", type_align = "right")
+#'
 #' # Long frames elide their middle and say so.
 #' paint_data_frame(iris)
 #'
@@ -94,7 +111,9 @@ paint_data_frame <- function(
     fontsize = NULL,
     family = "mono",
     show_types = TRUE,
-    show_names = TRUE) {
+    show_names = TRUE,
+    name_align = c("center", "left", "right"),
+    type_align = c("center", "left", "right")) {
   force(graph_title)
 
   if (!is.data.frame(data)) {
@@ -102,6 +121,10 @@ paint_data_frame <- function(
   }
   show_indices <- check_show_indices(show_indices)
   subtle_digits <- match.arg(subtle_digits)
+  # A lane has exactly one alignment, so `match.arg()` fits. It would NOT fit
+  # `show_indices`, which is deliberately a vector.
+  name_align <- match.arg(name_align)
+  type_align <- match.arg(type_align)
   # A data frame is a grid, so it takes the grid subtitle: rows, columns, class.
   # Three painters, one contract -- a default line that two of them drew and the
   # third did not would be drift of exactly the kind the shared cell table exists
@@ -122,7 +145,9 @@ paint_data_frame <- function(
     fontsize = fontsize,
     family = family,
     show_names = show_names,
-    show_types = show_types
+    show_types = show_types,
+    name_align = name_align,
+    type_align = type_align
   )
 
   invisible(render_base(
@@ -161,7 +186,9 @@ gpaint_data_frame <- function(
     fontsize = NULL,
     family = "mono",
     show_types = TRUE,
-    show_names = TRUE) {
+    show_names = TRUE,
+    name_align = c("center", "left", "right"),
+    type_align = c("center", "left", "right")) {
   force(graph_title)
   require_ggplot2()
 
@@ -170,6 +197,10 @@ gpaint_data_frame <- function(
   }
   show_indices <- check_show_indices(show_indices)
   subtle_digits <- match.arg(subtle_digits)
+  # A lane has exactly one alignment, so `match.arg()` fits. It would NOT fit
+  # `show_indices`, which is deliberately a vector.
+  name_align <- match.arg(name_align)
+  type_align <- match.arg(type_align)
   graph_subtitle <- resolve_subtitle(graph_subtitle, dims_subtitle(data))
 
   prep <- painter_prep(
@@ -186,7 +217,9 @@ gpaint_data_frame <- function(
     fontsize = fontsize,
     family = family,
     show_names = show_names,
-    show_types = show_types
+    show_types = show_types,
+    name_align = name_align,
+    type_align = type_align
   )
 
   gpaint_skin(prep, graph_title, graph_subtitle)

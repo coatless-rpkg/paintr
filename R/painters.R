@@ -37,6 +37,7 @@
 #' @param fontsize,family Passed to `paint_opts()`.
 #' @param layout Vectors only.
 #' @param show_names,show_types Data frames only.
+#' @param name_align,type_align Data frames only. Already matched by the painter.
 #'
 #' @return A list with `cells`, `col_w`, `n_row`, `note` (a string, or `NULL`
 #'   when nothing was elided), `opts`, and `warn_floor`.
@@ -57,7 +58,9 @@ painter_prep <- function(data,
                          family,
                          layout = "vertical",
                          show_names = TRUE,
-                         show_types = TRUE) {
+                         show_types = TRUE,
+                         name_align = "center",
+                         type_align = "center") {
   # The two options, read once, in the one place that is allowed to read them.
   ellipsis <- getOption("paintr.ellipsis", "...")
   warn_floor <- isTRUE(getOption("paintr.warn_floor", TRUE))
@@ -72,6 +75,8 @@ painter_prep <- function(data,
     layout = layout,
     show_names = show_names,
     show_types = show_types,
+    name_align = name_align,
+    type_align = type_align,
     sigfig = sigfig,
     subtle_digits = subtle_digits,
     max_chars = max_chars,

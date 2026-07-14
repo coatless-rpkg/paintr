@@ -521,6 +521,143 @@ test_that("show_names/show_types drop their rows", {
 })
 
 # ---------------------------------------------------------------------------
+# the label lanes align on request, not by inheritance
+#
+# The two lanes used to take the VALUE alignment of the column beneath them, so a
+# name and a type tag wandered with the column's type: right over a numeric
+# column, left over a character one, and lined up on nothing at all in a mixed
+# frame. They are centred now, and each lane is settable on its own.
+#
+# The values must not move. `align == "decimal"` is what anchors a numeric
+# column's digits, and no label may cost it that -- which is the half of this
+# these tests are really guarding.
+# ---------------------------------------------------------------------------
+
+# The cell table of either backend.
+painted_cells <- function(x) {
+  if (inherits(x, "ggplot")) x$layers[[1L]]$geom_params$grob$cells else x$cells
+}
+
+mixed_df <- function() {
+  data.frame(
+    n = c(1.5, 22.25),
+    i = 1:2,
+    s = c("a", "b"),
+    f = factor(c("u", "v")),
+    l = c(TRUE, FALSE),
+    stringsAsFactors = FALSE
+  )
+}
+
+# What the five columns' values must align as, in both backends, always.
+mixed_value_align <- c("decimal", "decimal", "left", "left", "right")
+
+lane_align <- function(cells, kind) cells$align[cells$kind == kind]
+
+value_align <- function(cells) {
+  v <- cells[cells$kind == "value", ]
+  vapply(1:5, function(jj) unique(v$align[v$j == jj]), character(1))
+}
+
+test_that("both label lanes default to centred, in both backends", {
+  skip_if_not_installed("ggplot2")
+  withr_opt <- options(paintr.warn_floor = FALSE)
+  on.exit(options(withr_opt), add = TRUE)
+
+  df <- mixed_df()
+  painted <- list(
+    base = painted_cells(with_null_pdf(paint_data_frame(df))),
+    ggplot = painted_cells(gpaint_data_frame(df))
+  )
+
+  for (nm in names(painted)) {
+    cells <- painted[[nm]]
+    # Every column type, both lanes: centred.
+    expect_equal(lane_align(cells, "header"), rep("center", 5L), info = nm)
+    expect_equal(lane_align(cells, "type"), rep("center", 5L), info = nm)
+    # The values keep their own alignment.
+    expect_equal(value_align(cells), mixed_value_align, info = nm)
+  }
+})
+
+test_that("name_align and type_align each set only their own lane, in both backends", {
+  skip_if_not_installed("ggplot2")
+  withr_opt <- options(paintr.warn_floor = FALSE)
+  on.exit(options(withr_opt), add = TRUE)
+
+  df <- mixed_df()
+
+  for (a in c("left", "center", "right")) {
+    backends <- list(
+      base = list(
+        name = painted_cells(with_null_pdf(paint_data_frame(df, name_align = a))),
+        type = painted_cells(with_null_pdf(paint_data_frame(df, type_align = a)))
+      ),
+      ggplot = list(
+        name = painted_cells(gpaint_data_frame(df, name_align = a)),
+        type = painted_cells(gpaint_data_frame(df, type_align = a))
+      )
+    )
+
+    for (nm in names(backends)) {
+      lab <- paste(nm, a)
+      by_name <- backends[[nm]]$name
+      expect_equal(lane_align(by_name, "header"), rep(a, 5L), info = lab)
+      expect_equal(lane_align(by_name, "type"), rep("center", 5L), info = lab)
+      expect_equal(value_align(by_name), mixed_value_align, info = lab)
+
+      by_type <- backends[[nm]]$type
+      expect_equal(lane_align(by_type, "type"), rep(a, 5L), info = lab)
+      expect_equal(lane_align(by_type, "header"), rep("center", 5L), info = lab)
+      expect_equal(value_align(by_type), mixed_value_align, info = lab)
+    }
+  }
+
+  # Both at once, pulling opposite ways.
+  both <- painted_cells(
+    with_null_pdf(paint_data_frame(df, name_align = "right", type_align = "left"))
+  )
+  expect_equal(lane_align(both, "header"), rep("right", 5L))
+  expect_equal(lane_align(both, "type"), rep("left", 5L))
+  expect_equal(value_align(both), mixed_value_align)
+
+  gboth <- painted_cells(gpaint_data_frame(df, name_align = "right", type_align = "left"))
+  expect_equal(lane_align(gboth, "header"), rep("right", 5L))
+  expect_equal(lane_align(gboth, "type"), rep("left", 5L))
+  expect_equal(value_align(gboth), mixed_value_align)
+})
+
+test_that("an invalid name_align or type_align errors, in both backends", {
+  skip_if_not_installed("ggplot2")
+  withr_opt <- options(paintr.warn_floor = FALSE)
+  on.exit(options(withr_opt), add = TRUE)
+
+  df <- mixed_df()
+  expect_error(with_null_pdf(paint_data_frame(df, name_align = "middle")))
+  expect_error(with_null_pdf(paint_data_frame(df, type_align = "middle")))
+  expect_error(gpaint_data_frame(df, name_align = "middle"))
+  expect_error(gpaint_data_frame(df, type_align = "middle"))
+})
+
+test_that("an aligned lane can still be switched off", {
+  skip_if_not_installed("ggplot2")
+  withr_opt <- options(paintr.warn_floor = FALSE)
+  on.exit(options(withr_opt), add = TRUE)
+
+  df <- mixed_df()
+  # Alignment does not resurrect a lane the caller dropped.
+  no_names <- painted_cells(
+    with_null_pdf(paint_data_frame(df, show_names = FALSE, name_align = "left"))
+  )
+  expect_false(any(no_names$kind == "header"))
+  expect_equal(lane_align(no_names, "type"), rep("center", 5L))
+
+  no_types <- painted_cells(gpaint_data_frame(df, show_types = FALSE, type_align = "right"))
+  expect_false(any(no_types$kind == "type"))
+  expect_equal(lane_align(no_types, "header"), rep("center", 5L))
+})
+
+# ---------------------------------------------------------------------------
 # ggplot2 skin
 # ---------------------------------------------------------------------------
 

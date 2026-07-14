@@ -63,12 +63,12 @@
       13  2  3   4   3         3    NA          NA         red white  black   1
            align size_rel dy_rel   fit    kind
       1   center      1.0      0 FALSE outline
-      2    right      0.9      0  TRUE  header
-      3     left      0.9      0  TRUE  header
-      4    right      0.9      0  TRUE  header
-      5    right      0.8      0  TRUE    type
-      6     left      0.8      0  TRUE    type
-      7    right      0.8      0  TRUE    type
+      2   center      0.9      0  TRUE  header
+      3   center      0.9      0  TRUE  header
+      4   center      0.9      0  TRUE  header
+      5   center      0.8      0  TRUE    type
+      6   center      0.8      0  TRUE    type
+      7   center      0.8      0  TRUE    type
       8  decimal      1.0      0  TRUE   value
       9  decimal      1.0      0  TRUE   value
       10    left      1.0      0  TRUE   value

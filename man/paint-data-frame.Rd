@@ -23,7 +23,9 @@ paint_data_frame(
   fontsize = NULL,
   family = "mono",
   show_types = TRUE,
-  show_names = TRUE
+  show_names = TRUE,
+  name_align = c("center", "left", "right"),
+  type_align = c("center", "left", "right")
 )
 
 gpaint_data_frame(
@@ -42,7 +44,9 @@ gpaint_data_frame(
   fontsize = NULL,
   family = "mono",
   show_types = TRUE,
-  show_names = TRUE
+  show_names = TRUE,
+  name_align = c("center", "left", "right"),
+  type_align = c("center", "left", "right")
 )
 
 paint_df(
@@ -61,7 +65,9 @@ paint_df(
   fontsize = NULL,
   family = "mono",
   show_types = TRUE,
-  show_names = TRUE
+  show_names = TRUE,
+  name_align = c("center", "left", "right"),
+  type_align = c("center", "left", "right")
 )
 
 gpaint_df(
@@ -80,7 +86,9 @@ gpaint_df(
   fontsize = NULL,
   family = "mono",
   show_types = TRUE,
-  show_names = TRUE
+  show_names = TRUE,
+  name_align = c("center", "left", "right"),
+  type_align = c("center", "left", "right")
 )
 }
 \arguments{
@@ -143,6 +151,20 @@ to the device.}
 column names. Default: \code{TRUE}.}
 
 \item{show_names}{Draw the column-name row. Default: \code{TRUE}.}
+
+\item{name_align}{How the column names sit over their column: \code{"center"}
+(the default), \code{"left"} or \code{"right"}.}
+
+\item{type_align}{How the type tags sit over their column: \code{"center"}
+(the default), \code{"left"} or \code{"right"}. Independent of
+\code{name_align}.
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{                   Both control the label lanes *only*. The values keep
+                   their own alignment whatever the labels are told to do:
+                   a numeric column stays anchored on its decimal point, a
+                   character column stays left, a logical column stays
+                   right.
+}\if{html}{\out{</div>}}}
 }
 \value{
 \code{paint_data_frame()} invisibly returns the resolved cell table. See
@@ -191,6 +213,9 @@ paint_data_frame(head(iris, 5))
 
 # The type row can be turned off.
 paint_data_frame(head(mtcars, 4), show_types = FALSE)
+
+# The two label lanes align independently. The values do not move.
+paint_data_frame(head(iris, 5), name_align = "left", type_align = "right")
 
 # Long frames elide their middle and say so.
 paint_data_frame(iris)
