@@ -130,7 +130,7 @@ test_that("the type lane reads each element's own type", {
   expect_length(lane(paint_cells(ragged, show_types = FALSE), "type"), 0L)
 })
 
-test_that("a list draws NO outline, because its block is not a rectangle", {
+test_that("a RAGGED list draws no outline, because its block is not a rectangle", {
   # The heavy border is the BOUNDING BOX of the drawn cells. On a 4/1/3 list it
   # would run to the bottom of the deepest element, putting the length-1 element at
   # the top of a tall, empty, heavily-boxed column -- a box around cells that do not
@@ -138,12 +138,47 @@ test_that("a list draws NO outline, because its block is not a rectangle", {
   cells <- paint_cells(ragged)
   expect_equal(sum(cells$kind == "outline"), 0L)
   expect_null(outline_box(cells))
-  # It is a fact about the STRUCTURE, not about the data: a list whose elements
-  # happen to share a length draws no outline either. Anything else would make the
-  # drawing depend on the contents.
-  expect_equal(sum(paint_cells(list(a = 1:3, b = 4:6))$kind == "outline"), 0L)
-  # A rectangle-by-construction still gets one.
-  expect_equal(sum(paint_cells(head(iris, 3))$kind == "outline"), 1L)
+  # One element longer than the others is enough to break the rectangle.
+  expect_equal(sum(paint_cells(list(a = 1:3, b = 4:6, c = 7:9, d = 10L))$kind == "outline"), 0L)
+  # So is an element that is not drawn as cells at all: a matrix element is ONE
+  # cell, and a column one cell deep beside a column three deep is ragged.
+  expect_equal(sum(paint_cells(list(a = 1:3, b = matrix(1:4, 2)))$kind == "outline"), 0L)
+})
+
+test_that("an EQUAL-LENGTH list draws an outline, and that is the whole lesson", {
+  # Give the elements a shared length and the rectangle closes; take it away and it
+  # breaks. The outline keys on `col_len` -- a LENGTH, which is SHAPE -- and never on
+  # a value, so elision's rule is untouched.
+  cells <- paint_cells(list(a = 1:3, b = 4:6))
+  expect_equal(sum(cells$kind == "outline"), 1L)
+  o <- cells[cells$kind == "outline", ]
+  expect_equal(o$lwd, outline_lwd)
+  # It boxes the value block, top-left to bottom-right, exactly as a grid's does.
+  expect_equal(outline_box(cells), list(row0 = 3L, col0 = 1L, row1 = 5L, col1 = 2L))
+
+  # The SAME values, one of them one element shorter: no outline. The border is the
+  # only thing that moved, and the length is the only thing that changed.
+  expect_equal(sum(paint_cells(list(a = 1:3, b = 4:5))$kind == "outline"), 0L)
+
+  # `summarise` draws every element as ONE cell, so the block is one row deep and
+  # rectangular whatever the elements' lengths are.
+  expect_equal(sum(paint_cells(ragged, summarise = TRUE)$kind == "outline"), 1L)
+})
+
+test_that("a data frame's outline is untouched by the list rule", {
+  # The hot path. `col_len` is one number repeated for every rectangular structure,
+  # so the question the outline asks is unconditionally TRUE for them and they draw
+  # exactly the outline they always drew.
+  for (data in list(head(iris, 3), matrix(1:6, 2), 1:5, head(mtcars, 2))) {
+    cells <- paint_cells(data)
+    o <- cells[cells$kind == "outline", ]
+    expect_equal(nrow(o), 1L)
+    expect_equal(o$lwd, outline_lwd)
+    expect_false(is.null(outline_box(cells)))
+  }
+  # Elision does not change the answer: a data frame is a rectangle whether or not
+  # its middle is drawn.
+  expect_equal(sum(paint_cells(iris)$kind == "outline"), 1L)
 })
 
 # ---------------------------------------------------------------------------
@@ -179,6 +214,26 @@ test_that("a data frame element and a NULL element are summarised too", {
   expect_equal(lane(cells, "type"), c("<df>", "<NULL>", "<int>"))
   # A zero-length element draws ONE cell, not a column of nothing.
   expect_equal(sum(v$j == 2), 1L)
+})
+
+test_that("a POSIXlt ELEMENT is a datetime, and says so", {
+  # The type gate refuses a POSIXlt as a whole STRUCTURE -- it would draw as eleven
+  # ragged columns of sec/min/hour/... -- and `elem_expands()` refuses it as an
+  # element, so it is summarised. It used to be summarised as `<list [1]>`, because
+  # `is.list()` is TRUE of it: a correct picture, but an uninformative one, sitting
+  # next to a POSIXct element reading `<dttm [2]>`.
+  ct <- as.POSIXct(c("2024-01-01 10:00:00", "2024-01-02 10:00:00"), tz = "UTC")
+  lt <- as.POSIXlt("2024-01-01 10:00:00", tz = "UTC")
+  cells <- paint_cells(list(ct = ct, lt = lt))
+  v <- vals(cells)
+  expect_equal(v$sig[v$j == 2], "<dttm [1]>")
+  expect_equal(lane(cells, "type"), c("<dttm>", "<dttm>"))
+  # The POSIXct element is drawn as its two VALUES; the POSIXlt is one token. The
+  # tag agrees with both.
+  expect_equal(sum(v$j == 1), 2L)
+  expect_equal(sum(v$j == 2), 1L)
+  # And it is still not expanded into its eleven fields.
+  expect_false(elem_expands(lt))
 })
 
 test_that("summarise = TRUE draws every element as one cell", {
@@ -386,26 +441,60 @@ test_that("an empty list is refused, and a huge one too", {
   })
 })
 
+test_that("highlight_data() refuses the empty list the painter refuses", {
+  # THE INVARIANT RUNS BOTH WAYS. If a painter can draw it, `highlight_data()` can
+  # mask it -- and if it CANNOT, `highlight_data()` must refuse. It used to hand back
+  # a 1 by 0 matrix for a structure no painter draws.
+  expect_error(highlight_data(list()), "empty")
+  expect_error(highlight_columns(list(), 1), "empty")
+  expect_error(highlight_rows(list(), 1), "empty")
+  # A list with something in it is masked, exactly as before.
+  expect_equal(dim(highlight_data(list(1, 2))), c(1L, 2L))
+})
+
 # ---------------------------------------------------------------------------
 # THE TEACHING CLAIM, as an assertion
 # ---------------------------------------------------------------------------
 
 test_that("a data frame IS a list whose elements share a length", {
+  # THE TEACHING CLAIM, AS AN ASSERTION. Two pictures, and the ONLY differences
+  # between them are the header text and the subtitle -- neither of which is a fact
+  # about the shape of the data. Everything else, the heavy outline included, is
+  # `identical()`. A difference beyond those two would say nothing about the data and
+  # everything about the painter, and a student setting the two side by side would
+  # read it as a fact. That is the lie this test exists to prevent.
   df <- data.frame(a = 1:3, b = c(4.5, 5.5, 6.5))
   l <- list(a = 1:3, b = c(4.5, 5.5, 6.5))
 
-  cd <- paint_cells(df, show_rownames = FALSE)
+  cd <- paint_cells(df)
   cl <- paint_cells(l)
 
-  vd <- vals(cd)
-  vl <- vals(cl)
-  # The same cells, in the same places, saying the same things.
-  expect_equal(vl[, c("i", "j", "row", "col", "fmt_group", "sig", "align")],
-               vd[, c("i", "j", "row", "col", "fmt_group", "sig", "align")])
-  expect_equal(lane(cl, "type"), lane(cd, "type"))
-  expect_equal(attr(cl, "n_row"), attr(cd, "n_row"))
-  expect_equal(attr(cl, "n_col"), attr(cd, "n_col"))
-  # The list's header says `$a`, because a list's accessor is not a column's.
+  # The header lane is the one lane that MUST differ: a list's accessor is not a
+  # column's. Blank it, and nothing at all is left to tell the two tables apart.
+  blank_header <- function(cells) {
+    cells$sig[cells$kind == "header"] <- ""
+    cells$head[cells$kind == "header"] <- ""
+    cells
+  }
+  expect_identical(blank_header(cl), blank_header(cd))
+
+  # Said again, one piece at a time, so a failure says WHICH piece moved.
+  expect_identical(vals(cl), vals(cd))
+  expect_identical(lane(cl, "type"), lane(cd, "type"))
+  expect_identical(attr(cl, "n_row"), attr(cd, "n_row"))
+  expect_identical(attr(cl, "n_col"), attr(cd, "n_col"))
+  expect_identical(column_widths(cl), column_widths(cd))
+
+  # THE OUTLINE. The heavy border is the shared length, drawn -- so the list that
+  # could have been this data frame is boxed exactly as the data frame is.
+  expect_identical(cl[cl$kind == "outline", ], cd[cd$kind == "outline", ])
+  expect_identical(outline_box(cl), outline_box(cd))
+
+  # The two permitted differences, stated positively.
   expect_equal(lane(cd, "header"), c("a", "b"))
   expect_equal(lane(cl, "header"), c("$a", "$b"))
+  expect_false(identical(list_subtitle(l), dims_subtitle(df)))
+
+  # And the rectangle breaks on exactly one change: the shared length.
+  expect_equal(sum(paint_cells(list(a = 1:3, b = c(4.5, 5.5)))$kind == "outline"), 0L)
 })

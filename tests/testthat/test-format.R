@@ -509,6 +509,12 @@ test_that("type_tag() names every type paintr can paint", {
   expect_equal(type_tag(complex(1)), "<cpl>")
   expect_equal(type_tag(Sys.Date()), "<date>")
   expect_equal(type_tag(Sys.time()), "<dttm>")
+  # A POSIXlt is a datetime, and it must be asked BEFORE `is.list()`, which is TRUE
+  # of it and would otherwise call it a `<list>`. It reaches here only as a thing
+  # being named -- summarised as `<dttm [1]>` -- never expanded into its eleven
+  # fields, which the type gate refuses.
+  expect_equal(type_tag(as.POSIXlt(Sys.time())), "<dttm>")
+  expect_equal(elem_sum(as.POSIXlt(Sys.time())), "<dttm [1]>")
   expect_equal(type_tag(as.difftime(1, units = "days")), "<drtn>")
   expect_equal(type_tag(list()), "<list>")
   expect_equal(type_tag(data.frame(a = 1)), "<df>")

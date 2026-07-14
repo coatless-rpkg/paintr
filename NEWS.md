@@ -44,9 +44,13 @@ Two defaults changed, and both are visible in the picture:
   stops there, as is any element that is not a plain vector: a matrix element
   draws as `<int [2 x 2]>`, a data frame element as `<df [5 x 3]>`. Elision is
   asked of each element separately, so a short element never draws a `...` for
-  values it does not have. And the block has no outline, because a ragged block
-  is not a rectangle and a heavy box around it would enclose cells that do not
-  exist.
+  values it does not have -- which means a drawn row of a long list can hold
+  `a[9]` beside `c[7]`, and is one more reason there is no `[i]` gutter.
+
+  **The heavy outline appears exactly when the elements share a length** -- which
+  is exactly when the list could have been a data frame. A ragged block is not a
+  rectangle, and a box around it would enclose cells that do not exist, so it
+  gets none. The rectangle closing is the lesson, not decoration on it.
 
   A list carrying a class -- `as.POSIXlt(Sys.time())`, an `lm`, a `t.test()`
   result -- is refused rather than drawn: `is.list()` is `TRUE` for all of them,

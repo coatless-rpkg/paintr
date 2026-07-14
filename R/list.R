@@ -44,10 +44,11 @@
 #'
 #' **A data frame IS a list whose elements happen to share a length.** That is what
 #' this picture is for. Draw `paint_data_frame(data.frame(a = 1:3, b = 4:6))` and
-#' `paint_list(list(a = 1:3, b = 4:6))` side by side and they are the same picture;
-#' then draw `paint_list(list(a = 1:3, b = 4))` and watch the rectangle break. The
-#' shared length is the only thing a data frame adds, and the ragged block is the
-#' proof.
+#' `paint_list(list(a = 1:3, b = 4:6))` side by side and they are the same picture,
+#' down to the heavy border around the block and every cell inside it -- only the
+#' header (`$a`, not `a`) and the subtitle say which is which. Then draw
+#' `paint_list(list(a = 1:3, b = 4))` and watch the rectangle break. The shared
+#' length is the only thing a data frame adds, and these two pictures are the proof.
 #'
 #' Each element is its own formatting unit, exactly as a data frame's column is: a
 #' `1e15` in one element will not flip another into scientific notation.
@@ -72,7 +73,10 @@
 #'   There is deliberately **no** `[i]` gutter down the left. In a data frame,
 #'   reading across a row is the whole point: `df[[1]][2]` and `df[[2]][2]` are one
 #'   record. **In a list that is false**, and a lane that teaches it would be a lane
-#'   that teaches a falsehood.
+#'   that teaches a falsehood. Elision sharpens the point: because it is asked of
+#'   each element separately, a drawn row of a long list can hold `a[9]` beside
+#'   `c[7]` -- so a gutter could not even name the positions it sat beside, let alone
+#'   claim they were a record.
 #' @param show_names      Draw the element-name row. Default: `TRUE`. A named
 #'                        element is labelled `$a`; an unnamed one is labelled
 #'                        `[[2]]`, exactly as `print()` does it. (This per-element
@@ -110,14 +114,24 @@
 #' for its components.
 #' `gpaint_list()` returns a `ggplot` object.
 #'
-#' @section The ragged block has no outline:
-#' Every other painter draws a heavy border around the block of values. A list does
-#' not, and the reason is that the block is not a rectangle. The heavy border would
-#' be the BOUNDING BOX of the drawn cells, so on a 4/1/3 list it would run down to
-#' the bottom of the deepest element and the length-1 element would sit at the top of
-#' a tall, empty, heavily-boxed column -- a box drawn around cells that do not exist.
-#' The cells keep their own borders, so the block still reads as a block; it just
-#' reads as the ragged block it actually is.
+#' @section The outline is the lesson:
+#' Every painter draws a heavy border around the block of values when that block is
+#' a rectangle -- and **a list's block is a rectangle exactly when its elements share
+#' a length, which is exactly when the list could have been a data frame.** So the
+#' border is not decoration on this picture; it is the fact being taught. Give the
+#' elements a shared length and the rectangle closes, around the very same cells the
+#' equivalent `paint_data_frame()` closes it around; take the shared length away and
+#' the rectangle breaks.
+#'
+#' A ragged list therefore draws no outline, and that is a decision rather than an
+#' omission. The heavy border would be the BOUNDING BOX of the drawn cells, so on a
+#' 4/1/3 list it would run down to the bottom of the deepest element and the length-1
+#' element would sit at the top of a tall, empty, heavily-boxed column -- a box drawn
+#' around cells that do not exist. The cells keep their own borders, so the block
+#' still reads as a block; it just reads as the ragged block it actually is.
+#'
+#' `summarise = TRUE` draws every element as one cell, so the block is one row deep
+#' and rectangular whatever the elements' lengths are, and it is outlined.
 #'
 #' @section The ggplot object is a shell:
 #' `gpaint_list()` returns a real `ggplot` object -- `+ theme()`, `ggsave()`,

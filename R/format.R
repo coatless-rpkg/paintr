@@ -250,6 +250,15 @@ type_tag <- function(x) {
   if (inherits(x, "POSIXct")) {
     return("<dttm>")
   }
+  # A POSIXlt IS A DATETIME, and it must be asked BEFORE `is.list()` -- which is
+  # TRUE of it, and which would otherwise tag it `<list>`. It never becomes eleven
+  # ragged columns of sec/min/hour/...: `is_paint_list()` refuses it as a whole
+  # structure, and `elem_expands()` refuses it as an element. It reaches here only as
+  # a thing being NAMED -- an element summarised as `<dttm [1]>`, a data frame column
+  # labelled `<dttm>` -- and the name it deserves is the one its POSIXct twin gets.
+  if (inherits(x, "POSIXlt")) {
+    return("<dttm>")
+  }
   if (inherits(x, "Date")) {
     return("<date>")
   }

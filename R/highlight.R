@@ -24,6 +24,7 @@
 #' A **list**'s mask is positions by elements, because that is how [paint_list()]
 #' draws it: `columns` select elements (by name, `names(x)`, as well as by number)
 #' and `rows` select positions within them. It is as deep as the deepest element.
+#' An **empty** list is refused, because [paint_list()] cannot draw one either.
 #'
 #' A list carrying a class -- `as.POSIXlt(Sys.time())`, an `lm`, a `t.test()`
 #' result -- is **not** a list for these purposes and is refused, exactly as
@@ -211,6 +212,14 @@ highlight_data.list <- function(x, rows = NULL, columns = NULL, locations = NULL
   # closes the one door dispatch leaves open, a list carrying a `dim`.
   if (!is_paint_list(x)) {
     stop("We currently do not support the data structure of: ", class(x))
+  }
+  # AND THE GATE IS THE PAINTER'S IN BOTH DIRECTIONS. `paint_list(list())` stops --
+  # there is nothing to draw -- so a mask for it is a mask nothing can consume, and
+  # the invariant this file is built on runs the other way too: if a painter CANNOT
+  # draw it, `highlight_data()` must refuse it. It used to hand back a 1 by 0 matrix,
+  # which was harmless only by accident.
+  if (length(x) == 0L) {
+    stop("Cannot paint an empty data structure.")
   }
 
   # A LIST'S MASK IS POSITIONS BY ELEMENTS. `rows` select positions WITHIN each

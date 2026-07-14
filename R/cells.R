@@ -647,8 +647,10 @@ list_header <- function(nms, j, max_chars = 12L, ellipsis = "...") {
 #' column. **`col_len` is to raggedness what `fmt_group` is to formatting:** every
 #' rectangular structure is the degenerate case where every entry is EQUAL, so
 #' there is no list code path, only a list *value*. It never reaches the cell
-#' table; it is local to this function, and its only consumer is `elide_index()`,
-#' which is asked the same question once per column instead of once per table.
+#' table; it is local to this function, and it has exactly two consumers, both of
+#' which ask it a question about SHAPE: `elide_index()`, which is asked once per
+#' column instead of once per table, and the outline, which is drawn when every
+#' entry is equal -- that being precisely when the block of cells is a rectangle.
 #'
 #' A data frame IS a list whose elements happen to share a length. That sentence is
 #' this function's structure, not a slogan about it.
@@ -1056,33 +1058,43 @@ paint_cells <- function(data,
   # of what makes it heavy, and it is a column like any other -- so neither
   # renderer has to know that an "outline" exists to stroke it correctly.
   #
-  # A RAGGED LIST GETS NO OUTLINE, AND THAT IS A DECISION, NOT AN OMISSION.
-  # `outline_box()` runs to the bottom-right of the drawn cells, which for a list is
-  # the BOUNDING BOX of a shape that is not a rectangle: on a 4/1/3 list the heavy
-  # border would run down to the bottom of the deepest element, and the length-1
-  # element would sit at the top of a tall, empty, heavily-boxed column -- a box
-  # around cells THAT DO NOT EXIST. The arithmetic would be right and the picture
-  # would be a lie, and the lie is precisely the one this painter exists to kill:
-  # that a list is a rectangle with holes in it. It is not; it is a bag of vectors
-  # of different lengths, and its silhouette IS the fact being taught.
+  # THE OUTLINE IS DRAWN WHEN THE BLOCK IS A RECTANGLE, AND THE BLOCK IS A RECTANGLE
+  # WHEN EVERY COLUMN IS THE SAME DEPTH. That is `col_len`, and asking it is the same
+  # question `elide_index()` is already asked per column, of the same vector: a
+  # LENGTH is SHAPE, in the same class of fact as `nrow` and `ncol`, and shape is
+  # what this file is allowed to decide on. (Data CONTENT is what it is not, and
+  # nothing here reads a value.)
   #
-  # Nothing is lost. Every cell still carries its own border, so the block still
-  # reads as a block -- it just reads as the ragged block it is. A list whose
-  # elements happen to share a length (a data frame in all but class) draws a
-  # perfect rectangle of cells, with a ragged-list-shaped hole in exactly none of it.
+  # Every rectangular structure has one number in every entry of `col_len`, so this
+  # is unconditionally TRUE for a matrix, a vector and a data frame, and their
+  # outline is exactly the outline they have always had. There is no `is_list`
+  # branch, because raggedness is a VALUE and not a code path.
   #
-  # It is expressed by NOT EMITTING A ROW. `outline_box()` already returns NULL when
-  # there is no outline cell, and both renderers already draw nothing for it. Zero
-  # lines in either.
-  outline <- if (is_list) {
-    NULL
-  } else {
+  # A RAGGED LIST GETS NO OUTLINE, AND THAT IS THE OTHER HALF OF THE SAME RULE.
+  # `outline_box()` runs to the bottom-right of the drawn cells, which for a ragged
+  # list is the BOUNDING BOX of a shape that is not a rectangle: on a 4/1/3 list the
+  # heavy border would run down to the bottom of the deepest element, and the
+  # length-1 element would sit at the top of a tall, empty, heavily-boxed column --
+  # a box around cells THAT DO NOT EXIST. Every cell still carries its own border,
+  # so the block still reads as a block; it just reads as the ragged block it is.
+  #
+  # SO THE BOX IS THE LESSON. Give a list's elements a shared length and the
+  # rectangle closes, exactly as it closes around the data frame that list could have
+  # been; take the shared length away and the rectangle breaks. The one thing a data
+  # frame adds is the one thing the heavy border draws.
+  #
+  # It is expressed by EMITTING OR NOT EMITTING A ROW. `outline_box()` already
+  # returns NULL when there is no outline cell, and both renderers already draw
+  # nothing for it. Zero lines in either.
+  outline <- if (all(col_len == col_len[[1L]])) {
     cell_rows(
       kind = "outline",
       row = lab_rows + 1L, col = lab_cols + 1L,
       border = "black", lwd = outline_lwd, align = "center",
       fit = FALSE
     )
+  } else {
+    NULL
   }
 
   # A lane draws a NAME or an INDEX, never both, and the two differ only in what

@@ -92,6 +92,7 @@ bare \code{list}. Anything else is an error.
 A \strong{list}'s mask is positions by elements, because that is how \code{\link[=paint_list]{paint_list()}}
 draws it: \code{columns} select elements (by name, \code{names(x)}, as well as by number)
 and \code{rows} select positions within them. It is as deep as the deepest element.
+An \strong{empty} list is refused, because \code{\link[=paint_list]{paint_list()}} cannot draw one either.
 
 A list carrying a class -- \code{as.POSIXlt(Sys.time())}, an \code{lm}, a \code{t.test()}
 result -- is \strong{not} a list for these purposes and is refused, exactly as
