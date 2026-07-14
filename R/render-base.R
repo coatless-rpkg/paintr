@@ -95,6 +95,13 @@ note_line <- 0.4
 # par() restoration
 # ---------------------------------------------------------------------------
 
+# WHY THIS PACKAGE MUST NEVER REACH FOR MULTI-PANEL BASE GRAPHICS. Verified:
+# `par(mfrow = )` is a `cex` AND `csi` MUTATOR, not merely a layout call -- it drops
+# `cex` 1 -> 0.83 and `csi` 0.2 -> 0.166, i.e. 17% short, so any `strwidth()` measured
+# after it is 17% short and `fit_fontsize()` overshoots by ~1.2x.
+# `graphics::layout()` is worse: "layout" is NOT in `names(par(no.readonly = TRUE))`,
+# so `restore_par()` is structurally INCAPABLE of capturing or restoring it.
+
 #' Put the caller's `par()` back, all of it
 #'
 #' The universally recommended idiom -- `op <- par(no.readonly = TRUE)`, then
@@ -523,7 +530,24 @@ draw_base <- function(resolved, opts) {
   }
 
   # -- the text: exactly two calls ------------------------------------------
-  ink <- cells[nzchar(cells$sig) | nzchar(cells$insig), , drop = FALSE]
+  # THE SPAN PREDICATE. `!is.na(s) & nzchar(s)` -- a span is drawn when it is a real,
+  # non-empty string. This MUST stay character-for-character identical to the one in
+  # `paintr_children()` in R/render-grid.R, and it is duplicated only because the two
+  # backends select rows in different shapes (one union here, two subsets there).
+  #
+  # It was NOT identical, and the two backends applied DIFFERENT predicates: this line
+  # tested `nzchar()` alone, and `nzchar(NA)` is TRUE, so a cell whose `sig` was a true
+  # NA was KEPT here and DROPPED there. Base got away with it only because
+  # `graphics::text()` silently skips an NA label and draws nothing -- an accident, not
+  # an agreement. Nothing puts a true NA into `sig` today (`paint_format()` emits the
+  # literal token "NA" as a string), so it was latent; drawing `names(x)`, where
+  # `names()` can hold a true NA, is all it would take to make it a visible divergence
+  # in the one invariant this branch is built on: BOTH BACKENDS DRAW THE SAME PICTURE.
+  ink <- cells[
+    (!is.na(cells$sig) & nzchar(cells$sig)) |
+      (!is.na(cells$insig) & nzchar(cells$insig)), ,
+    drop = FALSE
+  ]
   if (nrow(ink) == 0L) {
     return(invisible(NULL))
   }

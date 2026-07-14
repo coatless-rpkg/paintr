@@ -12,6 +12,8 @@
 \alias{highlight_data.POSIXct}
 \alias{highlight_data.vector}
 \alias{highlight_data.matrix}
+\alias{highlight_data.array}
+\alias{highlight_data.table}
 \alias{highlight_data.data.frame}
 \alias{highlight_data.default}
 \alias{highlight_rows}
@@ -40,6 +42,10 @@ highlight_data(x, rows = NULL, columns = NULL, locations = NULL, ...)
 \method{highlight_data}{vector}(x, rows = NULL, columns = NULL, locations = NULL, ...)
 
 \method{highlight_data}{matrix}(x, rows = NULL, columns = NULL, locations = NULL, ...)
+
+\method{highlight_data}{array}(x, rows = NULL, columns = NULL, locations = NULL, ...)
+
+\method{highlight_data}{table}(x, rows = NULL, columns = NULL, locations = NULL, ...)
 
 \method{highlight_data}{data.frame}(x, rows = NULL, columns = NULL, locations = NULL, ...)
 
@@ -77,14 +83,24 @@ Generate a logical structure codifies active areas.
 \section{Supported structures}{
 
 Methods exist for \code{numeric}, \code{integer}, \code{character}, \code{logical}, \code{complex},
-\code{factor}, \code{Date}, \code{POSIXct}, \code{matrix}, and \code{data.frame}. Anything else is an
-error.
+\code{factor}, \code{Date}, \code{POSIXct}, \code{matrix}, \code{array}, \code{table}, and \code{data.frame}.
+Anything else is an error.
+
+The governing invariant: \strong{if a painter can draw a structure, \code{highlight_data()}
+must be able to mask it} -- and a \emph{wrong} mask is worse than an error, so a
+structure no painter accepts is refused outright rather than reshaped into a mask
+nothing could consume. A 2D \code{table} is drawn by \code{paint_matrix()}, so it is masked
+here; an array of any rank but two is drawn by nothing, so it stops.
 
 There is deliberately no reliance on a \code{vector} method being \emph{dispatched}:
 \code{inherits(letters, "vector")} is \code{FALSE}, so \code{highlight_data.vector()} is never
 selected by \code{UseMethod()} for an atomic vector. The atomic methods are therefore
 fanned out explicitly, and each one forwards to \code{highlight_data.vector()} by a
-direct call.
+direct call. \code{array} and \code{table} are the same trap one type over: an atomic array
+dispatches on \code{c("array", "integer", "numeric")}, so without an \code{array} method it
+would land on \code{highlight_data.integer()} and be silently flattened, and a \code{table}
+dispatches on \code{"table"} alone, so without a \code{table} method it would land on
+\code{highlight_data.default()} and be refused despite being paintable.
 }
 
 \examples{

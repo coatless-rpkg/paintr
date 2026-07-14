@@ -188,6 +188,13 @@ paintr_children <- function(res, opts) {
   }
 
   # -- the black span ---------------------------------------------------------
+  # THE SPAN PREDICATE. `!is.na(s) & nzchar(s)` -- a span is drawn when it is a real,
+  # non-empty string. This MUST stay character-for-character identical to the one in
+  # `draw_base()` in R/render-base.R, which selects the same rows as a single union.
+  # It was not, and the two backends disagreed about an NA `sig`: base tested
+  # `nzchar()` alone, `nzchar(NA)` is TRUE, so base KEPT a row this one DROPS, and the
+  # two backends were held together only by `graphics::text()` happening to skip an NA
+  # label. Both files now ask the same question. See the note in `draw_base()`.
   sig <- cells[!is.na(cells$sig) & nzchar(cells$sig), , drop = FALSE]
   if (nrow(sig) > 0L) {
     kids[[length(kids) + 1L]] <- grid::textGrob(

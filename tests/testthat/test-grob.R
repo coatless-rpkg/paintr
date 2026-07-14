@@ -82,6 +82,24 @@ base_rects <- function(f, opts = paint_opts()) {
   got
 }
 
+# What `draw_base()` actually hands `graphics::text()`, in call order: the black span
+# first, the grey span second. Same trick as `base_rects()`, and for the same reason --
+# a base label exists only at the moment of the call.
+base_text <- function(f, opts = paint_opts()) {
+  got <- list()
+  testthat::local_mocked_bindings(
+    text = function(...) {
+      got[[length(got) + 1L]] <<- list(...)
+      invisible(NULL)
+    },
+    .package = "graphics"
+  )
+  grDevices::pdf(NULL, width = 7, height = 7)
+  on.exit(grDevices::dev.off(), add = TRUE)
+  render_base(f$cells, f$col_w, f$n_row, opts = opts, warn_floor = FALSE)
+  got
+}
+
 # ---------------------------------------------------------------------------
 # construction: pure, and it touches no device
 # ---------------------------------------------------------------------------
@@ -585,4 +603,77 @@ test_that("every structure draws through the grob without error or NA", {
       expect_no_error(grid::grid.draw(g))
     })
   }
+})
+
+# ---------------------------------------------------------------------------
+# the span predicate: ONE question, asked identically by both backends
+# ---------------------------------------------------------------------------
+
+# The NA-in-sig bug. The two renderers filtered their text rows with DIFFERENT
+# predicates:
+#
+#   R/render-base.R   nzchar(cells$sig)               -- nzchar(NA) is TRUE  -> KEPT
+#   R/render-grid.R   !is.na(sig) & nzchar(sig)       -- NA                  -> DROPPED
+#
+# They agreed only BY ACCIDENT: `graphics::text()` silently skips an NA label and draws
+# nothing, so base's extra row happened to leave no ink. Nothing puts a true NA into
+# `sig` today, so it was latent -- but it is a live divergence in the one invariant this
+# branch is built on, BOTH BACKENDS DRAW THE SAME PICTURE, and drawing `names(x)` (where
+# `names()` can hold a true NA) would make it reachable. Both files ask the same question
+# now, and this test is what holds them to it.
+
+test_that("the NA-in-sig bug: both backends drop an NA span, and drop the SAME one", {
+  f <- fx(matrix(1:4, nrow = 2))
+
+  # A value cell whose `sig` is a TRUE NA -- not the literal token "NA" that
+  # `paint_format()` emits -- and whose `insig` is empty, so the row carries no ink of
+  # any kind and BOTH backends must drop it.
+  val <- which(f$cells$kind == "value")
+  expect_length(val, 4L)
+  target <- val[[2L]]
+  f$cells$sig[[target]] <- NA_character_
+  f$cells$insig[[target]] <- ""
+
+  # grid: the black textGrob's labels ARE the black spans.
+  g <- paintr_grob(f$cells, f$col_w, f$n_row, opts = paint_opts(), warn_floor = FALSE)
+  grid_labels <- kid(with_panel(7, grid::makeContent(g)$children), "paintr.sig")$label
+
+  # base: the labels handed to the first `text()` call ARE the black spans.
+  calls <- base_text(f)
+  expect_length(calls, 2L)
+  base_labels <- calls[[1L]]$labels
+
+  # The NA row is gone from BOTH -- 4 value cells, 3 spans.
+  expect_length(grid_labels, 3L)
+  expect_length(base_labels, 3L)
+
+  # The same number of spans, and the SAME spans. This is the whole invariant.
+  expect_identical(base_labels, grid_labels)
+
+  # And no NA ever reaches the device: base used to rely on `text()` skipping it.
+  expect_false(anyNA(base_labels))
+  expect_false(anyNA(grid_labels))
+  expect_identical(sort(base_labels), c("1", "3", "4"))
+})
+
+test_that("the NA-in-sig bug: an NA insig is dropped by both backends too", {
+  f <- fx(matrix(1:4, nrow = 2))
+  val <- which(f$cells$kind == "value")
+  # A real black span, but an NA grey one. The row must still be drawn -- it has ink --
+  # and the grey span must not be.
+  f$cells$insig[[val[[1L]]]] <- NA_character_
+
+  g <- paintr_grob(f$cells, f$col_w, f$n_row, opts = paint_opts(), warn_floor = FALSE)
+  kids <- with_panel(7, grid::makeContent(g)$children)
+
+  calls <- base_text(f)
+  base_sig <- calls[[1L]]$labels
+
+  # All four black spans survive in both: an NA `insig` is not a reason to drop a row.
+  expect_length(kid(kids, "paintr.sig")$label, 4L)
+  expect_length(base_sig, 4L)
+  expect_identical(base_sig, kid(kids, "paintr.sig")$label)
+
+  # And grid emits no grey grob at all, because no cell has a grey span.
+  expect_null(kid(kids, "paintr.insig"))
 })

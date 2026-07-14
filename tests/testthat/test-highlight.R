@@ -321,6 +321,102 @@ test_that("points for a 1D structure must be a vector", {
   )
 })
 
+# The array bug ----------------------------------------------------------------
+# highlight_data() on a 3D array SILENTLY RETURNED A WRONG MASK. `.class2()` of an
+# atomic array is c("array", "integer", "numeric"), and with no `array` method
+# UseMethod() fell through to .integer -> .vector, which treats the array as a flat
+# vector and drops its `dim`:
+#
+#   highlight_data(array(1:24, c(2, 3, 4)), rows = 1)
+#   -> logical, length 24, dim NULL, exactly ONE TRUE. `rows = 1` marks TWELVE cells.
+#
+# This is the same dispatch trap as inherits(letters, "vector") being FALSE (bug 5),
+# one type over. There is no n-D painter, so the fix is an honest stop(): a WRONG
+# mask is worse than an error, and nothing could consume an n-D mask anyway.
+
+test_that("the array bug: a 3D array is refused, not silently flattened", {
+  expect_error(
+    highlight_data(array(1:24, c(2, 3, 4)), rows = 1),
+    "two-dimensional"
+  )
+
+  # The wrong answer it used to give, pinned so it cannot come back: a bare logical
+  # vector of length 24 with a single TRUE and no `dim`.
+  mask <- try(highlight_data(array(1:24, c(2, 3, 4)), rows = 1), silent = TRUE)
+  expect_s3_class(mask, "try-error")
+})
+
+test_that("the array bug: every rank but two is refused", {
+  expect_error(highlight_data(array(1:3, 3), rows = 1), "two-dimensional")
+  expect_error(highlight_data(array(1:16, c(2, 2, 2, 2)), rows = 1), "two-dimensional")
+})
+
+test_that("the array bug: a 2D array is UNCHANGED -- it is a matrix and it masks", {
+  # `.class2()` puts `matrix` ahead of `array` for a 2D one, so highlight_data.matrix()
+  # is still dispatched and highlight_data.array() never fires. The mask must be the
+  # matrix mask, exactly.
+  a2 <- array(1:6, c(2, 3))
+
+  expect_no_error(highlight_data(a2, rows = 1))
+  expect_equal(dim(highlight_data(a2, rows = 1)), c(2L, 3L))
+  expect_equal(sum(highlight_data(a2, rows = 1)), 3L)
+  expect_identical(
+    highlight_data(a2, rows = 1),
+    highlight_data(matrix(1:6, nrow = 2), rows = 1)
+  )
+  expect_identical(
+    highlight_data(a2, columns = 2, locations = rbind(c(2, 3))),
+    highlight_data(matrix(1:6, nrow = 2), columns = 2, locations = rbind(c(2, 3)))
+  )
+})
+
+# The table bug ----------------------------------------------------------------
+# paint_matrix() DRAWS a 2D table, but highlight_data() REFUSED one: `.class2()` of a
+# table is "table" alone -- a classed object dispatches on its own class vector only --
+# so .matrix never fired and control landed on .default:
+#
+#   highlight_data(table(a, b), rows = 1) -> "We currently do not support ... table"
+#
+# That breaks the governing invariant: IF A PAINTER CAN DRAW IT, highlight_data() MUST
+# BE ABLE TO MASK IT. `table(a, b)` is the structure a paintr user would most want to
+# highlight a row of.
+
+test_that("the table bug: a 2D table can be highlighted", {
+  tab <- table(c("a", "b", "a"), c("x", "x", "y"))
+
+  expect_no_error(highlight_data(tab, rows = 1))
+  expect_equal(dim(highlight_data(tab, rows = 1)), c(2L, 2L))
+  expect_equal(sum(highlight_data(tab, rows = 1)), 2L)
+})
+
+test_that("the table bug: the 2D table mask EQUALS the plain matrix mask", {
+  tab <- table(c("a", "b", "a"), c("x", "x", "y"))
+  # The same numbers, the same names, but a plain matrix. The table method delegates to
+  # the matrix method rather than copying it, so these cannot drift apart.
+  mat <- matrix(
+    as.vector(tab),
+    nrow = nrow(tab), ncol = ncol(tab),
+    dimnames = dimnames(tab)
+  )
+
+  expect_identical(highlight_data(tab, rows = 1), highlight_data(mat, rows = 1))
+  expect_identical(highlight_data(tab, columns = 2), highlight_data(mat, columns = 2))
+  expect_identical(
+    highlight_data(tab, locations = rbind(c(1, 2), c(2, 1))),
+    highlight_data(mat, locations = rbind(c(1, 2), c(2, 1)))
+  )
+  # Names, too: a table's dimnames are where its row and column names live.
+  expect_identical(highlight_data(tab, rows = "a"), highlight_data(mat, rows = "a"))
+  expect_identical(highlight_data(tab, columns = "y"), highlight_data(mat, columns = "y"))
+})
+
+test_that("the table bug: a table of any rank but two is refused", {
+  # 1D: table(x). Nothing paints it, so nothing may mask it.
+  expect_error(highlight_data(table(c("a", "b", "a")), rows = 1), "two-dimensional")
+  # 4D: Titanic.
+  expect_error(highlight_data(Titanic, rows = 1), "two-dimensional")
+})
+
 test_that("unsupported structures still hit the .default error", {
   expect_error(
     highlight_data(list(1, 2)),

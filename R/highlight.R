@@ -18,14 +18,24 @@
 #'
 #' @section Supported structures:
 #' Methods exist for `numeric`, `integer`, `character`, `logical`, `complex`,
-#' `factor`, `Date`, `POSIXct`, `matrix`, and `data.frame`. Anything else is an
-#' error.
+#' `factor`, `Date`, `POSIXct`, `matrix`, `array`, `table`, and `data.frame`.
+#' Anything else is an error.
+#'
+#' The governing invariant: **if a painter can draw a structure, `highlight_data()`
+#' must be able to mask it** -- and a *wrong* mask is worse than an error, so a
+#' structure no painter accepts is refused outright rather than reshaped into a mask
+#' nothing could consume. A 2D `table` is drawn by `paint_matrix()`, so it is masked
+#' here; an array of any rank but two is drawn by nothing, so it stops.
 #'
 #' There is deliberately no reliance on a `vector` method being *dispatched*:
 #' `inherits(letters, "vector")` is `FALSE`, so `highlight_data.vector()` is never
 #' selected by `UseMethod()` for an atomic vector. The atomic methods are therefore
 #' fanned out explicitly, and each one forwards to `highlight_data.vector()` by a
-#' direct call.
+#' direct call. `array` and `table` are the same trap one type over: an atomic array
+#' dispatches on `c("array", "integer", "numeric")`, so without an `array` method it
+#' would land on `highlight_data.integer()` and be silently flattened, and a `table`
+#' dispatches on `"table"` alone, so without a `table` method it would land on
+#' `highlight_data.default()` and be refused despite being paintable.
 #'
 #' @rdname highlight-data
 #' @export
@@ -172,6 +182,18 @@ highlight_data.matrix <- function(x, rows = NULL, columns = NULL, locations = NU
 
 #' @rdname highlight-data
 #' @export
+highlight_data.array <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
+  highlight_data_dim(x, rows = rows, columns = columns, locations = locations, ...)
+}
+
+#' @rdname highlight-data
+#' @export
+highlight_data.table <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
+  highlight_data_dim(x, rows = rows, columns = columns, locations = locations, ...)
+}
+
+#' @rdname highlight-data
+#' @export
 highlight_data.data.frame <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
 
   # Create a logical matrix with the same dimensions as 'x'
@@ -210,6 +232,54 @@ highlight_locations <- function(x, locations = NULL) {
 }
 
 # Internal helpers -------------------------------------------------------------
+
+# Mask a `dim`-carrying structure, or refuse it honestly.
+#
+# THE GOVERNING INVARIANT: if a painter can DRAW a structure, highlight_data() must
+# be able to MASK it. Its corollary is the reason this function stops rather than
+# improvises: a WRONG mask is worse than an error.
+#
+# `array` and `table` both land here, and both are paintable exactly as far as their
+# rank allows -- `paint_matrix()` draws a 2D one and refuses every other rank
+# (verified: a 1D, 3D or 4D one is turned away by the painter). So a 2D one is
+# DELEGATED to the matrix method -- the same body, not a copy of it, because
+# duplicated logic between siblings is what produced this package's original bug
+# list -- and every other rank stops. There is no n-D painter, so an n-D mask is not
+# a thing anything could consume; building one would only be a wrong answer with
+# extra steps.
+#
+# Two dispatch traps are what make these two methods necessary at all, and both are
+# silent:
+#
+#   * `.class2(array(1:24, c(2, 3, 4)))` is c("array", "integer", "numeric"). With no
+#     `array` method, `UseMethod()` falls through to `.integer` -> `.vector`, which
+#     drops `dim` and returns a FLAT mask: `rows = 1` marked ONE cell of 24 where it
+#     should have marked twelve.
+#   * `.class2(table(a, b))` is "table" alone -- a classed object dispatches on its
+#     own class vector only -- so `.matrix` never fired and `.default` refused an
+#     object `paint_matrix()` draws happily.
+#
+# The rank test below is deliberately not "assume 2D can't get here". A 2D array
+# never does reach `highlight_data.array()` -- `.class2()` puts `matrix` ahead of
+# `array`, so `.matrix` is dispatched first -- but a method that is correct only
+# because of the order of a class vector is a method waiting to be wrong, and a 2D
+# `table` reaches this same body for real.
+#' @keywords internal
+#' @noRd
+highlight_data_dim <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
+  n_dim <- length(dim(x))
+
+  if (n_dim == 2L) {
+    return(highlight_data.matrix(
+      x = x, rows = rows, columns = columns, locations = locations, ...
+    ))
+  }
+
+  stop(
+    "We can only highlight a two-dimensional ", class(x)[1L], ", but this one has ",
+    n_dim, if (n_dim == 1L) " dimension." else " dimensions."
+  )
+}
 
 # Mark rows, columns, and points on a 2D logical mask.
 #
