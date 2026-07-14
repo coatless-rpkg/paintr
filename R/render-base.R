@@ -530,24 +530,11 @@ draw_base <- function(resolved, opts) {
   }
 
   # -- the text: exactly two calls ------------------------------------------
-  # THE SPAN PREDICATE. `!is.na(s) & nzchar(s)` -- a span is drawn when it is a real,
-  # non-empty string. This MUST stay character-for-character identical to the one in
-  # `paintr_children()` in R/render-grid.R, and it is duplicated only because the two
-  # backends select rows in different shapes (one union here, two subsets there).
-  #
-  # It was NOT identical, and the two backends applied DIFFERENT predicates: this line
-  # tested `nzchar()` alone, and `nzchar(NA)` is TRUE, so a cell whose `sig` was a true
-  # NA was KEPT here and DROPPED there. Base got away with it only because
-  # `graphics::text()` silently skips an NA label and draws nothing -- an accident, not
-  # an agreement. Nothing puts a true NA into `sig` today (`paint_format()` emits the
-  # literal token "NA" as a string), so it was latent; drawing `names(x)`, where
-  # `names()` can hold a true NA, is all it would take to make it a visible divergence
-  # in the one invariant this branch is built on: BOTH BACKENDS DRAW THE SAME PICTURE.
-  ink <- cells[
-    (!is.na(cells$sig) & nzchar(cells$sig)) |
-      (!is.na(cells$insig) & nzchar(cells$insig)), ,
-    drop = FALSE
-  ]
+  # `inked_cells()` -- shared with `paintr_children()` in R/render-grid.R -- is the
+  # one place that decides which spans are real, non-empty strings. This backend
+  # asks for the union, since one subset feeds both vectorised `text()` calls
+  # below; see the function's own docs for why `nzchar()` alone is not enough.
+  ink <- inked_cells(cells)
   if (nrow(ink) == 0L) {
     return(invisible(NULL))
   }

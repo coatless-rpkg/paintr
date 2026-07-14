@@ -740,6 +740,43 @@ boxed_cells <- function(cells) {
   b[order(b$lwd), , drop = FALSE]
 }
 
+#' The cells that draw a given text span, or their union
+#'
+#' A span is drawn when it is a real, non-empty string: `!is.na(s) & nzchar(s)`.
+#' `nzchar()` alone is not enough -- `nzchar(NA)` is TRUE, so a true `NA` would be
+#' KEPT rather than skipped.
+#'
+#' This is exactly the predicate the two renderers once wrote out separately, and
+#' got wrong in different directions. `R/render-base.R` tested `nzchar()` alone
+#' and KEPT a row with a true NA `sig`; it was rescued only because
+#' `graphics::text()` silently skips an NA label and draws nothing -- an accident,
+#' not an agreement. `R/render-grid.R` tested `!is.na(s) & nzchar(s)` and DROPPED
+#' that same row, because `grid::textGrob()` has no such mercy. Nothing puts a
+#' true NA into `sig` or `insig` today (`paint_format()` emits the literal token
+#' `"NA"` as a string), so the divergence was latent; drawing `names(x)`, where
+#' `names()` can hold a true NA, is all it would take to make it visible. Asking
+#' the question here, once, is what makes that divergence impossible rather than
+#' merely documented.
+#'
+#' `R/render-grid.R` needs the `sig` rows and the `insig` rows separately, for two
+#' `textGrob()`s. `R/render-base.R` needs their union, for one subset fed to two
+#' vectorised `text()` calls. `span` picks which; the default is the union.
+#'
+#' @param cells A cell table from [paint_cells()].
+#' @param span One or both of `"sig"`, `"insig"`. Both (the default) selects the
+#'   union: a row where either span is a real, non-empty string.
+#'
+#' @return The subset of `cells` whose named span(s) are drawn.
+#'
+#' @keywords internal
+#' @noRd
+inked_cells <- function(cells, span = c("sig", "insig")) {
+  span <- match.arg(span, several.ok = TRUE)
+  drawn <- function(s) !is.na(cells[[s]]) & nzchar(cells[[s]])
+  keep <- Reduce(`|`, lapply(span, drawn))
+  cells[keep, , drop = FALSE]
+}
+
 # ---------------------------------------------------------------------------
 # column widths
 # ---------------------------------------------------------------------------

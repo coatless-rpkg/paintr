@@ -188,14 +188,11 @@ paintr_children <- function(res, opts) {
   }
 
   # -- the black span ---------------------------------------------------------
-  # THE SPAN PREDICATE. `!is.na(s) & nzchar(s)` -- a span is drawn when it is a real,
-  # non-empty string. This MUST stay character-for-character identical to the one in
-  # `draw_base()` in R/render-base.R, which selects the same rows as a single union.
-  # It was not, and the two backends disagreed about an NA `sig`: base tested
-  # `nzchar()` alone, `nzchar(NA)` is TRUE, so base KEPT a row this one DROPS, and the
-  # two backends were held together only by `graphics::text()` happening to skip an NA
-  # label. Both files now ask the same question. See the note in `draw_base()`.
-  sig <- cells[!is.na(cells$sig) & nzchar(cells$sig), , drop = FALSE]
+  # `inked_cells()` -- shared with `draw_base()` in R/render-base.R -- is the one
+  # place that decides which spans are real, non-empty strings; see its own docs
+  # for why `nzchar()` alone is not enough. This grob needs the `sig` and `insig`
+  # rows separately, for two `textGrob()`s.
+  sig <- inked_cells(cells, "sig")
   if (nrow(sig) > 0L) {
     kids[[length(kids) + 1L]] <- grid::textGrob(
       label = sig$sig,
@@ -213,7 +210,7 @@ paintr_children <- function(res, opts) {
   }
 
   # -- the grey span ----------------------------------------------------------
-  insig <- cells[!is.na(cells$insig) & nzchar(cells$insig), , drop = FALSE]
+  insig <- inked_cells(cells, "insig")
   if (nrow(insig) > 0L) {
     kids[[length(kids) + 1L]] <- grid::textGrob(
       label = insig$insig,
