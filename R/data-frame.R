@@ -80,7 +80,7 @@
 #' )
 paint_data_frame <- function(
     data,
-    show_indices = c("none", "cell", "row", "column", "all"),
+    show_indices = "none",
     highlight_area = NULL,
     highlight_color = "lemonchiffon",
     graph_title = paste0("Data Object: ", deparse(substitute(data))),
@@ -100,7 +100,7 @@ paint_data_frame <- function(
   if (!is.data.frame(data)) {
     stop("Please double-check the data supplied is of a `data.frame` type.")
   }
-  show_indices <- match.arg(show_indices)
+  show_indices <- check_show_indices(show_indices)
   subtle_digits <- match.arg(subtle_digits)
   # A data frame is a grid, so it takes the grid subtitle: rows, columns, class.
   # Three painters, one contract -- a default line that two of them drew and the
@@ -147,7 +147,7 @@ paint_data_frame <- function(
 #' gpaint_df(head(mtcars, 4))
 gpaint_data_frame <- function(
     data,
-    show_indices = c("none", "cell", "row", "column", "all"),
+    show_indices = "none",
     highlight_area = NULL,
     highlight_color = "lemonchiffon",
     graph_title = paste0("Data Object: ", deparse(substitute(data))),
@@ -168,7 +168,7 @@ gpaint_data_frame <- function(
   if (!is.data.frame(data)) {
     stop("Please double-check the data supplied is of a `data.frame` type.")
   }
-  show_indices <- match.arg(show_indices)
+  show_indices <- check_show_indices(show_indices)
   subtle_digits <- match.arg(subtle_digits)
   graph_subtitle <- resolve_subtitle(graph_subtitle, dims_subtitle(data))
 

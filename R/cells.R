@@ -297,6 +297,50 @@ strip_asis <- function(x) {
   x
 }
 
+#' Validate `show_indices` for a matrix or a data frame
+#'
+#' A grid takes a *vector* here, because its index lanes are independent: a caller
+#' can ask for `c("row", "column")` and get both, which is what the README does.
+#' That rules out `match.arg()`, which is length-one by construction -- widening
+#' this argument back out to a vector is the whole point of this function.
+#'
+#' The lanes are then chosen with `any(... %in% ...)`, so a value that is not
+#' "none" turns its lane on regardless of what else is in the vector. `"none"`
+#' therefore does not veto its companions: `c("none", "row")` draws row indices.
+#' It is a contradictory request, and the non-trivial half of it wins.
+#'
+#' A vector's `show_indices` is a different, mutually exclusive vocabulary
+#' ("inside"/"outside"), and stays length-one under `match.arg()`.
+#'
+#' @param show_indices What the caller passed.
+#'
+#' @return `show_indices`, unchanged, when it is valid.
+#'
+#' @keywords internal
+#' @noRd
+check_show_indices <- function(show_indices) {
+  valid <- c("none", "cell", "row", "column", "all")
+  ok <- is.character(show_indices) &&
+    length(show_indices) > 0L &&
+    !anyNA(show_indices) &&
+    all(show_indices %in% valid)
+  if (!ok) {
+    got <- if (length(show_indices) == 0L) {
+      "empty"
+    } else if (is.character(show_indices)) {
+      paste0("'", show_indices, "'", collapse = ", ")
+    } else {
+      paste0("a length-", length(show_indices), " ", class(show_indices)[1L])
+    }
+    stop(
+      "`show_indices` must be one or more of 'none', 'cell', 'row', 'column', or 'all', ",
+      "but it was ", got, ". Ask for several at once with a vector, ",
+      "such as c(\"row\", \"column\")."
+    )
+  }
+  show_indices
+}
+
 #' Build the cell table
 #'
 #' The one builder for all three structures. It elides first and formats second,
@@ -316,9 +360,10 @@ strip_asis <- function(x) {
 #' @param highlight_area `NULL`, a length-one logical, or a logical mask shaped
 #'   like `data`.
 #' @param highlight_color The fill for a highlighted cell.
-#' @param show_indices For a matrix or data frame, one of `"none"`, `"cell"`,
-#'   `"row"`, `"column"`, `"all"`. For a vector, one of `"none"`, `"inside"`,
-#'   `"outside"`.
+#' @param show_indices For a matrix or data frame, any number of `"none"`,
+#'   `"cell"`, `"row"`, `"column"`, `"all"` -- the lanes are independent, so
+#'   `c("row", "column")` turns on both. For a vector, exactly one of `"none"`,
+#'   `"inside"`, `"outside"`, which are mutually exclusive.
 #' @param layout Vectors only: `"vertical"` (an n by 1 grid) or `"horizontal"`.
 #' @param show_names,show_types Data frames only: draw the column-name row and the
 #'   type-tag row.
@@ -395,10 +440,12 @@ paint_cells <- function(data,
     idx_row <- show_indices == "outside" && layout == "vertical"
     idx_col <- show_indices == "outside" && layout == "horizontal"
   } else {
-    show_indices <- match.arg(show_indices, c("none", "cell", "row", "column", "all"))
-    idx_cell <- show_indices %in% c("cell", "all")
-    idx_row <- show_indices %in% c("row", "all")
-    idx_col <- show_indices %in% c("column", "all")
+    # A grid takes a VECTOR: its three lanes are independent, so `c("row",
+    # "column")` means both. `any()`, not `==`, is what makes that work.
+    show_indices <- check_show_indices(show_indices)
+    idx_cell <- any(show_indices %in% c("cell", "all"))
+    idx_row <- any(show_indices %in% c("row", "all"))
+    idx_col <- any(show_indices %in% c("column", "all"))
   }
 
   # -- elide FIRST ------------------------------------------------------------

@@ -22,6 +22,10 @@
 #' @param layout          Orientation of the vector. Default: `"vertical"`.
 #' @param show_indices    Display data indices either `"inside"` the cell,
 #'                        `"outside"` it, or `"none"`. Default: `"none"`.
+#'                        Exactly one value: a vector has a single index `[i]`,
+#'                        so its placements are mutually exclusive. (A matrix or
+#'                        data frame has independent row, column and cell lanes,
+#'                        and [paint_matrix()] does take several at once.)
 #' @param highlight_area  Logical vector the same length as `data`, marking the
 #'                        cells to fill. A length-one logical is recycled.
 #'                        Default: `NULL`, which highlights nothing.

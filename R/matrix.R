@@ -25,11 +25,20 @@
 #' `gpaint_matrix()` returns a `ggplot` object.
 #'
 #' @param data            An object that has the class of `matrix`.
-#' @param show_indices    Display indices based on location. Options are:
+#' @param show_indices    Display indices based on location. A character vector,
+#'                        so several kinds of index can be asked for at once.
+#'                        Values are:
 #'                        `"none"`: no indices, `"cell"`: matrix cell indices `[i, j]`,
 #'                        `"row"`: row indices `[i, ]` to the left of the matrix,
 #'                        `"column"`: column indices `[, j]` above the matrix, and
-#'                        `"all"`: row, column, and cell options. Default: `"none"`.
+#'                        `"all"`: row, column, and cell indices together.
+#'                        Default: `"none"`.
+#'
+#'   Each value switches on its own lane, so `c("row", "column")` draws the row
+#'   *and* the column indices but no cell indices, and `"all"` is the same as
+#'   `c("cell", "row", "column")`. Combining `"none"` with anything else is
+#'   contradictory, and the other values win: `c("none", "row")` draws row
+#'   indices. An unknown value is an error, not a silent no-op.
 #' @param highlight_area  Logical matrix the same shape as `data`, marking the
 #'                        cells to fill. A length-one logical is recycled.
 #'                        Default: `NULL`, which highlights nothing.
@@ -114,7 +123,7 @@
 #' paint_matrix(mat_2x4, highlight_area = mat_2x4 > 2)
 paint_matrix <- function(
     data,
-    show_indices = c("none", "cell", "row", "column", "all"),
+    show_indices = "none",
     highlight_area = NULL,
     highlight_color = "lemonchiffon",
     graph_title = paste0("Data Object: ", deparse(substitute(data))),
@@ -135,7 +144,7 @@ paint_matrix <- function(
     # BUG 7. This said "`vector` type", copy-pasted from paint_vector().
     stop("Please double-check the data supplied is of a `matrix` type.")
   }
-  show_indices <- match.arg(show_indices)
+  show_indices <- check_show_indices(show_indices)
   subtle_digits <- match.arg(subtle_digits)
   graph_subtitle <- resolve_subtitle(graph_subtitle, dims_subtitle(data))
 
@@ -188,7 +197,7 @@ paint_matrix <- function(
 #' gpaint_matrix(mat_3x5, highlight_area = mat_3x5 > 2)
 gpaint_matrix <- function(
     data,
-    show_indices = c("none", "cell", "row", "column", "all"),
+    show_indices = "none",
     highlight_area = NULL,
     highlight_color = "lemonchiffon",
     graph_title = paste0("Data Object: ", deparse(substitute(data))),
@@ -207,7 +216,7 @@ gpaint_matrix <- function(
   if (!is.matrix(data)) {
     stop("Please double-check the data supplied is of a `matrix` type.")
   }
-  show_indices <- match.arg(show_indices)
+  show_indices <- check_show_indices(show_indices)
   subtle_digits <- match.arg(subtle_digits)
   graph_subtitle <- resolve_subtitle(graph_subtitle, dims_subtitle(data))
 

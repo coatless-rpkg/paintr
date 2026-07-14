@@ -48,7 +48,11 @@ Dates and other classed atomic vectors are accepted too.}
 \item{layout}{Orientation of the vector. Default: \code{"vertical"}.}
 
 \item{show_indices}{Display data indices either \code{"inside"} the cell,
-\code{"outside"} it, or \code{"none"}. Default: \code{"none"}.}
+\code{"outside"} it, or \code{"none"}. Default: \code{"none"}.
+Exactly one value: a vector has a single index \verb{[i]},
+so its placements are mutually exclusive. (A matrix or
+data frame has independent row, column and cell lanes,
+and \code{\link[=paint_matrix]{paint_matrix()}} does take several at once.)}
 
 \item{highlight_area}{Logical vector the same length as \code{data}, marking the
 cells to fill. A length-one logical is recycled.

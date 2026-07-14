@@ -610,7 +610,7 @@ test_that("paint_cells() refuses the impossible", {
     paint_cells(matrix(0, nrow = 1000, ncol = 101), show_all = TRUE),
     "more than the 100000 cells"
   )
-  expect_error(paint_cells(matrix(1:6, 3), show_indices = "banana"), "should be one of")
+  expect_error(paint_cells(matrix(1:6, 3), show_indices = "banana"), "must be one or more of")
 })
 
 test_that("the numeric edge cases all build a table", {

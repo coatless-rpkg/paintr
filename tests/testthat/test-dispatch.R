@@ -215,11 +215,120 @@ test_that("empty data stops", {
   expect_error(paint_data_frame(data.frame()), "empty")
 })
 
-test_that("show_indices is match.arg'd", {
-  expect_error(paint_matrix(matrix(1:4, 2), show_indices = "wombat"), "should be one of")
-  expect_error(paint_vector(1:3, show_indices = "cell"), "should be one of")
+test_that("show_indices rejects a value outside its structure's vocabulary", {
+  # A grid takes a vector, so it is validated by hand, not by match.arg().
+  expect_error(paint_matrix(matrix(1:4, 2), show_indices = "wombat"), "must be one or more of")
   # "inside"/"outside" are the vector's vocabulary, "cell"/"row"/"column" the grid's.
-  expect_error(paint_matrix(matrix(1:4, 2), show_indices = "inside"), "should be one of")
+  expect_error(paint_matrix(matrix(1:4, 2), show_indices = "inside"), "must be one or more of")
+  # A vector's placements are mutually exclusive, so it is still match.arg'd.
+  expect_error(paint_vector(1:3, show_indices = "cell"), "should be one of")
+})
+
+# ---------------------------------------------------------------------------
+# show_indices takes a VECTOR on a grid
+#
+# The lanes of a matrix or a data frame are independent, so `c("row", "column")`
+# has to mean BOTH -- it is what the package's own README asks for. A rewrite once
+# replaced the `any(show_indices %in% ...)` test with `match.arg()`, which is
+# length-one by construction, and the README stopped building. No test passed a
+# vector, so nothing caught it. These do.
+# ---------------------------------------------------------------------------
+
+# The drawn index lanes, for either backend. `paint_*()` invisibly returns the
+# resolved table; `gpaint_*()` hides the same table inside its grob.
+index_lanes <- function(x) {
+  cells <- if (inherits(x, "ggplot")) x$layers[[1L]]$geom_params$grob$cells else x$cells
+  sort(intersect(unique(cells$kind), c("cellindex", "rowlabel", "collabel")))
+}
+
+test_that("show_indices = c('row', 'column') draws both lanes and no cell indices", {
+  m <- matrix(1:15, nrow = 3)
+
+  # The README's call. It must not error, and it must draw exactly two lanes.
+  expect_no_error(base <- with_null_pdf(paint_matrix(m, show_indices = c("row", "column"))))
+  expect_equal(index_lanes(base), c("collabel", "rowlabel"))
+  expect_false("cellindex" %in% index_lanes(base))
+
+  expect_no_error(g <- gpaint_matrix(m, show_indices = c("row", "column")))
+  expect_equal(index_lanes(g), c("collabel", "rowlabel"))
+  expect_false("cellindex" %in% index_lanes(g))
+})
+
+test_that("show_indices = 'all' draws all three lanes", {
+  m <- matrix(1:15, nrow = 3)
+  expect_equal(
+    index_lanes(with_null_pdf(paint_matrix(m, show_indices = "all"))),
+    c("cellindex", "collabel", "rowlabel")
+  )
+  expect_equal(
+    index_lanes(gpaint_matrix(m, show_indices = "all")),
+    c("cellindex", "collabel", "rowlabel")
+  )
+})
+
+test_that("each single show_indices value draws exactly its own lane", {
+  m <- matrix(1:15, nrow = 3)
+  expected <- list(
+    none = character(0),
+    cell = "cellindex",
+    row = "rowlabel",
+    column = "collabel"
+  )
+  for (nm in names(expected)) {
+    expect_equal(
+      index_lanes(with_null_pdf(paint_matrix(m, show_indices = nm))),
+      expected[[nm]],
+      info = nm
+    )
+    expect_equal(index_lanes(gpaint_matrix(m, show_indices = nm)), expected[[nm]], info = nm)
+  }
+})
+
+test_that("show_indices takes a vector on a data frame too", {
+  df <- head(iris, 3)
+
+  base <- with_null_pdf(paint_data_frame(df, show_indices = c("row", "column")))
+  expect_equal(index_lanes(base), c("collabel", "rowlabel"))
+
+  expect_equal(
+    index_lanes(gpaint_data_frame(df, show_indices = c("row", "column"))),
+    c("collabel", "rowlabel")
+  )
+  # Order does not matter, and a repeat is not an error.
+  expect_equal(
+    index_lanes(with_null_pdf(paint_data_frame(df, show_indices = c("column", "row", "row")))),
+    c("collabel", "rowlabel")
+  )
+})
+
+test_that("'none' alongside another value loses: the drawn lane wins", {
+  # Contradictory, so it is documented: any other value overrides "none".
+  m <- matrix(1:4, nrow = 2)
+  expect_equal(index_lanes(with_null_pdf(paint_matrix(m, show_indices = c("none", "row")))), "rowlabel")
+  expect_equal(index_lanes(gpaint_matrix(m, show_indices = c("none", "row"))), "rowlabel")
+})
+
+test_that("an unknown show_indices is still an error, even inside a valid vector", {
+  m <- matrix(1:4, nrow = 2)
+  # A typo is never silently ignored.
+  expect_error(paint_matrix(m, show_indices = c("row", "wombat")), "must be one or more of")
+  expect_error(gpaint_matrix(m, show_indices = c("row", "wombat")), "must be one or more of")
+  expect_error(paint_data_frame(head(iris, 2), show_indices = c("row", "wombat")), "must be one or more of")
+  # The message names the allowed values and what actually arrived.
+  expect_error(paint_matrix(m, show_indices = "wombat"), "'none', 'cell', 'row', 'column', or 'all'")
+  expect_error(paint_matrix(m, show_indices = "wombat"), "'wombat'")
+  # An empty vector is not "no indices", it is a mistake.
+  expect_error(paint_matrix(m, show_indices = character(0)), "must be one or more of")
+  expect_error(paint_matrix(m, show_indices = NA_character_), "must be one or more of")
+})
+
+test_that("paint_vector() still takes exactly one show_indices", {
+  # A vector has a single index `[i]`: "inside" and "outside" are placements of the
+  # same label, so they are mutually exclusive. main match.arg'd this, and it stays
+  # match.arg'd -- widening the grid's argument must not widen the vector's.
+  expect_error(paint_vector(1:3, show_indices = c("inside", "outside")), "must be of length 1")
+  expect_error(gpaint_vector(1:3, show_indices = c("inside", "outside")), "must be of length 1")
+  expect_error(paint_vector(1:3, show_indices = c("none", "inside")), "must be of length 1")
 })
 
 test_that("a mis-shaped highlight_area reports the actual dimensions", {

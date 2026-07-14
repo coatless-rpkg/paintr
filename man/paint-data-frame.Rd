@@ -9,7 +9,7 @@
 \usage{
 paint_data_frame(
   data,
-  show_indices = c("none", "cell", "row", "column", "all"),
+  show_indices = "none",
   highlight_area = NULL,
   highlight_color = "lemonchiffon",
   graph_title = paste0("Data Object: ", deparse(substitute(data))),
@@ -28,7 +28,7 @@ paint_data_frame(
 
 gpaint_data_frame(
   data,
-  show_indices = c("none", "cell", "row", "column", "all"),
+  show_indices = "none",
   highlight_area = NULL,
   highlight_color = "lemonchiffon",
   graph_title = paste0("Data Object: ", deparse(substitute(data))),
@@ -47,7 +47,7 @@ gpaint_data_frame(
 
 paint_df(
   data,
-  show_indices = c("none", "cell", "row", "column", "all"),
+  show_indices = "none",
   highlight_area = NULL,
   highlight_color = "lemonchiffon",
   graph_title = paste0("Data Object: ", deparse(substitute(data))),
@@ -66,7 +66,7 @@ paint_df(
 
 gpaint_df(
   data,
-  show_indices = c("none", "cell", "row", "column", "all"),
+  show_indices = "none",
   highlight_area = NULL,
   highlight_color = "lemonchiffon",
   graph_title = paste0("Data Object: ", deparse(substitute(data))),
@@ -86,11 +86,20 @@ gpaint_df(
 \arguments{
 \item{data}{An object that has the class of \code{data.frame}.}
 
-\item{show_indices}{Display indices based on location. Options are:
+\item{show_indices}{Display indices based on location. A character vector,
+so several kinds of index can be asked for at once.
+Values are:
 \code{"none"}: no indices, \code{"cell"}: matrix cell indices \verb{[i, j]},
 \code{"row"}: row indices \verb{[i, ]} to the left of the matrix,
 \code{"column"}: column indices \verb{[, j]} above the matrix, and
-\code{"all"}: row, column, and cell options. Default: \code{"none"}.}
+\code{"all"}: row, column, and cell indices together.
+Default: \code{"none"}.
+
+Each value switches on its own lane, so \code{c("row", "column")} draws the row
+\emph{and} the column indices but no cell indices, and \code{"all"} is the same as
+\code{c("cell", "row", "column")}. Combining \code{"none"} with anything else is
+contradictory, and the other values win: \code{c("none", "row")} draws row
+indices. An unknown value is an error, not a silent no-op.}
 
 \item{highlight_area}{Logical matrix the same shape as \code{data}, marking the
 cells to fill. A length-one logical is recycled.
