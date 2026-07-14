@@ -68,10 +68,13 @@
 #      conversion constant, and it is what makes the picture a function of the
 #      DEVICE rather than of the caller's `par()`.
 #
-#   7. THE FIT IS DEFERRED TO DRAW TIME, WITH `recordGraphics()`, AND THAT IS WHAT
-#      MAKES THE PICTURE REPLAY-SAFE. See `fit_and_draw()`. Without it, the base
+#   7. THE FONT FIT IS DEFERRED TO DRAW TIME, WITH `recordGraphics()`, AND THAT IS
+#      WHAT MAKES THE PICTURE REPLAY-SAFE. See `render_base()`. Without it, the base
 #      backend is correct only on the device it was drawn on -- and the medium this
 #      package is FOR (pkgdown, an RStudio pane, `dev.copy()`) is not that device.
+#      Only the FIT and the drawing are deferred; the page itself -- `par(mai =)`,
+#      `plot.new()`, `plot.window()` -- stays on the display list directly, so it
+#      re-letterboxes on replay AND resets the list per page (see below).
 
 # ---------------------------------------------------------------------------
 # REPLAY. Why the draw is wrapped in `grDevices::recordGraphics()`.
@@ -116,18 +119,29 @@
 # drawn on.
 #
 # Which is precisely what the grid backend already does -- `makeContent.paintr_grob()`
-# defers the whole fit to draw time -- and `grDevices::recordGraphics()` is the same
+# defers the fit to draw time -- and `grDevices::recordGraphics()` is the same
 # mechanism, spelled for the engine display list instead of grid's. It records the
-# CALL, not its output, and re-evaluates it on every replay, after the replayed
-# `par(mai =)`/`plot.window()` have made `par("pin")` and `par("usr")` true again.
+# CALL, not its output, and re-evaluates it on every replay, AFTER the display list's
+# own `par(mai =)`/`plot.new()`/`plot.window()` nodes have re-run and made
+# `par("pin")` and `par("usr")` true again on the target device.
 # `?recordGraphics` names this exact use as the acceptable one -- "querying the
 # current state of a graphics device ... and then calling a graphics function" -- and
 # its own example is `diff(par("usr")[1:2])/par("pin")[1]`, the very conversion
 # `draw_base()` performs.
 #
-# So both backends now defer, both call the SAME `paint_resolve()` on the SAME cell
-# table, and "base and ggplot2 draw the same picture" survives the replay that is the
-# only way most readers will ever see either of them.
+# THE DEFERRAL IS NARROWED TO THE FIT, AND THAT NARROWING IS ALSO LOAD-BEARING.
+# `plot.new()` must NOT run inside `recordGraphics()`: the wrapper suppresses the
+# display-list RESET that a new page performs, so a wrapped `plot.new()` leaves every
+# previous plot on the list and each recorded plot becomes a PREFIX of the next. The
+# plot-change detection in `evaluate`/`downlit` -- `trim_intermediate_plots()`,
+# `is_low_change()`, both prefix tests -- then drops a plot whose display list is a
+# prefix of the one after it, and a multi-figure pkgdown page or vignette loses most
+# of its figures (measured: 47 reference figures collapsed to 17). So the page goes
+# on the list directly and only the FIT is deferred. See `render_base()`.
+#
+# So both backends defer the fit, both call the SAME `paint_resolve()` on the SAME
+# cell table, and "base and ggplot2 draw the same picture" survives the replay that is
+# the only way most readers will ever see either of them.
 
 # The note ("# 18 more rows") ink.
 note_ink <- "grey40"
@@ -784,13 +798,15 @@ render_base <- function(cells, col_w, n_row,
   # the very clipping this band exists to prevent.
   csi_unit <- graphics::par("csi")
 
-  # THE RECORD-TIME SIZE GUARD, measured against THIS device before anything is
-  # committed. `laid_out` is still FALSE here, which is load-bearing: this device
-  # may have nothing drawn on it yet, and stopping now leaves `restore_par()` the
-  # minimal restore, so `new` is not stranded TRUE. The deferred expression below
-  # re-reserves the margins per device; a replay onto a device too small for them
-  # is base graphics' own "figure margins too large", and is left to base graphics.
-  mai_guard <- base_mai(
+  # THE SIZE GUARD, measured against THIS device before anything is committed.
+  # `laid_out` is still FALSE here, which is load-bearing: this device may have
+  # nothing drawn on it yet, and stopping now leaves `restore_par()` the minimal
+  # restore, so `new` is not stranded TRUE. A replay onto a device too small for
+  # these margins is base graphics' own "figure margins too large", left to base
+  # graphics. The same `mai` reserves the bands below and rides the display list
+  # into every replay -- it is in INCHES, an absolute unit, so it re-establishes
+  # the same physical bands on any device (exactly as the pre-record code did).
+  mai <- base_mai(
     graph_title, graph_subtitle, note,
     title_pt = title_pt, subtitle_pt = subtitle_pt, note_pt = note_pt,
     # A margin line is `csi * mex` inches, and `mex` is pinned to 1, so it is `csi`
@@ -799,8 +815,8 @@ render_base <- function(cells, col_w, n_row,
     csi = csi_unit
   )
   fin <- graphics::par("fin")
-  if (fin[[1L]] - mai_guard[[2L]] - mai_guard[[4L]] <= 0 ||
-      fin[[2L]] - mai_guard[[1L]] - mai_guard[[3L]] <= 0) {
+  if (fin[[1L]] - mai[[2L]] - mai[[4L]] <= 0 ||
+      fin[[2L]] - mai[[1L]] - mai[[3L]] <= 0) {
     stop(
       "The graphics device is too small to draw on: it leaves no room for the ",
       "figure once the margins are reserved. Enlarge the device."
@@ -809,15 +825,53 @@ render_base <- function(cells, col_w, n_row,
 
   laid_out <- TRUE
 
-  # THE DEFERRED DRAW -- the replay fix. Everything from the margins to the bands
-  # runs INSIDE `recordGraphics()`, so `replayPlot()` re-evaluates it on whatever
-  # device it lands on: the font is refitted there and the text follows the new
-  # letterbox exactly, the way the rectangles always did and the way grid's
-  # `makeContent.paintr_grob()` already does. See the block comment at the top of
+  # THE PAGE ITSELF -- the reserved margins, the new page, and the letterboxed
+  # window -- is put on the ENGINE DISPLAY LIST DIRECTLY, NOT inside
+  # `recordGraphics()`. That placement is load-bearing in two independent ways:
+  #
+  #   * REPLAY. `par(mai =)`, `plot.new()` and `plot.window(asp = 1)` each record
+  #     their own display-list node, so `replayPlot()` re-runs them against the
+  #     target device: `par("pin")` re-derives, `plot.window()` re-letterboxes and
+  #     `par("usr")` becomes the target letterbox. This is exactly why the
+  #     RECTANGLES were always replay-safe, and it is why the deferred block below
+  #     -- which reads `par("pin")`/`par("usr")` -- reads the TARGET device on a
+  #     replay: these nodes replay first.
+  #
+  #   * NEW-PAGE DETECTION. `plot.new()` MUST run outside `recordGraphics()`,
+  #     because `recordGraphics()` suppresses the display-list RESET that
+  #     `plot.new()` performs. Wrapped, `plot.new()` no longer clears the engine
+  #     display list, so every subsequent recorded plot carries all the previous
+  #     ones as a PREFIX -- and the plot-change detection in `evaluate` and
+  #     `downlit` (`trim_intermediate_plots()`, `is_low_change()`) drops a plot
+  #     whose display list is a prefix of the next. Measured: a full pkgdown build
+  #     emitted 17 reference figures instead of 47 with the page kept inside. Run
+  #     outside, `plot.new()` resets the list per page and the figure count is
+  #     whole again -- the medium this deferral exists to serve.
+  graphics::par(mai = mai)
+  graphics::plot.new()
+  # `asp = 1` squares the CELLS. `par(pty = "s")` squares the REGION, which is a
+  # different thing and does not work. `xaxs`/`yaxs = "i"` suppress the default
+  # 4% range padding; without them `usr` is not the letterbox and every inch
+  # `draw_base()` converts below is wrong.
+  graphics::plot.window(
+    xlim = c(0, sum(col_w)),
+    ylim = c(0, as.double(n_row)),
+    asp = 1,
+    xaxs = "i",
+    yaxs = "i"
+  )
+
+  # THE DEFERRED FIT-AND-DRAW -- the replay fix, NARROWED to what a replay must
+  # re-decide: the font size and the text. Only the fit and the drawing run inside
+  # `recordGraphics()`, so `replayPlot()` re-chooses the point size on the device
+  # it lands on and the text follows the replayed letterbox -- the same deferral
+  # `makeContent.paintr_grob()` does for grid. The page above has already
+  # re-letterboxed by the time this node replays, so `panel_base()` and
+  # `par("usr")` here read the TARGET device. See the block comment at the top of
   # this file for the mechanism and the measured numbers.
   #
   # `list()` is empty and the parent is this frame, so the expression reads `cells`,
-  # `measure`, `opts` and the chrome straight out of it, and resolves `base_mai()`,
+  # `measure`, `opts` and the chrome straight out of it, and resolves
   # `paint_resolve()`, `draw_base()` and the rest up in the paintr namespace. It
   # returns the resolved table -- augmented with what the device actually did -- and
   # `recordGraphics()` hands that back, so on the FIRST evaluation (the record
@@ -825,37 +879,17 @@ render_base <- function(cells, col_w, n_row,
   resolved <- grDevices::recordGraphics(
     {
       # Re-pinned on THIS device: on the first evaluation these repeat the pins
-      # above; on a replay they are the ONLY place the pins are set, and the fit is
-      # a size in points only when `cex` is 1.
+      # above; on a replay the replayed `par(cex =)`/`par(mex =)` nodes have
+      # already re-asserted them, and these re-assert once more, so the fit is a
+      # size in points only when `cex` is 1.
       graphics::par(cex = 1)
       graphics::par(mex = 1)
-      # `csi` refreshed on THIS device -- the margin line `mtext()` will really use.
-      csi_dev <- graphics::par("csi")
-      graphics::par(mai = base_mai(
-        graph_title, graph_subtitle, note,
-        title_pt = title_pt, subtitle_pt = subtitle_pt, note_pt = note_pt,
-        csi = csi_dev
-      ))
-
-      graphics::plot.new()
 
       # NOW par("pin") is the panel -- in inches, the same unit `panel_grid()`
       # reports -- and only now can the font size be fitted.
       panel <- panel_base()
       m <- if (is.null(measure)) measure_base(opts$family) else measure
       res <- paint_resolve(cells, col_w, n_row, panel, m, opts)
-
-      # `asp = 1` squares the CELLS. `par(pty = "s")` squares the REGION, which is a
-      # different thing and does not work. `xaxs`/`yaxs = "i"` suppress the default
-      # 4% range padding; without them `usr` is not the letterbox and every inch we
-      # convert below is wrong.
-      graphics::plot.window(
-        xlim = c(0, sum(col_w)),
-        ylim = c(0, as.double(n_row)),
-        asp = 1,
-        xaxs = "i",
-        yaxs = "i"
-      )
 
       draw_base(res, opts)
       draw_bands(
