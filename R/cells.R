@@ -104,11 +104,19 @@ drawn_pos <- function(keep, gap) {
 #' and the third value of the next are a record. `nouns` is that fact, threaded in
 #' as data, exactly as `is_vec` is.
 #'
+#' **AN ARRAY HAS A THIRD DIRECTION**, and it is not a row and not a column: it is
+#' a SLICE. `hidden_slices` counts what the slice axes hid, summed over both of
+#' them -- a 4-D array elides on two of them at once, and "2 more slices, 1 more
+#' slice" would be nonsense. What the reader needs to know is how many blocks are
+#' not on the page.
+#'
 #' @param hidden_rows,hidden_cols Counts from [elide_index()].
 #' @param is_vec Is the structure a vector? Then it has elements, not rows and
 #'   columns.
 #' @param nouns What this structure's rows and columns are called: `c("row",
 #'   "column")` for a grid, `c("value", "element")` for a list.
+#' @param hidden_slices How many of an array's slices were not drawn. `0` for
+#'   every structure that has none, which is every structure but an array.
 #'
 #' @return A length-one character string, or `NA_character_` when nothing is
 #'   hidden.
@@ -116,7 +124,7 @@ drawn_pos <- function(keep, gap) {
 #' @keywords internal
 #' @noRd
 elide_note <- function(hidden_rows, hidden_cols, is_vec = FALSE,
-                       nouns = c("row", "column")) {
+                       nouns = c("row", "column"), hidden_slices = 0L) {
   if (isTRUE(is_vec)) {
     n <- hidden_rows + hidden_cols
     if (n <= 0L) {
@@ -134,6 +142,11 @@ elide_note <- function(hidden_rows, hidden_cols, is_vec = FALSE,
   if (hidden_cols > 0L) {
     parts <- c(parts, paste0(
       hidden_cols, " more ", nouns[[2L]], if (hidden_cols != 1L) "s" else ""
+    ))
+  }
+  if (hidden_slices > 0L) {
+    parts <- c(parts, paste0(
+      hidden_slices, " more slice", if (hidden_slices != 1L) "s" else ""
     ))
   }
   if (length(parts) == 0L) {
@@ -201,8 +214,23 @@ outline_lwd <- 2
 #' in exactly the same order and `rbind()` can never surprise us.
 #'
 #' @param kind One of `"value"`, `"outline"`, `"rowlabel"`, `"collabel"`,
-#'   `"header"`, `"type"`, `"cellindex"`, `"ellipsis"`.
+#'   `"header"`, `"type"`, `"cellindex"`, `"slicelabel"`, `"ellipsis"`.
 #' @param row,col Drawn positions, 1-based, row 1 at the top.
+#' @param row_end,col_end The drawn position of the cell's LAST row and column.
+#'   Both default to `row`/`col`, which is every cell that occupies exactly one
+#'   box -- which is every cell of every picture except two.
+#'
+#'   **A SPAN IS DATA, AND THIS IS THE COLUMN THAT SAYS SO.** The two spanning
+#'   cells are the `"outline"` (which runs around the whole value block) and a
+#'   `"slicelabel"` (which runs across the block it titles), and before this
+#'   column existed the outline's extent was RE-DERIVED inside `paint_resolve()`
+#'   by taking `max()` over the value cells -- an arithmetic that has exactly one
+#'   right answer only while there is exactly one block. An array draws several,
+#'   so the derivation would have handed every block the bounding box of ALL of
+#'   them. Carrying the extent as data is what makes `paint_resolve()`'s geometry
+#'   ONE formula for every cell (see `R/layout.R`), and it is the same move that
+#'   `lwd` and `dy_rel` already are: a renderer that has to know what an
+#'   "outline" IS has to be taught twice, and the second teacher is always late.
 #' @param i,j Original data indices, `NA` where the cell is not a datum.
 #' @param head Defaults to `sig`, which is right for every non-numeric cell.
 #' @param lwd Stroke weight of the cell's border, as a multiple of an ordinary
@@ -218,6 +246,7 @@ outline_lwd <- 2
 #' @keywords internal
 #' @noRd
 cell_rows <- function(kind, row, col,
+                      row_end = NULL, col_end = NULL,
                       i = NA_integer_, j = NA_integer_,
                       fmt_group = NA_integer_,
                       sig = "", insig = "", head = NULL, tail = "",
@@ -228,11 +257,22 @@ cell_rows <- function(kind, row, col,
   if (is.null(head)) {
     head <- sig
   }
+  # A cell occupies one box unless it says otherwise. Every existing cell of
+  # every existing picture takes this default, which is what makes the span
+  # column a no-op everywhere it is not wanted.
+  if (is.null(row_end)) {
+    row_end <- row
+  }
+  if (is.null(col_end)) {
+    col_end <- col
+  }
   data.frame(
     i = rep_len(as.integer(i), n),
     j = rep_len(as.integer(j), n),
     row = rep_len(as.integer(row), n),
     col = rep_len(as.integer(col), n),
+    row_end = rep_len(as.integer(row_end), n),
+    col_end = rep_len(as.integer(col_end), n),
     fmt_group = rep_len(as.integer(fmt_group), n),
     sig = rep_len(as.character(sig), n),
     insig = rep_len(as.character(insig), n),
@@ -400,17 +440,24 @@ check_show_indices <- function(show_indices) {
 #' A vector has exactly one axis, so it answers with `names()` whichever axis is
 #' asked for; its caller knows which lane it laid that axis on (`layout`).
 #'
-#' @param data A vector, matrix, or data frame.
-#' @param axis `"row"` or `"column"`.
+#' @param data A vector, matrix, data frame, or array.
+#' @param axis `"row"`, `"column"`, or a positive whole number -- the axis's
+#'   ordinal. An array has more than two axes, and `dimnames()` is a list with one
+#'   slot per axis, so the third and fourth are asked for by number. `"row"` is 1
+#'   and `"column"` is 2; the two spellings are the same question.
 #'
 #' @return A character vector as long as the axis, or `NULL`.
 #'
 #' @keywords internal
 #' @noRd
 axis_names <- function(data, axis = c("row", "column")) {
-  axis <- match.arg(axis)
+  slot <- if (is.numeric(axis)) {
+    as.integer(axis)[[1L]]
+  } else {
+    if (match.arg(axis) == "row") 1L else 2L
+  }
   if (is.data.frame(data)) {
-    if (axis == "column") {
+    if (slot != 1L) {
       return(NULL)
     }
     return(as.character(attr(data, "row.names")))
@@ -420,10 +467,10 @@ axis_names <- function(data, axis = c("row", "column")) {
     if (is.null(dn)) {
       return(NULL)
     }
-    slot <- if (axis == "row") 1L else 2L
     # A 1-D dimnamed array has a dimnames list of length 1: there is no
     # second slot to ask for a column axis's names, and reaching for it
-    # unconditionally is out of bounds.
+    # unconditionally is out of bounds. The same guard serves an array's
+    # fourth axis, asked of a three-dimensional one.
     if (slot > length(dn)) {
       return(NULL)
     }
@@ -696,6 +743,8 @@ list_header <- function(nms, j, max_chars = 12L, ellipsis = "...") {
 #' @param max_rows,max_cols Elision thresholds. `NULL` takes the default for the
 #'   structure: 20 for a matrix or vector, 10 for a data frame (its columns are
 #'   wide), and 10 by 8 for a list (its columns are as wide as a NAME).
+#' @param max_slices Arrays only: elision threshold on each of the two SLICE axes.
+#'   `NULL` takes 4. See [array_cells()].
 #' @param show_all Skip elision entirely.
 #'
 #' @return A bare data frame with one row per drawn cell and the columns `i`, `j`,
@@ -725,6 +774,7 @@ paint_cells <- function(data,
                         max_dec_width = 13L,
                         max_rows = NULL,
                         max_cols = NULL,
+                        max_slices = NULL,
                         show_all = FALSE,
                         ellipsis = "...") {
   layout <- match.arg(layout)
@@ -744,8 +794,35 @@ paint_cells <- function(data,
   # `is_paint_list()`.
   is_list <- !is_df && is_paint_list(data)
   dims <- dim(data)
-  # A 1-D or 3-D array is neither a vector nor a grid. Catch it before it can be
-  # silently flattened.
+
+  # AN ARRAY OF RANK THREE OR MORE IS DRAWN AS BLOCKS, and the block builder is the
+  # only thing it needs that this function does not already have. A rank-TWO array
+  # is not routed there, and that is the whole of why `paint_array(matrix)` draws
+  # the matrix: `is.array(matrix(1:4, 2))` is TRUE, a matrix IS the degenerate
+  # array, and the degenerate case is served by NOT WRITING IT -- the 2-D thing
+  # falls straight through to the matrix path below, so the two painters cannot
+  # draw different pictures of the same object.
+  if (!is_df && !is_list && !is.null(dims) && length(dims) >= 3L) {
+    return(array_cells(
+      data = data,
+      highlight_area = highlight_area,
+      highlight_color = highlight_color,
+      show_indices = show_indices,
+      show_dimnames = show_dimnames,
+      sigfig = sigfig,
+      subtle_digits = subtle_digits,
+      max_chars = max_chars,
+      max_name_chars = max_name_chars,
+      max_dec_width = max_dec_width,
+      max_rows = max_rows,
+      max_cols = max_cols,
+      max_slices = max_slices,
+      show_all = show_all,
+      ellipsis = ellipsis
+    ))
+  }
+  # A 1-D array is neither a vector (it carries a `dim`) nor a grid. Catch it
+  # before it can be silently flattened.
   if (!is_df && !is_list && !is.null(dims) && length(dims) != 2L) {
     stop("paintr can only draw one- and two-dimensional structures.")
   }
@@ -875,8 +952,14 @@ paint_cells <- function(data,
   } else if (is_mat) {
     # `dimnames()` returns a LIST, one slot per axis, so this is a lane VECTOR:
     # `table()` and a model matrix produce the half-named cases daily.
+    #
+    # `"slice"` is accepted and does nothing, which is the right answer rather than
+    # a lax one: a matrix REACHES this branch from `paint_array()`, whose vocabulary
+    # has five values, and a matrix has no slice axis for the fifth to name. An axis
+    # with no names draws no lane; an axis that does not exist draws no lane either.
+    # `paint_matrix()`'s own front door still refuses it, on the four-value set.
     show_dimnames <- check_lanes(
-      show_dimnames, c("none", "row", "column", "all"), "show_dimnames"
+      show_dimnames, c("none", "row", "column", "slice", "all"), "show_dimnames"
     )
     if (any(show_dimnames %in% c("row", "all"))) nm_row <- axis_names(data, "row")
     if (any(show_dimnames %in% c("column", "all"))) nm_col <- axis_names(data, "column")
@@ -1083,13 +1166,20 @@ paint_cells <- function(data,
   # been; take the shared length away and the rectangle breaks. The one thing a data
   # frame adds is the one thing the heavy border draws.
   #
-  # It is expressed by EMITTING OR NOT EMITTING A ROW. `outline_box()` already
-  # returns NULL when there is no outline cell, and both renderers already draw
-  # nothing for it. Zero lines in either.
+  # It is expressed by EMITTING OR NOT EMITTING A ROW. Both renderers already draw
+  # nothing for a row that is not there. Zero lines in either.
+  #
+  # THE OUTLINE CARRIES ITS OWN EXTENT, in `row_end`/`col_end`. It used to carry
+  # only its top-left, and `paint_resolve()` re-derived the bottom-right by taking
+  # `max()` over every value cell in the table -- which is the right answer only
+  # while the table holds exactly ONE block. It is the last drawn row and the last
+  # drawn column, which is what that `max()` computed, and now it is a fact the
+  # cell states rather than one the layout guesses.
   outline <- if (all(col_len == col_len[[1L]])) {
     cell_rows(
       kind = "outline",
       row = lab_rows + 1L, col = lab_cols + 1L,
+      row_end = n_row, col_end = n_col,
       border = "black", lwd = outline_lwd, align = "center",
       fit = FALSE
     )
@@ -1306,30 +1396,57 @@ paint_cells <- function(data,
   out
 }
 
-#' The outline rectangle, as a drawn box
+#' The width every cell has to fit into, in layout units
 #'
-#' The outline is one cell-table row, so it has one `(row, col)`: the top-left of
-#' the value block. Its extent is the bottom-right of the block, which is the last
-#' `"value"` or `"ellipsis"` cell. Keeping the arithmetic here means both renderers
-#' get the same box.
+#' `col_w[cells$col]` for every cell that occupies one column -- which is every
+#' cell of every picture but two -- and the sum of the spanned columns' widths for
+#' a cell that spans several.
+#'
+#' **THIS IS THE OTHER HALF OF `column_widths()`'S RULE 2, AND WITHOUT IT THE FIRST
+#' HALF IS A BUG.** A spanning cell demands no width from any single column, so
+#' nothing widens to hold it; if it were then FITTED against a single column, the
+#' font would be driven down until the title fitted in a slot that was never
+#' widened for it. Measured, on `Titanic` at 7x5in with `min_pt = 5`: charging the
+#' title `, , Child, Yes` to its own column fits the whole picture at **4.87pt** --
+#' BELOW the legibility floor, so the canonical example would warn at its own
+#' defaults. Fitted against the block it actually spans, the same picture lands at
+#' **15.96pt** and the title binds nothing at all.
+#'
+#' So the span is the constraint, and it is the honest one: a title is allowed
+#' exactly the width of the block it titles, which is precisely the width within
+#' which it must not collide with the next block's title. It binds only when it
+#' genuinely does not fit -- a bare `2x2x2x2` array, whose blocks are two narrow
+#' columns and whose title is `, , 1, 1`, is correctly pulled from 24.0 to 21.9pt.
+#'
+#' `edge` is the same cumulative-width vector `paint_resolve()` lays the cells out
+#' on, so a span measured here and a rectangle drawn there cannot disagree.
+#'
+#' **THE SINGLE-COLUMN CASE IS `col_w[cells$col]`, LIFTED OUT, AND IT IS NOT AN
+#' OPTIMISATION.** Writing the whole thing as `edge[col_end + 1] - edge[col]` is
+#' correct in exact arithmetic and WRONG IN FLOATING POINT: `cumsum()` accumulates,
+#' so `(a + b + c) - (a + b)` is not bit-identical to `c`, and the difference --
+#' around 1e-16 of a layout unit -- travels straight into `avail_w`, through the
+#' `min()` in `fit_fontsize()`, and out into a font size that differs in its last
+#' bits. Measured: it moved the fitted size of a 30x20 matrix and the span offsets
+#' of `iris` and of a ragged list. A cell that occupies one column must get that
+#' column's width, the same double it has always had, so it is read straight and the
+#' cumulative sum is asked only of the cells that actually span.
 #'
 #' @param cells A cell table from [paint_cells()].
+#' @param col_w Column widths in layout units, from [column_widths()].
 #'
-#' @return `NULL` when there is no outline, else a list of `row0`, `col0`, `row1`,
-#'   `col1`, all drawn positions, inclusive.
+#' @return A numeric vector, one width per cell, in layout units.
 #'
 #' @keywords internal
 #' @noRd
-outline_box <- function(cells) {
-  o <- cells[cells$kind == "outline", , drop = FALSE]
-  b <- cells[cells$kind %in% c("value", "ellipsis"), , drop = FALSE]
-  if (nrow(o) == 0L || nrow(b) == 0L) {
-    return(NULL)
+span_widths <- function(cells, col_w) {
+  out <- col_w[cells$col]
+  k <- which(cells$col_end > cells$col)
+  if (length(k) > 0L) {
+    edge <- c(0, cumsum(col_w))
+    out[k] <- edge[cells$col_end[k] + 1L] - edge[cells$col[k]]
   }
-  list(
-    row0 = o$row[1L], col0 = o$col[1L],
-    row1 = max(b$row), col1 = max(b$col)
-  )
+  out
 }
 
 #' The cells that get a rectangle, in the order they are drawn
@@ -1405,6 +1522,503 @@ inked_cells <- function(cells, span = c("sig", "insig")) {
 }
 
 # ---------------------------------------------------------------------------
+# arrays
+# ---------------------------------------------------------------------------
+#
+# THE PANELS ARE IN THE CELL TABLE, AND THEY ARE NOT PANELS.
+#
+# The obvious way to draw an array is one graphics panel per slice --
+# `par(mfrow =)`, `layout()`, or a grid viewport per block. All three are dead, and
+# they are dead on ARITHMETIC, before hygiene is even discussed. `paint_resolve()`
+# letterboxes ONE panel (`u = min(panel$w / sum(col_w), panel$h / n_row)`) and
+# `fit_fontsize()` is a `min()` over ONE cell table. So k panels means k
+# independent `u` and therefore k independent FONT SIZES. Measured, on three slices
+# of one array: 24 / 12.42 / 23.05 pt under `par(mfrow = c(2, 2))`, and
+# 24 / 13.69 / 24 pt inside three EQUAL grid viewports. Equal panels, unequal fonts
+# -- the same number drawn at half the size two inches to the left. IT IS THE
+# PER-PANEL FIT THAT IS BROKEN, NOT THE PANEL GEOMETRY, and no amount of care with
+# `par()` fixes it.
+#
+# (`par(mfrow =)` is also a `cex` AND `csi` mutator -- it drops `cex` to 0.83 and
+# `csi` by 17%, so every `strwidth()` taken after it is 17% short -- and
+# `graphics::layout()` is worse still, because "layout" is not in
+# `names(par(no.readonly = TRUE))` and `restore_par()` is therefore STRUCTURALLY
+# incapable of putting it back. Both are recorded above `restore_par()`. Neither is
+# the reason. The reason is the fit.)
+#
+# So the slices are FACETED IN THE CELL TABLE: every block, every slice title and
+# every separator is an ordinary cell row, in one table, with one column-width
+# vector and one letterbox. The shared font fit is then not a feature that had to
+# be built -- it is what one table MEANS. Both renderers are untouched, to the
+# line, because there is nothing here for them to know.
+
+#' Which slice does each drawn block hold?
+#'
+#' The slice axes of an n-D array are axes 3..n, and they are laid out as a GRID of
+#' blocks: axis 3 runs across (one block per level), and axes 4..n are folded into
+#' the vertical direction, axis 4 varying fastest -- exactly the order `print()`
+#' walks them in, and exactly the order R's own column-major storage does.
+#'
+#' **A 3-D ARRAY'S SLABS THEREFORE LAY OUT IN ONE LINE**, and that is a decision.
+#' The tempting `ceiling(sqrt(k))` wrap would make four 3-D slabs PIXEL-IDENTICAL
+#' to a genuine 4-D facet grid -- a layout artefact wearing a dimension's clothes,
+#' and the reader has no way to tell which they are looking at. A picture of a data
+#' structure must not invent structure. One line for a 3-D array; a real grid for a
+#' 4-D one, whose two directions ARE two axes.
+#'
+#' @param b A block-row's ordinal, from 1 to `prod(hi)`.
+#' @param hi The extents of axes 4..n, possibly empty.
+#'
+#' @return An integer vector as long as `hi`: the level of each of those axes.
+#'
+#' @keywords internal
+#' @noRd
+slice_sub <- function(b, hi) {
+  out <- integer(length(hi))
+  r <- as.integer(b) - 1L
+  for (q in seq_along(hi)) {
+    out[[q]] <- r %% hi[[q]] + 1L
+    r <- r %/% hi[[q]]
+  }
+  out
+}
+
+#' Resolve a highlight selection to a logical array
+#'
+#' [resolve_highlight()]'s n-dimensional sibling. It is deliberately NOT a widening
+#' of that function: `resolve_highlight()` is on the hot path of every picture the
+#' package draws, and an array is the one structure that needs an n-D answer.
+#'
+#' @param highlight_area `NULL`, a length-one logical, or a logical array shaped
+#'   like the data.
+#' @param dims `dim(data)`.
+#'
+#' @return A logical array of dimension `dims`.
+#'
+#' @keywords internal
+#' @noRd
+resolve_highlight_dim <- function(highlight_area, dims) {
+  if (is.null(highlight_area)) {
+    return(array(FALSE, dim = dims))
+  }
+  if (!is.logical(highlight_area)) {
+    stop("`highlight_area` must be a logical vector or array, not: ", class(highlight_area)[1L])
+  }
+  h <- highlight_area
+  h[is.na(h)] <- FALSE
+  if (length(h) == 1L) {
+    return(array(as.logical(h), dim = dims))
+  }
+  d <- dim(h)
+  if (is.null(d) || !identical(as.integer(d), as.integer(dims))) {
+    actual <- if (is.null(d)) {
+      paste0("a length-", length(h), " vector")
+    } else {
+      paste(d, collapse = " by ")
+    }
+    stop(
+      "`highlight_area` must be a ", paste(dims, collapse = " by "),
+      " logical array to match the data, but it is ", actual, "."
+    )
+  }
+  array(as.logical(h), dim = dims)
+}
+
+#' Build the cell table for an array of rank three or more
+#'
+#' One table, one letterbox, one font. See the note above for why the slices are
+#' faceted here rather than into panels.
+#'
+#' # The label under the cell is the expression you type
+#'
+#' That is this package's one distinguishing promise, and an array is where it is
+#' easiest to break. Verified, on `a <- array(1:24, c(2, 3, 4))`:
+#'
+#' ```
+#' a[1, ]      # Error: incorrect number of dimensions
+#' a[2, 3]     # Error: incorrect number of dimensions
+#' a[2, 3, 4]  # 24    <- the accessor the picture must print
+#' ```
+#'
+#' A row lane reading `[1, ]` and a cell index reading `[2, 3]` -- which is what the
+#' matrix's labels say, and what an array would inherit if the lanes were reused
+#' unchanged -- would therefore teach a student to type expressions that ERROR, in
+#' the `show_indices = "all"` call an instructor reaches for first. Every index this
+#' function draws carries the array's FULL SUBSCRIPT ARITY, with the slice
+#' subscripts filled in from the block the label sits in:
+#'
+#' ```
+#'   rank 2    [1, ]       [, 2]        [1, 2]
+#'   rank 3    [1, , 3]    [, 2, 3]     [1, 2, 3]
+#'   rank 4    [1, , 3, 2] [, 2, 3, 2]  [1, 2, 3, 2]
+#' ```
+#'
+#' They are filled in, rather than left blank as `[1, , ]`, because the label has to
+#' name the thing it is DRAWN BESIDE. `a[1, , ]` is valid R -- it runs -- but it is
+#' the first row of every block at once, and the gutter it would sit in is beside
+#' the first row of ONE block. A label that names four blocks while pointing at one
+#' is the same class of lie as a `[i]` gutter down a ragged list, and it is refused
+#' for the same reason. `test-array.R` evaluates every index this function draws,
+#' for ranks 2, 3 and 4, and none of them may error.
+#'
+#' # The formatting unit is the WHOLE array
+#'
+#' `fmt_group` is `1L` on every value cell -- one unit, as for a matrix -- and the
+#' visible values of every block are formatted in a SINGLE `paint_format()` call.
+#' So a `1e15` hiding in slice 3 flips slice 1 into scientific notation, and the
+#' same number looks the same in every block.
+#'
+#' That is not an implementation convenience, it is what an array IS. A data frame's
+#' columns are separate units because they are separate VARIABLES -- different
+#' types, different units of measurement, and a `1e15` in `price` says nothing about
+#' `count`. An array's slices are not variables. They are one homogeneous atomic
+#' object, cut up for the drawing, and `a[1, 1, 1]` and `a[2, 3, 4]` are the same
+#' measurement of the same thing. R agrees: `print()` formats an array to one common
+#' width across every slice it prints. Formatting per block would draw `1.00` in one
+#' block and `1.0e+00` in the next and teach that a slice is a separate variable,
+#' which is false.
+#'
+#' # Elision
+#'
+#' Four axes elide, all of them on SHAPE alone and none of them on content: the rows
+#' (`max_rows`), the columns (`max_cols`), and each of the two slice axes
+#' (`max_slices`). A hidden slice draws a `"..."` block, because the package's
+#' contract is that the gap is ALWAYS drawn.
+#'
+#' `max_slices = 4` is calibrated, not chosen. The three canonical teaching arrays
+#' are all fully dimnamed contingency tables, and at 4 they draw at 15.1pt
+#' (`Titanic`), 15.2pt (`HairEyeColor`) and 10.2pt (`UCBAdmissions`, eliding 3 of
+#' its 6 departments) on knitr's default 7x5in canvas, against a `min_pt` of 5. At
+#' `max_slices = 6` -- enough to hold all six of `UCBAdmissions`'s departments --
+#' the same picture lands at 5.84pt: still silent, but with 17% of headroom left and
+#' one longer dimname from warning at its own defaults. Eliding to a legible picture
+#' and saying so in the note is what this package does to a 30-row matrix, and it is
+#' what it does here. `max_slices = 6` (or `show_all`) buys the sixth department
+#' back, at a size the user has then chosen.
+#'
+#' @param data An array of rank 3 or more. Rank 2 never reaches here -- see
+#'   [paint_cells()].
+#' @param max_slices Most blocks drawn along EACH slice axis, the `"..."` block
+#'   included.
+#' @inheritParams paint_cells
+#'
+#' @return A bare cell table, as [paint_cells()] returns.
+#'
+#' @keywords internal
+#' @noRd
+array_cells <- function(data,
+                        highlight_area = NULL,
+                        highlight_color = "lemonchiffon",
+                        show_indices = "none",
+                        show_dimnames = "all",
+                        sigfig = 3L,
+                        subtle_digits = "insignificant",
+                        max_chars = 12L,
+                        max_name_chars = 8L,
+                        max_dec_width = 13L,
+                        max_rows = NULL,
+                        max_cols = NULL,
+                        max_slices = NULL,
+                        show_all = FALSE,
+                        ellipsis = "...") {
+  d <- dim(data)
+  n_ax <- length(d)
+
+  if (any(d == 0L)) {
+    stop("Cannot paint an empty data structure.")
+  }
+  n_cell <- prod(as.double(d))
+  if (n_cell > 1e5) {
+    stop(
+      "The array is ", paste(d, collapse = " by "), ", which holds ",
+      format(n_cell, scientific = FALSE),
+      " values -- more than the 100000 cells paintr will draw."
+    )
+  }
+
+  # -- the caps. An array's block is a matrix, but there are up to sixteen of them
+  # side by side, so the block cannot afford a matrix's 20 by 15: the picture's
+  # width is `max_slices` times its block's. 10 by 8 is the list's calibration, for
+  # the same reason the list took it -- the columns are as wide as a NAME.
+  if (is.null(max_rows)) max_rows <- 10L
+  if (is.null(max_cols)) max_cols <- 8L
+  if (is.null(max_slices)) max_slices <- 4L
+
+  # -- lanes. The vocabulary is the matrix's, because a block IS a matrix.
+  show_indices <- check_show_indices(show_indices)
+  idx_cell <- any(show_indices %in% c("cell", "all"))
+  idx_row <- any(show_indices %in% c("row", "all"))
+  idx_col <- any(show_indices %in% c("column", "all"))
+
+  # `"slice"` is the third lane, and it is a lane like the other two: it decides
+  # whether the block titles read `, , Male, Child` or `, , 1, 1`. The precedence
+  # rule is PR 1's, unchanged -- an index lane the caller asks for WINS the axis it
+  # names -- and the slice axis has no index lane to lose to, so it simply follows
+  # `show_dimnames`.
+  show_dimnames <- check_lanes(
+    show_dimnames, c("none", "row", "column", "slice", "all"), "show_dimnames"
+  )
+  nm_row <- if (any(show_dimnames %in% c("row", "all"))) axis_names(data, 1L) else NULL
+  nm_col <- if (any(show_dimnames %in% c("column", "all"))) axis_names(data, 2L) else NULL
+  slice_named <- any(show_dimnames %in% c("slice", "all"))
+  if (idx_row) nm_row <- NULL
+  if (idx_col) nm_col <- NULL
+
+  lane_row <- idx_row || !is.null(nm_row)
+  lane_col <- idx_col || !is.null(nm_col)
+
+  # -- elide FIRST, on shape, on all four axes ------------------------------
+  hi <- if (n_ax >= 4L) d[4:n_ax] else integer(0)
+  n_bx_data <- d[[3L]]
+  n_by_data <- if (length(hi)) as.integer(prod(hi)) else 1L
+
+  elide_one <- function(n, max_n) {
+    if (isTRUE(show_all)) {
+      list(keep = seq_len(n), gap = NA_integer_, hidden = 0L)
+    } else {
+      elide_index(n, max_n)
+    }
+  }
+  er <- elide_one(d[[1L]], max_rows)
+  ec <- elide_one(d[[2L]], max_cols)
+  ex <- elide_one(n_bx_data, max_slices)
+  ey <- elide_one(n_by_data, max_slices)
+  ki <- er$keep
+  kj <- ec$keep
+  kx <- ex$keep
+  ky <- ey$keep
+
+  # -- the geometry of one block --------------------------------------------
+  # A block is a matrix with a title row on top of it. Its lanes are the matrix's,
+  # laid out exactly as `paint_cells()` lays them: the label lane above, the gutter
+  # to the left.
+  lab_rows_b <- 1L + as.integer(lane_col)
+  lab_cols_b <- as.integer(lane_row)
+  blk_rows <- lab_rows_b + length(ki) + as.integer(!is.na(er$gap))
+  blk_cols <- lab_cols_b + length(kj) + as.integer(!is.na(ec$gap))
+
+  # -- the geometry of the grid of blocks -----------------------------------
+  # A drawn block SLOT is a real block, or the `"..."` that stands for the ones that
+  # were elided. The gap slot is one lane wide, not a whole block wide: it announces
+  # a hidden block, it does not reserve room for one.
+  bx_pos <- drawn_pos(kx, ex$gap)
+  by_pos <- drawn_pos(ky, ey$gap)
+  n_bx <- length(kx) + as.integer(!is.na(ex$gap))
+  n_by <- length(ky) + as.integer(!is.na(ey$gap))
+
+  slot_w <- rep(blk_cols, n_bx)
+  if (!is.na(ex$gap)) slot_w[[ex$gap]] <- 1L
+  slot_h <- rep(blk_rows, n_by)
+  if (!is.na(ey$gap)) slot_h[[ey$gap]] <- 1L
+
+  # One blank column between block slots, so two blocks never share an edge and read
+  # as one grid. No blank ROW is needed: the next block's title row is itself a row
+  # of white space with a short label at its left, and it separates them.
+  col0_of <- cumsum(c(1L, slot_w + 1L))[seq_len(n_bx)]
+  row0_of <- cumsum(c(1L, slot_h))[seq_len(n_by)]
+  n_col <- sum(slot_w) + (n_bx - 1L)
+  n_row <- sum(slot_h)
+
+  # -- format the VISIBLE values, ONCE, as one unit -------------------------
+  # The blocks are walked in the order they will be emitted, their kept values
+  # concatenated, and the whole run handed to ONE `paint_format()` call. That call
+  # is what makes the array one formatting unit -- see this function's docs.
+  blocks <- expand.grid(bx = seq_along(kx), by = seq_along(ky))
+  slice_of <- lapply(seq_len(nrow(blocks)), function(b) {
+    c(kx[[blocks$bx[[b]]]], slice_sub(ky[[blocks$by[[b]]]], hi))
+  })
+  # `expand.grid(ri, ci)` is the order every rectangular structure's value chunk
+  # comes back in, and a block is a rectangle, so it is this one's too.
+  g <- expand.grid(ri = seq_along(ki), ci = seq_along(kj))
+  vals_of <- lapply(slice_of, function(s) {
+    as.vector(do.call(`[`, c(list(data), list(ki, kj), as.list(s), list(drop = TRUE))))
+  })
+  f <- paint_format(
+    unlist(vals_of, use.names = FALSE),
+    sigfig = sigfig, max_chars = max_chars, max_dec_width = max_dec_width,
+    subtle_digits = subtle_digits, ellipsis = ellipsis
+  )
+
+  mask <- resolve_highlight_dim(highlight_area, d)
+  mask_of <- lapply(slice_of, function(s) {
+    as.vector(do.call(`[`, c(list(mask), list(ki, kj), as.list(s), list(drop = TRUE))))
+  })
+
+  n_val <- nrow(g)
+  chunks <- vector("list", 0L)
+  add <- function(x) if (!is.null(x)) chunks[[length(chunks) + 1L]] <<- x
+
+  for (b in seq_len(nrow(blocks))) {
+    s <- slice_of[[b]]
+    c0 <- col0_of[[bx_pos[[blocks$bx[[b]]]]]]
+    r0 <- row0_of[[by_pos[[blocks$by[[b]]]]]]
+
+    # The subscript tail this block's labels carry: "" for a matrix, ", 3" for a
+    # 3-D array's third slab, ", 3, 2" for a 4-D one's. THE THREE FORMULAE BELOW ARE
+    # RANK-AGNOSTIC because of it -- at rank 2 the tail is empty and they collapse
+    # to `[1, ]`, `[, 2]` and `[1, 2]`, which is exactly what a matrix draws.
+    tail_s <- paste0(", ", paste(s, collapse = ", "))
+
+    cols_of <- c0 + lab_cols_b + drawn_pos(kj, ec$gap) - 1L
+    rows_of <- r0 + lab_rows_b + drawn_pos(ki, er$gap) - 1L
+    val0_r <- r0 + lab_rows_b
+    val0_c <- c0 + lab_cols_b
+
+    # THE SLICE TITLE, and it is what `print()` writes: `, , Male, Child`. It SPANS
+    # its block -- `col_end` says so -- which is what lets it demand no width from
+    # any single column and still be fitted against a width it can live in. Left
+    # aligned, at the block's leading edge, exactly where `print()` puts it.
+    add(cell_rows(
+      kind = "slicelabel",
+      row = r0, col = c0, col_end = c0 + blk_cols - 1L,
+      sig = paste0(", , ", paste(
+        vapply(
+          seq_along(s),
+          function(q) {
+            nm <- if (slice_named) axis_names(data, q + 2L) else NULL
+            if (is.null(nm)) as.character(s[[q]]) else nm[[s[[q]]]]
+          },
+          character(1)
+        ),
+        collapse = ", "
+      )),
+      ink = "grey30", align = "left", size_rel = 0.9
+    ))
+
+    if (lane_col) {
+      add(cell_rows(
+        kind = "collabel",
+        row = r0 + 1L, col = cols_of, j = kj,
+        sig = lane_text(
+          nms = nm_col[kj],
+          idx = paste0("[, ", kj, tail_s, "]"),
+          max_chars = max_name_chars, ellipsis = ellipsis
+        ),
+        ink = if (!is.null(nm_col)) "black" else "grey40",
+        align = "center",
+        size_rel = if (!is.null(nm_col)) 0.9 else 0.8
+      ))
+    }
+
+    if (lane_row) {
+      add(cell_rows(
+        kind = "rowlabel",
+        row = rows_of, col = c0, i = ki,
+        sig = lane_text(
+          nms = nm_row[ki],
+          idx = paste0("[", ki, ", ", tail_s, "]"),
+          max_chars = max_chars, ellipsis = ellipsis
+        ),
+        ink = if (!is.null(nm_row)) "black" else "grey40",
+        align = "right",
+        size_rel = if (!is.null(nm_row)) 0.9 else 0.8
+      ))
+    }
+
+    k <- (b - 1L) * n_val + seq_len(n_val)
+    add(cell_rows(
+      kind = "value",
+      row = rows_of[g$ri], col = cols_of[g$ci],
+      i = ki[g$ri], j = kj[g$ci],
+      # ONE unit for the whole array.
+      fmt_group = 1L,
+      sig = f$sig[k], insig = f$insig[k], head = f$head[k], tail = f$tail[k],
+      ink = f$ink[k],
+      fill = ifelse(mask_of[[b]], highlight_color, "white"),
+      border = "black",
+      align = f$align[k], size_rel = 1, fit = TRUE
+    ))
+
+    if (idx_cell) {
+      add(cell_rows(
+        kind = "cellindex",
+        row = rows_of[g$ri], col = cols_of[g$ci],
+        i = ki[g$ri], j = kj[g$ci],
+        sig = paste0("[", ki[g$ri], ", ", kj[g$ci], tail_s, "]"),
+        ink = "grey50", align = "center", size_rel = 0.7,
+        dy_rel = cellindex_dy
+      ))
+    }
+
+    # A block's cells are all the same depth, so a block is always a rectangle and
+    # always gets its outline. It carries its own extent, so the four blocks get
+    # four boxes and not one box around all of them.
+    add(cell_rows(
+      kind = "outline",
+      row = val0_r, col = val0_c,
+      row_end = r0 + blk_rows - 1L, col_end = c0 + blk_cols - 1L,
+      border = "black", lwd = outline_lwd, align = "center", fit = FALSE
+    ))
+
+    # The row and column gaps, inside the block, exactly as a matrix draws them: the
+    # gutter shows the row gap too.
+    gr <- if (is.na(er$gap)) NULL else r0 + lab_rows_b + er$gap - 1L
+    gc <- if (is.na(ec$gap)) NULL else c0 + lab_cols_b + ec$gap - 1L
+    if (!is.null(gr) || !is.null(gc)) {
+      grd <- expand.grid(
+        row = seq.int(val0_r, r0 + blk_rows - 1L),
+        col = seq.int(val0_c, c0 + blk_cols - 1L)
+      )
+      hit_r <- if (is.null(gr)) rep(FALSE, nrow(grd)) else grd$row == gr
+      hit_c <- if (is.null(gc)) rep(FALSE, nrow(grd)) else grd$col == gc
+      grd <- grd[hit_r | hit_c, , drop = FALSE]
+      if (lane_row && !is.null(gr)) {
+        grd <- rbind(data.frame(row = gr, col = c0), grd)
+      }
+      add(cell_rows(
+        kind = "ellipsis", row = grd$row, col = grd$col,
+        sig = ellipsis, ink = "grey50", align = "center", size_rel = 1, fit = FALSE
+      ))
+    }
+  }
+
+  # THE GAP BLOCKS. The package's contract is that the gap is ALWAYS drawn, and a
+  # hidden slice is a hidden slice whichever axis hid it. One `"..."` per gap slot
+  # per drawn block on the other axis, centred on the blocks it stands between.
+  if (!is.na(ex$gap)) {
+    gc <- col0_of[[ex$gap]]
+    add(cell_rows(
+      kind = "ellipsis",
+      row = row0_of[by_pos[seq_along(ky)]] + lab_rows_b + (length(ki) - 1L) %/% 2L,
+      col = gc,
+      sig = ellipsis, ink = "grey50", align = "center", size_rel = 1, fit = FALSE
+    ))
+  }
+  if (!is.na(ey$gap)) {
+    gr <- row0_of[[ey$gap]]
+    add(cell_rows(
+      kind = "ellipsis",
+      row = gr,
+      col = col0_of[bx_pos[seq_along(kx)]] + lab_cols_b + (length(kj) - 1L) %/% 2L,
+      sig = ellipsis, ink = "grey50", align = "center", size_rel = 1, fit = FALSE
+    ))
+  }
+
+  out <- do.call(rbind, chunks)
+  rownames(out) <- NULL
+
+  # What the two slice axes hid, together: a 4-D array elides on both at once, and
+  # "2 more slices, 1 more slice" would be nonsense. What the reader wants is how
+  # many BLOCKS are not on the page, which is every block the data has, less every
+  # block that was drawn. See `elide_note()`.
+  hidden_slices <- as.integer(
+    n_bx_data * n_by_data - length(kx) * length(ky)
+  )
+
+  attr(out, "n_row") <- as.integer(n_row)
+  attr(out, "n_col") <- as.integer(n_col)
+  attr(out, "hidden_rows") <- as.integer(er$hidden)
+  attr(out, "hidden_cols") <- as.integer(ec$hidden)
+  attr(out, "hidden_slices") <- hidden_slices
+  attr(out, "note") <- elide_note(
+    er$hidden, ec$hidden,
+    is_vec = FALSE, nouns = c("row", "column"),
+    hidden_slices = hidden_slices
+  )
+  out
+}
+
+# ---------------------------------------------------------------------------
 # column widths
 # ---------------------------------------------------------------------------
 
@@ -1434,8 +2048,31 @@ column_widths <- function(cells, char_w = 0.35, pad = 0.3, min_w = 1) {
   n_col <- max(cells$col)
 
   demand <- nchar(paste0(cells$sig, cells$insig)) * cells$size_rel * char_w + pad
-  # The outline is a rectangle, not text; it demands nothing.
-  demand[cells$kind == "outline"] <- 0
+
+  # TWO CELLS DEMAND NOTHING, AND NEITHER RULE NAMES A `kind`. They used to be one
+  # rule that did (`demand[cells$kind == "outline"] <- 0`), and a rule that names a
+  # kind is a rule that has to be extended every time a kind is added -- which is
+  # the failure mode this whole file is built to avoid.
+  #
+  #   1. A cell that draws NO INK needs no width. That is the outline, whose `sig`
+  #      and `insig` are both empty: it is a rectangle, not text. Stated this way it
+  #      needs no list of kinds, and it is exactly the predicate `inked_cells()`
+  #      already uses to decide what to draw.
+  #
+  #   2. A cell that SPANS columns demands nothing from any SINGLE one of them.
+  #
+  # RULE 2 IS LOAD-BEARING AND IT IS NOT AN OPTIMISATION. A slice title spans its
+  # block, and the only other place to charge its width is its leftmost column --
+  # which for an array is a VALUE column, in the single formatting unit that every
+  # value column of every block shares. `out[k] <- max(raw[k])` below would then
+  # propagate the title's width into EVERY value column of EVERY block, and a
+  # 4x2x2x2 table of two-digit counts would draw cells wide enough to hold
+  # ", , Child, No". The title would bloat the whole picture to say nothing.
+  #
+  # A spanning cell is not unconstrained, though -- it is fitted against the width
+  # it ACTUALLY spans, by `span_widths()`, which is what keeps it inside its block.
+  demand[!nzchar(cells$sig) & !nzchar(cells$insig)] <- 0
+  demand[cells$col_end > cells$col] <- 0
 
   raw <- vapply(
     seq_len(n_col),

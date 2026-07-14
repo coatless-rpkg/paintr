@@ -33,7 +33,9 @@
 #'   differs between a vector and a grid.
 #' @param highlight_area,highlight_color Passed to `paint_cells()`.
 #' @param sigfig,subtle_digits,max_chars Passed to `paint_format()`.
-#' @param max_rows,max_cols,show_all Elision, passed to `paint_cells()`.
+#' @param max_rows,max_cols,max_slices,show_all Elision, passed to `paint_cells()`.
+#'   `max_slices` is an array's third elision axis and is `NULL` for every other
+#'   structure.
 #' @param fontsize,family Passed to `paint_opts()`.
 #' @param layout Vectors only.
 #' @param summarise Lists only: one cell per element, saying what it is.
@@ -63,6 +65,7 @@ painter_prep <- function(data,
                          show_all,
                          fontsize,
                          family,
+                         max_slices = NULL,
                          layout = "vertical",
                          summarise = FALSE,
                          show_names = TRUE,
@@ -97,6 +100,7 @@ painter_prep <- function(data,
     max_name_chars = max_name_chars,
     max_rows = max_rows,
     max_cols = max_cols,
+    max_slices = max_slices,
     show_all = show_all,
     ellipsis = ellipsis
   )
@@ -282,6 +286,46 @@ list_subtitle <- function(data) {
   )
 }
 
+#' The default subtitle for an array
+#'
+#' **`dims_subtitle()` CANNOT SPEAK ABOUT AN ARRAY OF RANK THREE OR MORE.** `nrow()`
+#' and `ncol()` are defined for one -- they report `dim(x)[1]` and `dim(x)[2]` -- so
+#' it does not error; it LIES. `Titanic` would read "Dimensions: 4 rows x 2 columns",
+#' which is true of a slice and false of the object, and the two axes it forgot to
+#' mention are the entire reason the picture looks the way it does. An array has a
+#' SHAPE, and the shape is every one of its extents.
+#'
+#' `4 x 2 x 2 x 2` is R's own vocabulary for it, and it is ASCII: the multiplication
+#' sign is the letter `x`, never U+00D7, for the same reason `elem_sum()`'s is.
+#'
+#' **RANK TWO IS HANDED STRAIGHT BACK TO `dims_subtitle()`, AND THAT IS THE WHOLE
+#' POINT OF PUTTING THE TEST HERE.** A matrix drawn by `paint_array()` is a matrix,
+#' and "2 rows x 3 columns" is the truth about it -- so `paint_array(m)` draws the
+#' picture `paint_matrix(m)` draws, down to the subtitle, and the two are byte-identical
+#' rather than merely similar.
+#'
+#' It also keeps `paint_size()` honest, and that is not a nicety: `paint_size()` must
+#' reserve the chrome the painter will actually DRAW, and it cannot know which painter
+#' the caller will reach for. With the rank test written out at both call sites they
+#' would eventually disagree, and a subtitle reserved at one width and drawn at another
+#' is a picture whose title runs off the device. One function, one rule, asked by both.
+#'
+#' @param data The array, before any elision.
+#'
+#' @return A length-one character string.
+#'
+#' @keywords internal
+#' @noRd
+array_subtitle <- function(data) {
+  if (length(dim(data)) <= 2L) {
+    return(dims_subtitle(data))
+  }
+  paste0(
+    "Dimensions: ", paste(dim(data), collapse = " x "), " | ",
+    "Data Type: ", paste(class(data), collapse = ", ")
+  )
+}
+
 #' Apply the subtitle contract
 #'
 #' @param graph_subtitle What the user passed: `NULL`, `NA`, `""`, or a string.
@@ -371,4 +415,28 @@ is_paint_vector <- function(x) {
 #' @noRd
 is_paint_list <- function(x) {
   is.list(x) && is.null(attr(x, "class")) && is.null(dim(x))
+}
+
+#' Is this something `paint_array()` will draw?
+#'
+#' **A MATRIX IS AN ARRAY, AND `paint_array()` MUST DRAW IT.** `is.array(matrix(1:4,
+#' 2))` is TRUE (verified), a `table()` of two factors is an array, and rank two is
+#' the free degenerate case of the block builder -- one block, no title. Refusing it
+#' would be exactly the "a code path, not data" move that `fmt_group` exists to
+#' prevent, and it is the same doctrine that let ONE cell builder serve a vector, a
+#' matrix, a data frame AND a list. So the gate is rank, and the floor is two.
+#'
+#' A rank-ONE array is refused, and that is not an oversight either: it carries a
+#' `dim`, so `paint_vector()` will not take it, and it has no second axis for a grid
+#' to lay out. It is the one shape between the two painters, and it stays there
+#' rather than growing a third degenerate case to serve it.
+#'
+#' `is.list(x)` is the guard that keeps a `dim`-carrying LIST out -- `dim(l) <-
+#' c(2, 2)` is legal, and that object is a matrix of list cells, not an array of
+#' values. `is_paint_list()` refuses it from the other side, for the same reason.
+#'
+#' @keywords internal
+#' @noRd
+is_paint_array <- function(x) {
+  !is.data.frame(x) && !is.list(x) && is.array(x) && length(dim(x)) >= 2L
 }

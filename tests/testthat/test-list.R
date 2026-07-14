@@ -137,7 +137,6 @@ test_that("a RAGGED list draws no outline, because its block is not a rectangle"
   # exist. The cells keep their own borders, so the block still reads as a block.
   cells <- paint_cells(ragged)
   expect_equal(sum(cells$kind == "outline"), 0L)
-  expect_null(outline_box(cells))
   # One element longer than the others is enough to break the rectangle.
   expect_equal(sum(paint_cells(list(a = 1:3, b = 4:6, c = 7:9, d = 10L))$kind == "outline"), 0L)
   # So is an element that is not drawn as cells at all: a matrix element is ONE
@@ -153,8 +152,10 @@ test_that("an EQUAL-LENGTH list draws an outline, and that is the whole lesson",
   expect_equal(sum(cells$kind == "outline"), 1L)
   o <- cells[cells$kind == "outline", ]
   expect_equal(o$lwd, outline_lwd)
-  # It boxes the value block, top-left to bottom-right, exactly as a grid's does.
-  expect_equal(outline_box(cells), list(row0 = 3L, col0 = 1L, row1 = 5L, col1 = 2L))
+  # It boxes the value block, top-left to bottom-right, exactly as a grid's does --
+  # and it says so itself, in `row_end`/`col_end`, rather than leaving the layout to
+  # re-derive it by taking a max() over the cells.
+  expect_equal(c(o$row, o$col, o$row_end, o$col_end), c(3L, 1L, 5L, 2L))
 
   # The SAME values, one of them one element shorter: no outline. The border is the
   # only thing that moved, and the length is the only thing that changed.
@@ -174,7 +175,7 @@ test_that("a data frame's outline is untouched by the list rule", {
     o <- cells[cells$kind == "outline", ]
     expect_equal(nrow(o), 1L)
     expect_equal(o$lwd, outline_lwd)
-    expect_false(is.null(outline_box(cells)))
+    expect_true(o$row_end >= o$row && o$col_end >= o$col)
   }
   # Elision does not change the answer: a data frame is a rectangle whether or not
   # its middle is drawn.
@@ -488,7 +489,6 @@ test_that("a data frame IS a list whose elements share a length", {
   # THE OUTLINE. The heavy border is the shared length, drawn -- so the list that
   # could have been this data frame is boxed exactly as the data frame is.
   expect_identical(cl[cl$kind == "outline", ], cd[cd$kind == "outline", ])
-  expect_identical(outline_box(cl), outline_box(cd))
 
   # The two permitted differences, stated positively.
   expect_equal(lane(cd, "header"), c("a", "b"))

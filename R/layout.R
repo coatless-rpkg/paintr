@@ -602,7 +602,13 @@ fit_fontsize <- function(cells, col_w, u, measure, opts) {
   dy <- cell_dy(cells)
   sz <- cells$size_rel
 
-  avail_w <- u * col_w[cells$col] * (1 - opts$pad)
+  # `span_widths()`, not `col_w[cells$col]`: a cell is fitted against the width it
+  # actually OCCUPIES. They are the same number for every cell that occupies one
+  # column, which is every cell of every picture but two -- so this is an identity
+  # for a matrix, a vector, a data frame and a list, and it is what keeps an array's
+  # spanning slice title from being crushed into the single column it happens to
+  # start in. See `span_widths()`.
+  avail_w <- u * span_widths(cells, col_w) * (1 - opts$pad)
   # The nudge is spent out of the height budget, at both ends of the box. `pmax()`
   # is a floor against a nudge so large that no size fits inside the cell at all;
   # `cellindex_dy` is -0.3 and the budget stays comfortably positive (2 * 0.3 =
@@ -659,7 +665,12 @@ span_dx <- function(cells, col_w, u, fontsize, measure, opts) {
   w_tail <- measure_sizes(measure$w, cells$tail, pt)
   w_tok <- w_sig + w_insig
 
-  half <- u * col_w[cells$col] * (1 - opts$pad) / 2
+  # Half the width the cell OCCUPIES, which is half its span -- and it must be,
+  # because `paint_resolve()` anchors the cell at the centre of its span. Halving
+  # the cell's own column instead would put a left-aligned spanning title half a
+  # column to the right of the block it titles. Identical to `col_w[cells$col] / 2`
+  # for every cell that occupies one column.
+  half <- u * span_widths(cells, col_w) * (1 - opts$pad) / 2
 
   # Centred is the default; every other alignment overrides it.
   dx <- -w_tok / 2
@@ -751,23 +762,26 @@ paint_resolve <- function(cells, col_w, n_row, panel, measure, opts = paint_opts
   cells$fontsize <- fontsize * cells$size_rel
   cells$dx_sig <- d$dx_sig
   cells$dx_insig <- d$dx_insig
-  cells$xl <- geom$x0 + u * edge[cells$col]
-  cells$xr <- geom$x0 + u * edge[cells$col + 1L]
-  # Row 1 is the top row, so its top edge is at the full height.
-  cells$yt <- geom$y0 + u * (n_row - cells$row + 1L)
-  cells$yb <- geom$y0 + u * (n_row - cells$row)
 
-  # The outline is one cell-table row carrying the top-left of the value block;
-  # its extent is the block's bottom-right. Doing that arithmetic here is what
-  # guarantees base and grid draw the same rectangle.
-  ob <- outline_box(cells)
-  if (!is.null(ob)) {
-    k <- which(cells$kind == "outline")
-    cells$xl[k] <- geom$x0 + u * edge[ob$col0]
-    cells$xr[k] <- geom$x0 + u * edge[ob$col1 + 1L]
-    cells$yt[k] <- geom$y0 + u * (n_row - ob$row0 + 1L)
-    cells$yb[k] <- geom$y0 + u * (n_row - ob$row1)
-  }
+  # ONE FORMULA, EVERY CELL. A cell's rectangle runs from the leading edge of
+  # `col` to the trailing edge of `col_end`, and from the top of `row` to the
+  # bottom of `row_end` -- and since `col_end`/`row_end` default to `col`/`row`,
+  # that is the single-box rectangle for every cell that occupies one box.
+  #
+  # THERE USED TO BE A SPECIAL CASE HERE, and deleting it is the point. The
+  # outline carried only its top-left, so this function re-derived its
+  # bottom-right by taking `max()` over every value and ellipsis cell in the
+  # TABLE. That is the right answer only while the table holds exactly one block:
+  # an array draws several, and the derivation would have stretched every one of
+  # their outlines across the bounding box of ALL of them. The extent is now a
+  # fact the cell carries (see `cell_rows()`), so the layout does not have to
+  # guess it, and a picture with four blocks gets four boxes for free.
+  #
+  # Row 1 is the top row, so its top edge is at the full height.
+  cells$xl <- geom$x0 + u * edge[cells$col]
+  cells$xr <- geom$x0 + u * edge[cells$col_end + 1L]
+  cells$yt <- geom$y0 + u * (n_row - cells$row + 1L)
+  cells$yb <- geom$y0 + u * (n_row - cells$row_end)
 
   cells$x <- (cells$xl + cells$xr) / 2
   # `dy_rel` is a fraction of a ROW, and a row is `u` inches tall, so `u` is the

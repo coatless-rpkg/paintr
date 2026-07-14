@@ -31,11 +31,21 @@
 #' [paint_list()] refuses it. `is.list()` is TRUE for all of them, which is why the
 #' question is never asked that way; see the note on `is_paint_list()`.
 #'
+#' An **array** or a **table** of rank two or more is masked with its own full shape:
+#' the mask of `Titanic` is a 4 x 2 x 2 x 2 logical array, because that is what
+#' [paint_array()] draws. `rows` and `columns` select on the first two axes -- the
+#' two a *block* is made of -- and mark that row (or column) of **every** slice;
+#' `locations` takes a **full coordinate per point**, one column per dimension, and
+#' reaches a single cell. Rank one is refused: nothing draws it.
+#'
 #' The governing invariant: **if a painter can draw a structure, `highlight_data()`
 #' must be able to mask it** -- and a *wrong* mask is worse than an error, so a
 #' structure no painter accepts is refused outright rather than reshaped into a mask
 #' nothing could consume. A 2D `table` is drawn by `paint_matrix()`, so it is masked
-#' here; an array of any rank but two is drawn by nothing, so it stops.
+#' here; `Titanic` is drawn by [paint_array()], so it is masked here. An n-D array
+#' used to *stop* for exactly the same reason it is now *masked* -- the invariant
+#' never changed, the set of things a painter can draw did, and the two halves moved
+#' together.
 #'
 #' There is deliberately no reliance on a `vector` method being *dispatched*:
 #' `inherits(letters, "vector")` is `FALSE`, so `highlight_data.vector()` is never
@@ -310,21 +320,108 @@ highlight_locations <- function(x, locations = NULL) {
 # `array`, so `.matrix` is dispatched first -- but a method that is correct only
 # because of the order of a class vector is a method waiting to be wrong, and a 2D
 # `table` reaches this same body for real.
+#
+# THE RANK-3 ARM USED TO BE THE `stop()`, AND IT WAS RIGHT TO BE. It stopped because
+# no painter could draw an n-D array, so an n-D mask was a mask nothing could
+# consume -- and the invariant runs in both directions, so a structure no painter
+# accepts is refused rather than reshaped into a wrong answer with extra steps.
+# `paint_array()` draws one now. So this masks one now, and `Titanic` is maskable
+# because `Titanic` is paintable. The two halves of the invariant moved together,
+# which is the only way they are allowed to move.
+#
+# Rank ONE still stops, and for exactly the same reason it always did: nothing draws
+# it.
 #' @keywords internal
 #' @noRd
 highlight_data_dim <- function(x, rows = NULL, columns = NULL, locations = NULL, ...) {
-  n_dim <- length(dim(x))
+  d <- dim(x)
+  n_dim <- length(d)
 
   if (n_dim == 2L) {
     return(highlight_data.matrix(
       x = x, rows = rows, columns = columns, locations = locations, ...
     ))
   }
+  if (n_dim < 2L) {
+    # The class is named WITHOUT an article in front of it, deliberately: the two
+    # classes that reach here are "array" and "table", and one of them takes "an"
+    # and the other "a".
+    stop(
+      "Cannot highlight ", class(x)[1L], " data with ", n_dim,
+      if (n_dim == 1L) " dimension" else " dimensions",
+      ": paintr draws nothing with fewer than two."
+    )
+  }
 
-  stop(
-    "We can only highlight a two-dimensional ", class(x)[1L], ", but this one has ",
-    n_dim, if (n_dim == 1L) " dimension." else " dimensions."
-  )
+  # THE MASK IS THE SHAPE OF THE DATA, and for an array that is its full rank. It is
+  # NOT the shape of the drawing: `paint_array()` lays the slices out as blocks, and
+  # a mask shaped like the DRAWING would have to be rebuilt every time a caller
+  # changed `max_slices`. `highlight_columns(Titanic, "Female")` means the same thing
+  # whatever the picture does with it.
+  #
+  # It carries no dimnames, which is the contract `highlight_data.matrix()` has
+  # always had: a mask is a mask, and its shape is the whole of what a painter reads
+  # off it.
+  mask <- array(FALSE, dim = d)
+
+  # Nothing to mark.
+  if (is.null(rows) && is.null(columns) && is.null(locations)) {
+    return(mask)
+  }
+
+  dn <- dimnames(x)
+  row_names <- if (is.null(dn)) NULL else dn[[1L]]
+  col_names <- if (is.null(dn)) NULL else dn[[2L]]
+
+  # `rows` and `columns` select on the first two axes -- the axes a BLOCK is made of
+  # -- and they mark that row (or column) of EVERY slice, because that is what
+  # `mask[i, , , ] <- TRUE` means and it is what the picture then fills. There is no
+  # `slices` argument: `locations` is the one that reaches a single cell, and it
+  # takes a full coordinate.
+  #
+  # `bquote()` with no argument is the empty symbol -- R's own "missing subscript" --
+  # so `idx` is the n-D equivalent of writing `mask[ , , ]`, and a selection replaces
+  # exactly one of its slots.
+  idx <- rep(list(bquote()), n_dim)
+
+  if (!is.null(locations)) {
+    # A FULL COORDINATE PER ROW: `n_dim` columns, one per axis. A 2-column `locations`
+    # would be ambiguous on a 4-D array -- which two of the four axes? -- so it is
+    # refused rather than guessed at.
+    loc <- if (is.data.frame(locations)) as.matrix(locations) else locations
+    if (!is.matrix(loc) || ncol(loc) != n_dim) {
+      stop(
+        "To highlight points in a ", n_dim, "-dimensional ", class(x)[1L],
+        ", `locations` must be a matrix with ", n_dim,
+        " columns -- one coordinate per dimension."
+      )
+    }
+    pos <- vapply(
+      seq_len(n_dim),
+      function(k) {
+        nms <- if (is.null(dn)) NULL else dn[[k]]
+        highlight_position(loc[, k], d[[k]], nms, paste0("dimension ", k))
+      },
+      integer(nrow(loc))
+    )
+    # `vapply()` drops to a plain vector when there is a single point, and `[<-`
+    # needs the matrix to read it as one coordinate rather than as three.
+    mask[matrix(as.integer(pos), ncol = n_dim)] <- TRUE
+  }
+
+  if (!is.null(rows)) {
+    a <- idx
+    a[[1L]] <- highlight_index(rows, d[[1L]], row_names, "row")
+    mask <- do.call(`[<-`, c(list(mask), a, list(value = TRUE)))
+  }
+
+  if (!is.null(columns)) {
+    a <- idx
+    a[[2L]] <- highlight_index(columns, d[[2L]], col_names, "column")
+    mask <- do.call(`[<-`, c(list(mask), a, list(value = TRUE)))
+  }
+
+  mask
 }
 
 # Mark rows, columns, and points on a 2D logical mask.

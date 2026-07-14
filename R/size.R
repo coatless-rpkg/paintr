@@ -95,19 +95,33 @@ paint_size <- function(data, ...,
   }
   cells <- do.call(paint_cells, c(list(data = data), dots))
 
-  # `paint_cells()` has now vetted the structure, so this cannot be asked of a
-  # 3-D array. A vector gets `paint_vector()`'s subtitle; a matrix and a data frame
-  # get the one the grid painters use.
+  # `paint_cells()` has now vetted the structure. A vector gets `paint_vector()`'s
+  # subtitle; a matrix and a data frame get the one the grid painters use.
   #
   # A LIST NEEDS ITS OWN ARM, and it is not optional. `dims_subtitle()` calls
   # `nrow()` and `ncol()`, both of which are NULL for a list, and `paste0()` DROPS a
   # NULL instead of erroring -- so a list would reserve its chrome against the string
   # "Dimensions:  rows x  columns", which is both a wrong width and, since the same
   # default is what the painter itself will draw, a wrong picture.
+  #
+  # AN ARRAY NEEDS ITS OWN ARM FOR THE MIRROR-IMAGE REASON, and it is the more
+  # dangerous of the two because it does not look broken. `nrow()` and `ncol()` are
+  # DEFINED for an array -- they report the first two extents -- so `Titanic` would
+  # reserve its chrome against "Dimensions: 4 rows x 2 columns", a sentence that is
+  # merely WRONG rather than obviously malformed, while the painter drew a different,
+  # longer one and let it run off the device.
+  #
+  # The rank test is NOT written out here. It lives inside `array_subtitle()`, which
+  # hands a rank-2 array back to `dims_subtitle()` itself -- because this function and
+  # the painter must agree about the string, and two copies of a rule are two things to
+  # forget to change. `paint_size()` cannot know which painter the caller will reach
+  # for, so it must be true that they both say the same thing.
   graph_subtitle <- if (is_paint_vector(data)) {
     vector_subtitle(data)
   } else if (is_paint_list(data)) {
     list_subtitle(data)
+  } else if (is_paint_array(data)) {
+    array_subtitle(data)
   } else {
     dims_subtitle(data)
   }

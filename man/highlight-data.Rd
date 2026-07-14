@@ -99,11 +99,21 @@ result -- is \strong{not} a list for these purposes and is refused, exactly as
 \code{\link[=paint_list]{paint_list()}} refuses it. \code{is.list()} is TRUE for all of them, which is why the
 question is never asked that way; see the note on \code{is_paint_list()}.
 
+An \strong{array} or a \strong{table} of rank two or more is masked with its own full shape:
+the mask of \code{Titanic} is a 4 x 2 x 2 x 2 logical array, because that is what
+\code{\link[=paint_array]{paint_array()}} draws. \code{rows} and \code{columns} select on the first two axes -- the
+two a \emph{block} is made of -- and mark that row (or column) of \strong{every} slice;
+\code{locations} takes a \strong{full coordinate per point}, one column per dimension, and
+reaches a single cell. Rank one is refused: nothing draws it.
+
 The governing invariant: \strong{if a painter can draw a structure, \code{highlight_data()}
 must be able to mask it} -- and a \emph{wrong} mask is worse than an error, so a
 structure no painter accepts is refused outright rather than reshaped into a mask
 nothing could consume. A 2D \code{table} is drawn by \code{paint_matrix()}, so it is masked
-here; an array of any rank but two is drawn by nothing, so it stops.
+here; \code{Titanic} is drawn by \code{\link[=paint_array]{paint_array()}}, so it is masked here. An n-D array
+used to \emph{stop} for exactly the same reason it is now \emph{masked} -- the invariant
+never changed, the set of things a painter can draw did, and the two halves moved
+together.
 
 There is deliberately no reliance on a \code{vector} method being \emph{dispatched}:
 \code{inherits(letters, "vector")} is \code{FALSE}, so \code{highlight_data.vector()} is never

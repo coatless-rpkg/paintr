@@ -331,24 +331,35 @@ test_that("points for a 1D structure must be a vector", {
 #   -> logical, length 24, dim NULL, exactly ONE TRUE. `rows = 1` marks TWELVE cells.
 #
 # This is the same dispatch trap as inherits(letters, "vector") being FALSE (bug 5),
-# one type over. There is no n-D painter, so the fix is an honest stop(): a WRONG
-# mask is worse than an error, and nothing could consume an n-D mask anyway.
+# one type over.
+#
+# THE FIX WAS AN HONEST stop(), AND NOW IT IS AN HONEST MASK. The governing
+# invariant has never changed -- IF A PAINTER CAN DRAW IT, highlight_data() CAN MASK
+# IT -- but what a painter can draw has. There was no n-D painter, so an n-D mask
+# was a mask nothing could consume and refusing was right; `paint_array()` draws one
+# now, so refusing would now be the wrong answer. The two halves of the invariant
+# move together, which is the only way they are allowed to move. What must NEVER
+# come back is the silent flattening, and that is what these tests pin.
 
-test_that("the array bug: a 3D array is refused, not silently flattened", {
-  expect_error(
-    highlight_data(array(1:24, c(2, 3, 4)), rows = 1),
-    "two-dimensional"
-  )
+test_that("the array bug: a 3D array masks with its SHAPE, never flattened", {
+  mask <- highlight_data(array(1:24, c(2, 3, 4)), rows = 1)
 
-  # The wrong answer it used to give, pinned so it cannot come back: a bare logical
-  # vector of length 24 with a single TRUE and no `dim`.
-  mask <- try(highlight_data(array(1:24, c(2, 3, 4)), rows = 1), silent = TRUE)
-  expect_s3_class(mask, "try-error")
+  # The wrong answer it used to give -- a bare logical of length 24, no `dim`, ONE
+  # TRUE -- pinned so it cannot come back.
+  expect_equal(dim(mask), c(2L, 3L, 4L))
+  expect_type(mask, "logical")
+  expect_equal(sum(mask), 12L)
+  expect_true(all(mask[1, , ]))
+  expect_false(any(mask[2, , ]))
 })
 
-test_that("the array bug: every rank but two is refused", {
-  expect_error(highlight_data(array(1:3, 3), rows = 1), "two-dimensional")
-  expect_error(highlight_data(array(1:16, c(2, 2, 2, 2)), rows = 1), "two-dimensional")
+test_that("the array bug: rank 4 masks, and rank 1 is still refused", {
+  m4 <- highlight_data(array(1:16, c(2, 2, 2, 2)), rows = 1)
+  expect_equal(dim(m4), c(2L, 2L, 2L, 2L))
+  expect_equal(sum(m4), 8L)
+
+  # Nothing draws a rank-1 array, so nothing may mask one.
+  expect_error(highlight_data(array(1:3, 3), rows = 1), "dimension")
 })
 
 test_that("the array bug: a 2D array is UNCHANGED -- it is a matrix and it masks", {
@@ -410,11 +421,21 @@ test_that("the table bug: the 2D table mask EQUALS the plain matrix mask", {
   expect_identical(highlight_data(tab, columns = "y"), highlight_data(mat, columns = "y"))
 })
 
-test_that("the table bug: a table of any rank but two is refused", {
-  # 1D: table(x). Nothing paints it, so nothing may mask it.
-  expect_error(highlight_data(table(c("a", "b", "a")), rows = 1), "two-dimensional")
-  # 4D: Titanic.
-  expect_error(highlight_data(Titanic, rows = 1), "two-dimensional")
+test_that("the table bug: a 1-D table is refused, and a 4-D one is MASKED", {
+  # 1D: table(x). Nothing paints it, so nothing may mask it. That half of the
+  # invariant has not moved and does not.
+  expect_error(highlight_data(table(c("a", "b", "a")), rows = 1), "fewer than two")
+
+  # 4D: Titanic. `paint_array()` draws it, so `highlight_data()` masks it -- the
+  # invariant is "if a painter can draw it, highlight_data() can mask it", and the
+  # painter is what changed.
+  m <- highlight_data(Titanic, rows = 1)
+  expect_equal(dim(m), dim(Titanic))
+  # No dimnames on the mask: the same contract highlight_data.matrix() has always
+  # had, so it is indexed by position.
+  expect_null(dimnames(m))
+  expect_true(all(m[1, , , ]))
+  expect_equal(sum(m), 8L)
 })
 
 test_that("unsupported structures still hit the .default error", {

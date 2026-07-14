@@ -318,8 +318,9 @@ test_that("paint_cells() returns a BARE data frame with the exact columns", {
   expect_identical(
     names(cells),
     c(
-      "i", "j", "row", "col", "fmt_group", "sig", "insig", "head", "tail",
-      "ink", "fill", "border", "lwd", "align", "size_rel", "dy_rel", "fit", "kind"
+      "i", "j", "row", "col", "row_end", "col_end", "fmt_group", "sig", "insig",
+      "head", "tail", "ink", "fill", "border", "lwd", "align", "size_rel", "dy_rel",
+      "fit", "kind"
     )
   )
   expect_type(cells$i, "integer")
@@ -616,12 +617,16 @@ test_that("the outline is one cell, and its box is the value block", {
   expect_equal(o$border, "black")
   expect_true(is.na(o$fill))
 
-  box <- outline_box(cells)
+  # The outline CARRIES its box, in `row_end`/`col_end`. It used to carry only its
+  # top-left, and `paint_resolve()` re-derived the bottom-right with a max() over
+  # every value cell in the table -- an arithmetic with one right answer only while
+  # there is one block. An array draws several.
+  #
   # The label lanes are OUTSIDE the box: they are lane 1 in each direction.
-  expect_equal(box$row0, 2L)
-  expect_equal(box$col0, 2L)
-  expect_equal(box$row1, attr(cells, "n_row"))
-  expect_equal(box$col1, attr(cells, "n_col"))
+  expect_equal(o$row, 2L)
+  expect_equal(o$col, 2L)
+  expect_equal(o$row_end, attr(cells, "n_row"))
+  expect_equal(o$col_end, attr(cells, "n_col"))
 })
 
 test_that("the outline's line weight is DATA, and it is the only heavy stroke", {
@@ -663,7 +668,11 @@ test_that("paint_cells() refuses the impossible", {
   expect_error(paint_cells(numeric(0)), "empty data structure")
   expect_error(paint_cells(matrix(nrow = 0, ncol = 3)), "empty data structure")
   expect_error(paint_cells(data.frame()), "empty data structure")
-  expect_error(paint_cells(array(1:8, c(2, 2, 2))), "one- and two-dimensional")
+  # A 3-D array is DRAWN now (`array_cells()`), so what stays refused is rank ONE:
+  # it carries a `dim`, so it is not a vector, and it has no second axis, so it is
+  # not a grid. It is the one shape between the two painters.
+  expect_error(paint_cells(array(1:3, 3L)), "one- and two-dimensional")
+  expect_silent(paint_cells(array(1:8, c(2, 2, 2))))
   # The hard ceiling holds even under show_all.
   expect_error(
     paint_cells(matrix(0, nrow = 1000, ncol = 101), show_all = TRUE),
