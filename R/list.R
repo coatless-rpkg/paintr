@@ -24,6 +24,74 @@
 
 ## Base list ----
 
+# The shared body of both list painters. See `matrix_prep()` for the pattern.
+# `graph_title` stays out, so its `substitute(data)` promise is forced only in the
+# painter's own frame.
+#
+# A list's mask is POSITIONS by ELEMENTS, so `highlight_columns` selects elements
+# (by name as well as number), `highlight_rows` positions within them, and
+# `highlight_locations` individual cells -- all through the SAME `highlight_data()`
+# `paint_list()`'s own examples already call.
+list_prep <- function(data,
+                      summarise,
+                      show_indices,
+                      highlight_area,
+                      highlight_color,
+                      graph_subtitle,
+                      sigfig,
+                      subtle_digits,
+                      max_chars,
+                      max_rows,
+                      max_cols,
+                      show_all,
+                      fontsize,
+                      family,
+                      show_types,
+                      show_names,
+                      name_align,
+                      type_align,
+                      highlight_rows = NULL,
+                      highlight_columns = NULL,
+                      highlight_locations = NULL) {
+  if (!is_paint_list(data)) {
+    stop("Please double-check the data supplied is of a `list` type.")
+  }
+  show_indices <- check_lanes(
+    show_indices, c("none", "cell", "all"), "show_indices",
+    example = c("none", "cell")
+  )
+  subtle_digits <- match.arg(subtle_digits, c("insignificant", "rounded", "none"))
+  name_align <- match.arg(name_align, c("center", "left", "right"))
+  type_align <- match.arg(type_align, c("center", "left", "right"))
+  graph_subtitle <- resolve_subtitle(graph_subtitle, list_subtitle(data))
+  highlight_area <- resolve_highlight_area(
+    data, highlight_area,
+    rows = highlight_rows, columns = highlight_columns, locations = highlight_locations
+  )
+
+  prep <- painter_prep(
+    data = data,
+    show_indices = show_indices,
+    highlight_area = highlight_area,
+    highlight_color = highlight_color,
+    sigfig = sigfig,
+    subtle_digits = subtle_digits,
+    max_chars = max_chars,
+    max_rows = max_rows,
+    max_cols = max_cols,
+    show_all = show_all,
+    fontsize = fontsize,
+    family = family,
+    summarise = summarise,
+    show_names = show_names,
+    show_types = show_types,
+    name_align = name_align,
+    type_align = type_align
+  )
+
+  list(prep = prep, graph_subtitle = graph_subtitle)
+}
+
 #' Visualize Data Inside of a List
 #'
 #' Generate a graph showing the contents of a list.
@@ -96,6 +164,16 @@
 #'                        well as by number) and [highlight_rows()] (which selects
 #'                        positions within them). A length-one logical is recycled.
 #'                        Default: `NULL`, which highlights nothing.
+#' @param highlight_rows,highlight_columns,highlight_locations Shorthand for
+#'                        `highlight_area`, built for you with [highlight_data()]:
+#'                        `highlight_columns` selects ELEMENTS (by name or number),
+#'                        `highlight_rows` selects POSITIONS within them, and
+#'                        `highlight_locations` reaches individual cells. So
+#'                        `highlight_columns = "c"` is exactly
+#'                        `highlight_area = highlight_columns(data, "c")`. Give
+#'                        several at once to fill their union. Supplying
+#'                        `highlight_area` together with any of these is an error.
+#'                        Default: `NULL`.
 #' @param max_rows        Elide the middle of an element longer than this. Default:
 #'                        `10`. It is asked of each element SEPARATELY, so a length-2
 #'                        element beside a length-40 one draws no `"..."` -- it is
@@ -188,26 +266,19 @@ paint_list <- function(
     show_types = TRUE,
     show_names = TRUE,
     name_align = c("center", "left", "right"),
-    type_align = c("center", "left", "right")) {
+    type_align = c("center", "left", "right"),
+    highlight_rows = NULL,
+    highlight_columns = NULL,
+    highlight_locations = NULL) {
   force(graph_title)
 
-  if (!is_paint_list(data)) {
-    stop("Please double-check the data supplied is of a `list` type.")
-  }
-  show_indices <- check_lanes(
-    show_indices, c("none", "cell", "all"), "show_indices",
-    example = c("none", "cell")
-  )
-  subtle_digits <- match.arg(subtle_digits)
-  name_align <- match.arg(name_align)
-  type_align <- match.arg(type_align)
-  graph_subtitle <- resolve_subtitle(graph_subtitle, list_subtitle(data))
-
-  prep <- painter_prep(
+  p <- list_prep(
     data = data,
+    summarise = summarise,
     show_indices = show_indices,
     highlight_area = highlight_area,
     highlight_color = highlight_color,
+    graph_subtitle = graph_subtitle,
     sigfig = sigfig,
     subtle_digits = subtle_digits,
     max_chars = max_chars,
@@ -216,20 +287,22 @@ paint_list <- function(
     show_all = show_all,
     fontsize = fontsize,
     family = family,
-    summarise = summarise,
-    show_names = show_names,
     show_types = show_types,
+    show_names = show_names,
     name_align = name_align,
-    type_align = type_align
+    type_align = type_align,
+    highlight_rows = highlight_rows,
+    highlight_columns = highlight_columns,
+    highlight_locations = highlight_locations
   )
 
   invisible(render_base(
-    prep$cells, prep$col_w, prep$n_row,
-    opts = prep$opts,
+    p$prep$cells, p$prep$col_w, p$prep$n_row,
+    opts = p$prep$opts,
     graph_title = graph_title,
-    graph_subtitle = graph_subtitle,
-    note = prep$note,
-    warn_floor = prep$warn_floor
+    graph_subtitle = p$graph_subtitle,
+    note = p$prep$note,
+    warn_floor = p$prep$warn_floor
   ))
 }
 
@@ -262,27 +335,20 @@ gpaint_list <- function(
     show_types = TRUE,
     show_names = TRUE,
     name_align = c("center", "left", "right"),
-    type_align = c("center", "left", "right")) {
+    type_align = c("center", "left", "right"),
+    highlight_rows = NULL,
+    highlight_columns = NULL,
+    highlight_locations = NULL) {
   force(graph_title)
   require_ggplot2()
 
-  if (!is_paint_list(data)) {
-    stop("Please double-check the data supplied is of a `list` type.")
-  }
-  show_indices <- check_lanes(
-    show_indices, c("none", "cell", "all"), "show_indices",
-    example = c("none", "cell")
-  )
-  subtle_digits <- match.arg(subtle_digits)
-  name_align <- match.arg(name_align)
-  type_align <- match.arg(type_align)
-  graph_subtitle <- resolve_subtitle(graph_subtitle, list_subtitle(data))
-
-  prep <- painter_prep(
+  p <- list_prep(
     data = data,
+    summarise = summarise,
     show_indices = show_indices,
     highlight_area = highlight_area,
     highlight_color = highlight_color,
+    graph_subtitle = graph_subtitle,
     sigfig = sigfig,
     subtle_digits = subtle_digits,
     max_chars = max_chars,
@@ -291,12 +357,14 @@ gpaint_list <- function(
     show_all = show_all,
     fontsize = fontsize,
     family = family,
-    summarise = summarise,
-    show_names = show_names,
     show_types = show_types,
+    show_names = show_names,
     name_align = name_align,
-    type_align = type_align
+    type_align = type_align,
+    highlight_rows = highlight_rows,
+    highlight_columns = highlight_columns,
+    highlight_locations = highlight_locations
   )
 
-  gpaint_skin(prep, graph_title, graph_subtitle)
+  gpaint_skin(p$prep, graph_title, p$graph_subtitle)
 }

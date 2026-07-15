@@ -347,6 +347,53 @@ resolve_subtitle <- function(graph_subtitle, default) {
   as.character(graph_subtitle)[[1L]]
 }
 
+#' Resolve the highlight mask from `highlight_area` or the shorthand selectors
+#'
+#' `highlight_area` and the `highlight_rows` / `highlight_columns` /
+#' `highlight_locations` shorthands are two spellings of one thing: a logical mask
+#' shaped like the data. When only the shorthands are given, the mask is built by
+#' [highlight_data()] -- the SAME builder `highlight_rows()` and friends call -- so
+#' every bit of its validation and dispatch is reused rather than reimplemented, and
+#' a cell in ANY selected row, column or location is filled (they compose as a
+#' union, exactly as `highlight_data(rows =, columns =, locations =)` already does).
+#'
+#' Supplying `highlight_area` AND a shorthand is a mistake worth reporting rather
+#' than papering over, because the two would silently disagree; it is a plain error.
+#'
+#' @param data The structure being painted. Passed straight to [highlight_data()],
+#'   so a shorthand selects on the SAME axes the mask builders already understand
+#'   (a column by name, a list element by name, an array row of every slice).
+#' @param highlight_area What the caller passed to `highlight_area`: a mask, or
+#'   `NULL`.
+#' @param rows,columns,locations The shorthand selections, each `NULL` by default.
+#'   A vector passes only `locations`, because it has a single axis.
+#'
+#' @return A logical mask, or `NULL` when nothing was asked for (which
+#'   [painter_prep()] then reads as "highlight nothing").
+#'
+#' @keywords internal
+#' @noRd
+resolve_highlight_area <- function(data, highlight_area,
+                                   rows = NULL, columns = NULL, locations = NULL) {
+  asked <- !is.null(rows) || !is.null(columns) || !is.null(locations)
+  if (!is.null(highlight_area)) {
+    if (asked) {
+      stop(
+        "Supply either `highlight_area` or the ",
+        "`highlight_rows`/`columns`/`locations` arguments, not both."
+      )
+    }
+    return(highlight_area)
+  }
+  if (!asked) {
+    return(NULL)
+  }
+  # Reuse ALL of `highlight_data()`'s validation and dispatch. It refuses an
+  # unpaintable structure, resolves names and negative indices, and composes the
+  # three selections as a union -- none of which is reimplemented here.
+  highlight_data(data, rows = rows, columns = columns, locations = locations)
+}
+
 #' Stop unless ggplot2 is installed
 #'
 #' The guard that keeps `Suggests: ggplot2` true. Called at the very top of every

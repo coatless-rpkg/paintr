@@ -10,6 +10,64 @@
 
 ## Base vector ----
 
+# The shared body of both vector painters. See `matrix_prep()` for the pattern:
+# everything but `require_ggplot2()` and the renderer choice lives here, and
+# `graph_title` deliberately does not, so its `substitute(data)` promise can only be
+# forced in the painter's own frame.
+#
+# A vector takes only `highlight_locations`: it has a single axis addressed by
+# position, and `highlight_data.vector()` treats rows, columns and locations
+# identically, so exposing the other two would only imply a vector has rows and
+# columns -- the exact confusion this package exists to un-teach.
+vector_prep <- function(data,
+                        layout,
+                        show_indices,
+                        highlight_area,
+                        highlight_color,
+                        graph_subtitle,
+                        sigfig,
+                        subtle_digits,
+                        max_chars,
+                        max_rows,
+                        max_cols,
+                        show_all,
+                        fontsize,
+                        family,
+                        show_names,
+                        max_name_chars,
+                        highlight_locations = NULL) {
+  if (!is_paint_vector(data)) {
+    stop("Please double-check the data supplied is of a `vector` type.")
+  }
+  layout <- match.arg(layout, c("vertical", "horizontal"))
+  show_indices <- match.arg(show_indices, c("none", "inside", "outside"))
+  subtle_digits <- match.arg(subtle_digits, c("insignificant", "rounded", "none"))
+  graph_subtitle <- resolve_subtitle(graph_subtitle, vector_subtitle(data))
+  highlight_area <- resolve_highlight_area(
+    data, highlight_area, locations = highlight_locations
+  )
+
+  prep <- painter_prep(
+    data = data,
+    show_indices = show_indices,
+    highlight_area = highlight_area,
+    highlight_color = highlight_color,
+    sigfig = sigfig,
+    subtle_digits = subtle_digits,
+    max_chars = max_chars,
+    max_rows = max_rows,
+    max_cols = max_cols,
+    show_all = show_all,
+    fontsize = fontsize,
+    family = family,
+    layout = layout,
+    show_names = show_names,
+    max_name_chars = max_name_chars
+  )
+
+  list(prep = prep, graph_subtitle = graph_subtitle)
+}
+
 #' Visualize Data Inside of a Vector
 #'
 #' Generate a graph showing the contents of a vector.
@@ -44,6 +102,15 @@
 #'                        cells to fill. A length-one logical is recycled.
 #'                        Default: `NULL`, which highlights nothing.
 #' @param highlight_color Color to use to fill the background of a cell.
+#' @param highlight_locations Shorthand for `highlight_area`: instead of building a
+#'                        mask, give the element positions to fill and the mask is
+#'                        built for you with [highlight_locations()]. So
+#'                        `highlight_locations = c(2, 4)` is exactly
+#'                        `highlight_area = highlight_locations(data, c(2, 4))`. A
+#'                        vector has a single axis addressed by position, so this is
+#'                        the only shorthand it takes -- there are no rows or columns
+#'                        to name. Supplying `highlight_area` together with it is an
+#'                        error. Default: `NULL`.
 #' @param graph_title     Title to appear in the upper left hand corner of the graph.
 #' @param graph_subtitle  Subtitle to appear immediately under the graph title.
 #'                        `NULL` (the default) describes the data: its length and
@@ -125,22 +192,17 @@ paint_vector <- function(
     fontsize = NULL,
     family = "mono",
     show_names = TRUE,
-    max_name_chars = 8L) {
+    max_name_chars = 8L,
+    highlight_locations = NULL) {
   force(graph_title)
 
-  if (!is_paint_vector(data)) {
-    stop("Please double-check the data supplied is of a `vector` type.")
-  }
-  layout <- match.arg(layout)
-  show_indices <- match.arg(show_indices)
-  subtle_digits <- match.arg(subtle_digits)
-  graph_subtitle <- resolve_subtitle(graph_subtitle, vector_subtitle(data))
-
-  prep <- painter_prep(
+  p <- vector_prep(
     data = data,
+    layout = layout,
     show_indices = show_indices,
     highlight_area = highlight_area,
     highlight_color = highlight_color,
+    graph_subtitle = graph_subtitle,
     sigfig = sigfig,
     subtle_digits = subtle_digits,
     max_chars = max_chars,
@@ -149,18 +211,18 @@ paint_vector <- function(
     show_all = show_all,
     fontsize = fontsize,
     family = family,
-    layout = layout,
     show_names = show_names,
-    max_name_chars = max_name_chars
+    max_name_chars = max_name_chars,
+    highlight_locations = highlight_locations
   )
 
   invisible(render_base(
-    prep$cells, prep$col_w, prep$n_row,
-    opts = prep$opts,
+    p$prep$cells, p$prep$col_w, p$prep$n_row,
+    opts = p$prep$opts,
     graph_title = graph_title,
-    graph_subtitle = graph_subtitle,
-    note = prep$note,
-    warn_floor = prep$warn_floor
+    graph_subtitle = p$graph_subtitle,
+    note = p$prep$note,
+    warn_floor = p$prep$warn_floor
   ))
 }
 
@@ -191,23 +253,18 @@ gpaint_vector <- function(
     fontsize = NULL,
     family = "mono",
     show_names = TRUE,
-    max_name_chars = 8L) {
+    max_name_chars = 8L,
+    highlight_locations = NULL) {
   force(graph_title)
   require_ggplot2()
 
-  if (!is_paint_vector(data)) {
-    stop("Please double-check the data supplied is of a `vector` type.")
-  }
-  layout <- match.arg(layout)
-  show_indices <- match.arg(show_indices)
-  subtle_digits <- match.arg(subtle_digits)
-  graph_subtitle <- resolve_subtitle(graph_subtitle, vector_subtitle(data))
-
-  prep <- painter_prep(
+  p <- vector_prep(
     data = data,
+    layout = layout,
     show_indices = show_indices,
     highlight_area = highlight_area,
     highlight_color = highlight_color,
+    graph_subtitle = graph_subtitle,
     sigfig = sigfig,
     subtle_digits = subtle_digits,
     max_chars = max_chars,
@@ -216,10 +273,10 @@ gpaint_vector <- function(
     show_all = show_all,
     fontsize = fontsize,
     family = family,
-    layout = layout,
     show_names = show_names,
-    max_name_chars = max_name_chars
+    max_name_chars = max_name_chars,
+    highlight_locations = highlight_locations
   )
 
-  gpaint_skin(prep, graph_title, graph_subtitle)
+  gpaint_skin(p$prep, graph_title, p$graph_subtitle)
 }

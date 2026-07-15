@@ -12,6 +12,67 @@
 
 ## Base array ----
 
+# The shared body of both array painters. See `matrix_prep()` for the pattern.
+# `graph_title` stays out, so its `substitute(data)` promise is forced only in the
+# painter's own frame.
+#
+# `highlight_rows`/`highlight_columns` mark that row or column of every slice and
+# `highlight_locations` takes a full coordinate per point, exactly as
+# `highlight_data()` masks an array of any rank -- reused here rather than rebuilt.
+array_prep <- function(data,
+                       show_indices,
+                       highlight_area,
+                       highlight_color,
+                       graph_subtitle,
+                       sigfig,
+                       subtle_digits,
+                       max_chars,
+                       max_rows,
+                       max_cols,
+                       max_slices,
+                       show_all,
+                       fontsize,
+                       family,
+                       show_dimnames,
+                       max_name_chars,
+                       highlight_rows = NULL,
+                       highlight_columns = NULL,
+                       highlight_locations = NULL) {
+  if (!is_paint_array(data)) {
+    stop("Please double-check the data supplied is of an `array` type.")
+  }
+  show_indices <- check_show_indices(show_indices)
+  show_dimnames <- check_lanes(
+    show_dimnames, c("none", "row", "column", "slice", "all"), "show_dimnames"
+  )
+  subtle_digits <- match.arg(subtle_digits, c("insignificant", "rounded", "none"))
+  graph_subtitle <- resolve_subtitle(graph_subtitle, array_subtitle(data))
+  highlight_area <- resolve_highlight_area(
+    data, highlight_area,
+    rows = highlight_rows, columns = highlight_columns, locations = highlight_locations
+  )
+
+  prep <- painter_prep(
+    data = data,
+    show_indices = show_indices,
+    highlight_area = highlight_area,
+    highlight_color = highlight_color,
+    sigfig = sigfig,
+    subtle_digits = subtle_digits,
+    max_chars = max_chars,
+    max_rows = max_rows,
+    max_cols = max_cols,
+    max_slices = max_slices,
+    show_all = show_all,
+    fontsize = fontsize,
+    family = family,
+    show_dimnames = show_dimnames,
+    max_name_chars = max_name_chars
+  )
+
+  list(prep = prep, graph_subtitle = graph_subtitle)
+}
+
 #' Visualize Data Inside of an Array
 #'
 #' Generate a graph showing the contents of an array of any rank, laid out the way
@@ -109,6 +170,17 @@
 #'                        to fill. Build it with [highlight_data()], which masks an
 #'                        array of any rank. A length-one logical is recycled.
 #'                        Default: `NULL`, which highlights nothing.
+#' @param highlight_rows,highlight_columns,highlight_locations Shorthand for
+#'                        `highlight_area`, built for you with [highlight_data()]:
+#'                        `highlight_rows` and `highlight_columns` mark that row or
+#'                        column of EVERY slice (the first two axes a block is made
+#'                        of), and `highlight_locations` takes a full coordinate per
+#'                        point -- one column per dimension -- to reach a single
+#'                        cell. So `highlight_rows = 1` is exactly
+#'                        `highlight_area = highlight_data(data, rows = 1)`. Give
+#'                        several at once to fill their union. Supplying
+#'                        `highlight_area` together with any of these is an error.
+#'                        Default: `NULL`.
 #' @param graph_subtitle  Subtitle to appear immediately under the graph title.
 #'                        `NULL` (the default) describes the data: its full shape
 #'                        (`4 x 2 x 2 x 2`) and its class. `NA` or `""` draws no
@@ -171,26 +243,20 @@ paint_array <- function(
     fontsize = NULL,
     family = "mono",
     show_dimnames = "all",
-    max_name_chars = 8L) {
+    max_name_chars = 8L,
+    highlight_rows = NULL,
+    highlight_columns = NULL,
+    highlight_locations = NULL) {
   # `graph_title` is a promise over `substitute(data)`, so it has to be forced here,
   # in the frame whose `data` the user actually named.
   force(graph_title)
 
-  if (!is_paint_array(data)) {
-    stop("Please double-check the data supplied is of an `array` type.")
-  }
-  show_indices <- check_show_indices(show_indices)
-  show_dimnames <- check_lanes(
-    show_dimnames, c("none", "row", "column", "slice", "all"), "show_dimnames"
-  )
-  subtle_digits <- match.arg(subtle_digits)
-  graph_subtitle <- resolve_subtitle(graph_subtitle, array_subtitle(data))
-
-  prep <- painter_prep(
+  p <- array_prep(
     data = data,
     show_indices = show_indices,
     highlight_area = highlight_area,
     highlight_color = highlight_color,
+    graph_subtitle = graph_subtitle,
     sigfig = sigfig,
     subtle_digits = subtle_digits,
     max_chars = max_chars,
@@ -201,16 +267,19 @@ paint_array <- function(
     fontsize = fontsize,
     family = family,
     show_dimnames = show_dimnames,
-    max_name_chars = max_name_chars
+    max_name_chars = max_name_chars,
+    highlight_rows = highlight_rows,
+    highlight_columns = highlight_columns,
+    highlight_locations = highlight_locations
   )
 
   invisible(render_base(
-    prep$cells, prep$col_w, prep$n_row,
-    opts = prep$opts,
+    p$prep$cells, p$prep$col_w, p$prep$n_row,
+    opts = p$prep$opts,
     graph_title = graph_title,
-    graph_subtitle = graph_subtitle,
-    note = prep$note,
-    warn_floor = prep$warn_floor
+    graph_subtitle = p$graph_subtitle,
+    note = p$prep$note,
+    warn_floor = p$prep$warn_floor
   ))
 }
 
@@ -241,25 +310,19 @@ gpaint_array <- function(
     fontsize = NULL,
     family = "mono",
     show_dimnames = "all",
-    max_name_chars = 8L) {
+    max_name_chars = 8L,
+    highlight_rows = NULL,
+    highlight_columns = NULL,
+    highlight_locations = NULL) {
   force(graph_title)
   require_ggplot2()
 
-  if (!is_paint_array(data)) {
-    stop("Please double-check the data supplied is of an `array` type.")
-  }
-  show_indices <- check_show_indices(show_indices)
-  show_dimnames <- check_lanes(
-    show_dimnames, c("none", "row", "column", "slice", "all"), "show_dimnames"
-  )
-  subtle_digits <- match.arg(subtle_digits)
-  graph_subtitle <- resolve_subtitle(graph_subtitle, array_subtitle(data))
-
-  prep <- painter_prep(
+  p <- array_prep(
     data = data,
     show_indices = show_indices,
     highlight_area = highlight_area,
     highlight_color = highlight_color,
+    graph_subtitle = graph_subtitle,
     sigfig = sigfig,
     subtle_digits = subtle_digits,
     max_chars = max_chars,
@@ -270,8 +333,11 @@ gpaint_array <- function(
     fontsize = fontsize,
     family = family,
     show_dimnames = show_dimnames,
-    max_name_chars = max_name_chars
+    max_name_chars = max_name_chars,
+    highlight_rows = highlight_rows,
+    highlight_columns = highlight_columns,
+    highlight_locations = highlight_locations
   )
 
-  gpaint_skin(prep, graph_title, graph_subtitle)
+  gpaint_skin(p$prep, graph_title, p$graph_subtitle)
 }

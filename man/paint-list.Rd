@@ -24,7 +24,10 @@ paint_list(
   show_types = TRUE,
   show_names = TRUE,
   name_align = c("center", "left", "right"),
-  type_align = c("center", "left", "right")
+  type_align = c("center", "left", "right"),
+  highlight_rows = NULL,
+  highlight_columns = NULL,
+  highlight_locations = NULL
 )
 
 gpaint_list(
@@ -46,7 +49,10 @@ gpaint_list(
   show_types = TRUE,
   show_names = TRUE,
   name_align = c("center", "left", "right"),
-  type_align = c("center", "left", "right")
+  type_align = c("center", "left", "right"),
+  highlight_rows = NULL,
+  highlight_columns = NULL,
+  highlight_locations = NULL
 )
 }
 \arguments{
@@ -137,6 +143,17 @@ structure whose parts are named one at a time.)}
 \item{type_align}{How the type tags sit over their column. Independent of
 \code{name_align}. Neither moves the values, which keep their
 own alignment.}
+
+\item{highlight_rows, highlight_columns, highlight_locations}{Shorthand for
+\code{highlight_area}, built for you with \code{\link[=highlight_data]{highlight_data()}}:
+\code{highlight_columns} selects ELEMENTS (by name or number),
+\code{highlight_rows} selects POSITIONS within them, and
+\code{highlight_locations} reaches individual cells. So
+\code{highlight_columns = "c"} is exactly
+\code{highlight_area = highlight_columns(data, "c")}. Give
+several at once to fill their union. Supplying
+\code{highlight_area} together with any of these is an error.
+Default: \code{NULL}.}
 }
 \value{
 \code{paint_list()} invisibly returns the resolved cell table. See \code{\link[=paint_matrix]{paint_matrix()}}

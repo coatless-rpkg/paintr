@@ -22,7 +22,10 @@ paint_array(
   fontsize = NULL,
   family = "mono",
   show_dimnames = "all",
-  max_name_chars = 8L
+  max_name_chars = 8L,
+  highlight_rows = NULL,
+  highlight_columns = NULL,
+  highlight_locations = NULL
 )
 
 gpaint_array(
@@ -42,7 +45,10 @@ gpaint_array(
   fontsize = NULL,
   family = "mono",
   show_dimnames = "all",
-  max_name_chars = 8L
+  max_name_chars = 8L,
+  highlight_rows = NULL,
+  highlight_columns = NULL,
+  highlight_locations = NULL
 )
 }
 \arguments{
@@ -140,6 +146,18 @@ so every column of it is as wide as the widest: a long
 column name widens every cell in the picture. Row names
 sit in a gutter of their own, cost the values nothing, and
 are truncated at \code{max_chars} instead.}
+
+\item{highlight_rows, highlight_columns, highlight_locations}{Shorthand for
+\code{highlight_area}, built for you with \code{\link[=highlight_data]{highlight_data()}}:
+\code{highlight_rows} and \code{highlight_columns} mark that row or
+column of EVERY slice (the first two axes a block is made
+of), and \code{highlight_locations} takes a full coordinate per
+point -- one column per dimension -- to reach a single
+cell. So \code{highlight_rows = 1} is exactly
+\code{highlight_area = highlight_data(data, rows = 1)}. Give
+several at once to fill their union. Supplying
+\code{highlight_area} together with any of these is an error.
+Default: \code{NULL}.}
 }
 \value{
 \code{paint_array()} invisibly returns the resolved cell table. See \code{\link[=paint_matrix]{paint_matrix()}}

@@ -21,7 +21,10 @@ paint_matrix(
   fontsize = NULL,
   family = "mono",
   show_dimnames = "all",
-  max_name_chars = 8L
+  max_name_chars = 8L,
+  highlight_rows = NULL,
+  highlight_columns = NULL,
+  highlight_locations = NULL
 )
 
 gpaint_matrix(
@@ -40,7 +43,10 @@ gpaint_matrix(
   fontsize = NULL,
   family = "mono",
   show_dimnames = "all",
-  max_name_chars = 8L
+  max_name_chars = 8L,
+  highlight_rows = NULL,
+  highlight_columns = NULL,
+  highlight_locations = NULL
 )
 }
 \arguments{
@@ -118,6 +124,16 @@ so every column of it is as wide as the widest: a long
 column name widens every cell in the picture. Row names
 sit in a gutter of their own, cost the values nothing, and
 are truncated at \code{max_chars} instead.}
+
+\item{highlight_rows, highlight_columns, highlight_locations}{Shorthand for
+\code{highlight_area}: instead of building a mask, name the
+rows, columns, or cell locations to fill and the mask is
+built for you with \code{\link[=highlight_data]{highlight_data()}}. So
+\code{highlight_rows = 1} is exactly
+\code{highlight_area = highlight_rows(data, 1)}, and the object
+need not be named twice. Give several at once to fill
+their union. Supplying \code{highlight_area} together with any
+of these is an error. Default: \code{NULL}.}
 }
 \value{
 \code{paint_matrix()} invisibly returns the resolved cell table: a list with the

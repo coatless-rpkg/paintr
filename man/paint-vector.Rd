@@ -22,7 +22,8 @@ paint_vector(
   fontsize = NULL,
   family = "mono",
   show_names = TRUE,
-  max_name_chars = 8L
+  max_name_chars = 8L,
+  highlight_locations = NULL
 )
 
 gpaint_vector(
@@ -42,7 +43,8 @@ gpaint_vector(
   fontsize = NULL,
   family = "mono",
   show_names = TRUE,
-  max_name_chars = 8L
+  max_name_chars = 8L,
+  highlight_locations = NULL
 )
 }
 \arguments{
@@ -111,6 +113,16 @@ Default: \code{8}. It bites only a \code{"horizontal"} vector,
 whose names sit over the cells and widen them; a vertical
 vector's names are in a gutter of their own and are
 truncated at \code{max_chars} instead.}
+
+\item{highlight_locations}{Shorthand for \code{highlight_area}: instead of building a
+mask, give the element positions to fill and the mask is
+built for you with \code{\link[=highlight_locations]{highlight_locations()}}. So
+\code{highlight_locations = c(2, 4)} is exactly
+\code{highlight_area = highlight_locations(data, c(2, 4))}. A
+vector has a single axis addressed by position, so this is
+the only shorthand it takes -- there are no rows or columns
+to name. Supplying \code{highlight_area} together with it is an
+error. Default: \code{NULL}.}
 }
 \value{
 \code{paint_vector()} invisibly returns the resolved cell table. See \code{\link[=paint_matrix]{paint_matrix()}}
