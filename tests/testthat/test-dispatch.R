@@ -913,11 +913,40 @@ test_that("paint_size(): the recommended size DRAWS, for every structure", {
     # width, and the wrong line. The ragged one is the case that matters: its
     # bounding box is not its size.
     list(nm = "list",             d = list(a = 1:30, b = "x", c = 1:3), p = paint_list, all = FALSE),
-    list(nm = "list show_all",    d = list(a = 1:30, b = "x", c = 1:3), p = paint_list, all = TRUE)
+    list(nm = "list show_all",    d = list(a = 1:30, b = "x", c = 1:3), p = paint_list, all = TRUE),
+    # ARRAY. It was the one structure missing from this loop -- and the sole other
+    # `paint_size()` array test (`test-array.R`) only asserted `> 0`, so nothing here
+    # ever drew an array at its OWN recommendation and checked the floor. `extra`
+    # carries the arguments the loop's `all`-only shape cannot: `show_indices` and
+    # a slice count that forces elision. An empty `extra` reproduces the old
+    # `all`-only call exactly, so every case above is unaffected.
+    list(nm = "array 3-D",        d = array(1:24, c(2, 3, 4)),         p = paint_array, all = FALSE),
+    # Cell-indexed: the case the "under-reports height" report doubted specifically
+    # -- every cell carries its own `[i, j, k]` label, which is the widest a block's
+    # cells get.
+    list(
+      nm = "array 3-D cell", d = array(1:24, c(2, 3, 4)), p = paint_array, all = FALSE,
+      extra = list(show_indices = "cell")
+    ),
+    list(nm = "array 4-D",         d = array(1:48, c(2, 3, 4, 2)),      p = paint_array, all = FALSE),
+    list(
+      nm = "array 4-D cell", d = array(1:48, c(2, 3, 4, 2)), p = paint_array, all = FALSE,
+      extra = list(show_indices = "cell")
+    ),
+    # Titanic: a real, fully-`dimnames()`d contingency table, not a synthetic array.
+    list(nm = "array Titanic",     d = Titanic,                        p = paint_array, all = FALSE),
+    # UCBAdmissions has 6 slices on its Dept axis, past the `max_slices = 4L`
+    # default, so this is also the elision path: three blocks drawn, one "..." block
+    # standing in for the rest. See the "3 more slices" note in `?paint_array`.
+    list(nm = "array elided",      d = UCBAdmissions,                  p = paint_array, all = FALSE)
   )
 
   for (cs in cases) {
-    s <- if (cs$all) paint_size(cs$d, show_all = TRUE) else paint_size(cs$d)
+    extra <- cs$extra
+    if (is.null(extra)) extra <- list()
+    args <- c(list(cs$d), if (cs$all) list(show_all = TRUE), extra)
+
+    s <- do.call(paint_size, args)
 
     grDevices::pdf(NULL, width = s[["width"]], height = s[["height"]])
     dev <- grDevices::dev.cur()
@@ -927,7 +956,7 @@ test_that("paint_size(): the recommended size DRAWS, for every structure", {
     # painter for real would have caught it.
     res <- NULL
     expect_no_error(
-      res <- if (cs$all) cs$p(cs$d, show_all = TRUE) else cs$p(cs$d),
+      res <- do.call(cs$p, args),
       message = cs$nm
     )
     # (b) AND IT CLEARS THE FLOOR, which is what the size was computed to do.
