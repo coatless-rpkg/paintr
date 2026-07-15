@@ -940,6 +940,9 @@ list_header <- function(nms, j, max_chars = 12L, ellipsis = "...") {
 #'   wide), and 10 by 8 for a list (its columns are as wide as a NAME).
 #' @param max_slices Arrays only: elision threshold on each of the two SLICE axes.
 #'   `NULL` takes 4. See [array_cells()].
+#' @param slices_per_row Arrays only: `NULL` lays the slices out in the array's own
+#'   grid; a positive whole number wraps them that many blocks to a row. See
+#'   [block_layout()].
 #' @param show_all Skip elision entirely.
 #'
 #' @return A bare data frame with one row per drawn cell and the columns `i`, `j`,
@@ -970,6 +973,7 @@ paint_cells <- function(data,
                         max_rows = NULL,
                         max_cols = NULL,
                         max_slices = NULL,
+                        slices_per_row = NULL,
                         show_all = FALSE,
                         gap = 0,
                         ellipsis = "...") {
@@ -986,6 +990,17 @@ paint_cells <- function(data,
   # the no-op; a spaced list is the only thing that reads it, below.
   if (length(gap) != 1L || !is.numeric(gap) || !is.finite(gap) || gap < 0) {
     stop("`gap` must be a single non-negative number.")
+  }
+  # `slices_per_row` is an array's knob, but it is validated HERE, wherever it
+  # enters, exactly as `gap` is -- so `paint_size()` (which reaches this builder
+  # through `...`) is guarded by the same one sentence the painters are. `NULL` is
+  # the default and the no-op; a value at least the slice count is a legal request
+  # for one row and elides no differently, so only a non-whole or non-positive value
+  # is refused. A matrix ignores it, so passing a valid one there is a no-op too.
+  if (!is.null(slices_per_row) &&
+    (length(slices_per_row) != 1L || !is.numeric(slices_per_row) ||
+      is.na(slices_per_row) || slices_per_row < 1 || slices_per_row %% 1 != 0)) {
+    stop("`slices_per_row` must be a single positive whole number, or NULL to lay the slices out in the array's own grid.")
   }
 
   # -- what are we drawing? ---------------------------------------------------
@@ -1020,6 +1035,7 @@ paint_cells <- function(data,
       max_rows = max_rows,
       max_cols = max_cols,
       max_slices = max_slices,
+      slices_per_row = slices_per_row,
       show_all = show_all,
       ellipsis = ellipsis
     ))
@@ -1853,6 +1869,168 @@ slice_sub <- function(b, hi) {
   out
 }
 
+#' Where does every drawn block SLOT sit, and which slice does it hold?
+#'
+#' The one piece of geometry `array_cells()` needs and the one the wrap feature
+#' changes: it lays the slices out as a grid of block slots, and hands back each
+#' drawn block's top-left cell so the emission loop can draw it there knowing
+#' nothing of how the grid was chosen. Both renderers stay dumb for the same
+#' reason -- a block's position is DATA on the cell table, never a rule a renderer
+#' has to learn.
+#'
+#' There are two arms, and they share everything downstream:
+#'
+#'   * `slices_per_row = NULL` is the array's OWN grid, unchanged: axis 3 runs
+#'     across (one block per level), axes 4..n fold down (axis 4 fastest), and each
+#'     of the two slice axes elides on `max_slices` with its own `"..."` slot. A
+#'     3-D array is one row; a 4-D one is a real grid whose two directions ARE two
+#'     axes. This is why the default is a proven no-op -- the arithmetic is the
+#'     block-grid code that was here before, moved verbatim.
+#'
+#'   * `slices_per_row = k` treats the slices as ONE flat sequence in that same
+#'     natural order and wraps them `k` blocks to a row, onto as many rows as it
+#'     takes -- reading order, like `facet_wrap()`. The flat sequence elides once,
+#'     on `max_slices`, and its single `"..."` slot sits in its natural place in the
+#'     wrapped grid. Wrap position is READING ORDER, not structure: every block
+#'     keeps its full, honest slice title (`slice_of` is unchanged), so a wrapped
+#'     3-D array can never be mistaken for a 4-D one -- the titles are the truth.
+#'
+#' The grid columns are uniform (`blk_cols` wide, one blank column between), so
+#' blocks align down the page whichever arm laid them; a slot that holds only the
+#' `"..."` simply renders as the whitespace its content demands.
+#'
+#' @param n_bx_data,n_by_data The slice extents: axis 3, and axes 4..n folded into
+#'   one (`1` for a 3-D array).
+#' @param hi The extents of axes 4..n, for [slice_sub()]; possibly empty.
+#' @param max_slices,show_all Slice-axis elision, exactly as the other axes take
+#'   it.
+#' @param slices_per_row `NULL` for the natural grid, or a positive whole number of
+#'   blocks per row. Already validated by [paint_cells()].
+#' @param blk_rows,blk_cols The cell extent of one block, title row and gutter
+#'   included.
+#' @param lab_rows_b,lab_cols_b The block's own label lanes (title row above,
+#'   gutter to the left), for centring a `"..."` in the value region.
+#' @param n_ki,n_kj How many rows and columns a block draws, for the same centring.
+#'
+#' @return A list with `slice_of` (a block's slice subscript, one per drawn block,
+#'   in emission order), `r0_of`/`c0_of` (each block's top-left cell), `n_row`,
+#'   `n_col` (the drawn extent), `gap_specs` (the `"..."` cells to add after the
+#'   blocks, each a `row`/`col` pair), and `hidden_slices`.
+#'
+#' @keywords internal
+#' @noRd
+block_layout <- function(n_bx_data, n_by_data, hi,
+                         max_slices, show_all, slices_per_row,
+                         blk_rows, blk_cols,
+                         lab_rows_b, lab_cols_b, n_ki, n_kj) {
+  if (is.null(slices_per_row)) {
+    # -- THE NATURAL GRID: axis 3 across, axes 4..n down. Each slice axis elides on
+    # its own, with a `"..."` SLOT one lane wide -- it announces a hidden block, it
+    # does not reserve room for one.
+    ex <- elide_axis(n_bx_data, max_slices, show_all)
+    ey <- elide_axis(n_by_data, max_slices, show_all)
+    kx <- ex$keep
+    ky <- ey$keep
+
+    bx_pos <- drawn_pos(kx, ex$gap)
+    by_pos <- drawn_pos(ky, ey$gap)
+    n_bx <- length(kx) + as.integer(!is.na(ex$gap))
+    n_by <- length(ky) + as.integer(!is.na(ey$gap))
+
+    slot_w <- rep(blk_cols, n_bx)
+    if (!is.na(ex$gap)) slot_w[[ex$gap]] <- 1L
+    slot_h <- rep(blk_rows, n_by)
+    if (!is.na(ey$gap)) slot_h[[ey$gap]] <- 1L
+
+    # One blank column between block slots, so two blocks never share an edge and
+    # read as one grid. No blank ROW is needed: the next block's title row is itself
+    # a row of white space with a short label at its left, and it separates them.
+    col0_of <- cumsum(c(1L, slot_w + 1L))[seq_len(n_bx)]
+    row0_of <- cumsum(c(1L, slot_h))[seq_len(n_by)]
+    n_col <- sum(slot_w) + (n_bx - 1L)
+    n_row <- sum(slot_h)
+
+    blocks <- expand.grid(bx = seq_along(kx), by = seq_along(ky))
+    slice_of <- lapply(seq_len(nrow(blocks)), function(b) {
+      c(kx[[blocks$bx[[b]]]], slice_sub(ky[[blocks$by[[b]]]], hi))
+    })
+    c0_of <- col0_of[bx_pos[blocks$bx]]
+    r0_of <- row0_of[by_pos[blocks$by]]
+
+    # The gap blocks. The package's contract is that the gap is ALWAYS drawn, and a
+    # hidden slice is a hidden slice whichever axis hid it. One `"..."` per gap slot
+    # per drawn block on the other axis, centred on the blocks it stands between.
+    gap_specs <- list()
+    if (!is.na(ex$gap)) {
+      gap_specs[[length(gap_specs) + 1L]] <- list(
+        row = row0_of[by_pos[seq_along(ky)]] + lab_rows_b + (n_ki - 1L) %/% 2L,
+        col = col0_of[[ex$gap]]
+      )
+    }
+    if (!is.na(ey$gap)) {
+      gap_specs[[length(gap_specs) + 1L]] <- list(
+        row = row0_of[[ey$gap]],
+        col = col0_of[bx_pos[seq_along(kx)]] + lab_cols_b + (n_kj - 1L) %/% 2L
+      )
+    }
+    hidden_slices <- as.integer(n_bx_data * n_by_data - length(kx) * length(ky))
+  } else {
+    # -- THE WRAP: one flat slice sequence, `k` blocks to a row, in natural order.
+    # The sequence elides ONCE, as a single axis, so a slice-elided wrapped array
+    # still draws its `"..."` slot -- in its natural place in the reading order.
+    k <- as.integer(slices_per_row)
+    n_slice <- as.integer(n_bx_data * n_by_data)
+    es <- elide_axis(n_slice, max_slices, show_all)
+    ks <- es$keep
+    # The drawn-slot index of each kept block, skipping the `"..."` slot.
+    slot_of <- drawn_pos(ks, es$gap)
+    n_slot <- length(ks) + as.integer(!is.na(es$gap))
+
+    # A slot's place in the wrapped grid: `k` columns, wrapping to a new row. The
+    # last row may be short; every other row is full.
+    gc_of <- function(slot) ((slot - 1L) %% k) + 1L
+    gr_of <- function(slot) ((slot - 1L) %/% k) + 1L
+    ncol_grid <- min(k, n_slot)
+    nrow_grid <- gr_of(n_slot)
+
+    # Uniform block columns, one blank between -- the same shape the natural grid
+    # uses, so the blocks align down every wrapped row at one shared font.
+    col0_grid <- 1L + (seq_len(ncol_grid) - 1L) * (blk_cols + 1L)
+    row0_grid <- 1L + (seq_len(nrow_grid) - 1L) * blk_rows
+    n_col <- ncol_grid * (blk_cols + 1L) - 1L
+    n_row <- nrow_grid * blk_rows
+
+    # The block's FULL, HONEST slice title comes straight off its flat position:
+    # axis 3 fastest, then the folded axes -- the very order the sequence is in.
+    slice_of <- lapply(ks, function(p) {
+      a3 <- ((p - 1L) %% n_bx_data) + 1L
+      af <- ((p - 1L) %/% n_bx_data) + 1L
+      c(a3, slice_sub(af, hi))
+    })
+    c0_of <- col0_grid[gc_of(slot_of)]
+    r0_of <- row0_grid[gr_of(slot_of)]
+
+    gap_specs <- list()
+    if (!is.na(es$gap)) {
+      gap_specs[[1L]] <- list(
+        row = row0_grid[[gr_of(es$gap)]] + lab_rows_b + (n_ki - 1L) %/% 2L,
+        col = col0_grid[[gc_of(es$gap)]] + lab_cols_b + (n_kj - 1L) %/% 2L
+      )
+    }
+    hidden_slices <- as.integer(es$hidden)
+  }
+
+  list(
+    slice_of = slice_of,
+    r0_of = as.integer(r0_of),
+    c0_of = as.integer(c0_of),
+    n_row = as.integer(n_row),
+    n_col = as.integer(n_col),
+    gap_specs = gap_specs,
+    hidden_slices = hidden_slices
+  )
+}
+
 #' Resolve a highlight selection to a logical array
 #'
 #' [resolve_highlight()]'s n-dimensional sibling. It is deliberately NOT a widening
@@ -1970,6 +2148,9 @@ resolve_highlight_dim <- function(highlight_area, dims) {
 #'   [paint_cells()].
 #' @param max_slices Most blocks drawn along EACH slice axis, the `"..."` block
 #'   included.
+#' @param slices_per_row `NULL` (the default) lays the slices out in the array's
+#'   own grid; a positive whole number wraps them that many blocks to a row. See
+#'   [block_layout()].
 #' @inheritParams paint_cells
 #'
 #' @return A bare cell table, as [paint_cells()] returns.
@@ -1989,6 +2170,7 @@ array_cells <- function(data,
                         max_rows = NULL,
                         max_cols = NULL,
                         max_slices = NULL,
+                        slices_per_row = NULL,
                         show_all = FALSE,
                         ellipsis = "...") {
   d <- dim(data)
@@ -2044,19 +2226,17 @@ array_cells <- function(data,
   acc_row <- axis_names(data, "row")
   acc_col <- axis_names(data, "column")
 
-  # -- elide FIRST, on shape, on all four axes ------------------------------
+  # -- elide FIRST, on shape. The two WITHIN-block axes are elided here; the two
+  # SLICE axes elide inside `block_layout()`, which is also where `slices_per_row`
+  # chooses whether they stay two axes or fold into one wrapped sequence.
   hi <- if (n_ax >= 4L) d[4:n_ax] else integer(0)
   n_bx_data <- d[[3L]]
   n_by_data <- if (length(hi)) as.integer(prod(hi)) else 1L
 
   er <- elide_axis(d[[1L]], max_rows, show_all)
   ec <- elide_axis(d[[2L]], max_cols, show_all)
-  ex <- elide_axis(n_bx_data, max_slices, show_all)
-  ey <- elide_axis(n_by_data, max_slices, show_all)
   ki <- er$keep
   kj <- ec$keep
-  kx <- ex$keep
-  ky <- ey$keep
 
   # -- the geometry of one block --------------------------------------------
   # A block is a matrix with a title row on top of it. Its lanes are the matrix's,
@@ -2067,36 +2247,30 @@ array_cells <- function(data,
   blk_rows <- lab_rows_b + length(ki) + as.integer(!is.na(er$gap))
   blk_cols <- lab_cols_b + length(kj) + as.integer(!is.na(ec$gap))
 
-  # -- the geometry of the grid of blocks -----------------------------------
-  # A drawn block SLOT is a real block, or the `"..."` that stands for the ones that
-  # were elided. The gap slot is one lane wide, not a whole block wide: it announces
-  # a hidden block, it does not reserve room for one.
-  bx_pos <- drawn_pos(kx, ex$gap)
-  by_pos <- drawn_pos(ky, ey$gap)
-  n_bx <- length(kx) + as.integer(!is.na(ex$gap))
-  n_by <- length(ky) + as.integer(!is.na(ey$gap))
-
-  slot_w <- rep(blk_cols, n_bx)
-  if (!is.na(ex$gap)) slot_w[[ex$gap]] <- 1L
-  slot_h <- rep(blk_rows, n_by)
-  if (!is.na(ey$gap)) slot_h[[ey$gap]] <- 1L
-
-  # One blank column between block slots, so two blocks never share an edge and read
-  # as one grid. No blank ROW is needed: the next block's title row is itself a row
-  # of white space with a short label at its left, and it separates them.
-  col0_of <- cumsum(c(1L, slot_w + 1L))[seq_len(n_bx)]
-  row0_of <- cumsum(c(1L, slot_h))[seq_len(n_by)]
-  n_col <- sum(slot_w) + (n_bx - 1L)
-  n_row <- sum(slot_h)
+  # -- the geometry of the GRID of blocks -----------------------------------
+  # `block_layout()` places every drawn block and hands back its top-left cell.
+  # `slices_per_row = NULL` is the array's own grid (axis 3 across, axes 4..n down);
+  # a positive `k` wraps the flat slice sequence `k` blocks to a row. Either way the
+  # loop below draws each block at `(r0_of, c0_of)` knowing nothing of which arm
+  # chose it -- the position is DATA, so the renderers stay dumb. See its docs.
+  bg <- block_layout(
+    n_bx_data = n_bx_data, n_by_data = n_by_data, hi = hi,
+    max_slices = max_slices, show_all = show_all, slices_per_row = slices_per_row,
+    blk_rows = blk_rows, blk_cols = blk_cols,
+    lab_rows_b = lab_rows_b, lab_cols_b = lab_cols_b,
+    n_ki = length(ki), n_kj = length(kj)
+  )
+  slice_of <- bg$slice_of
+  r0_of <- bg$r0_of
+  c0_of <- bg$c0_of
+  n_row <- bg$n_row
+  n_col <- bg$n_col
 
   # -- format the VISIBLE values, ONCE, as one unit -------------------------
-  # The blocks are walked in the order they will be emitted, their kept values
-  # concatenated, and the whole run handed to ONE `paint_format()` call. That call
-  # is what makes the array one formatting unit -- see this function's docs.
-  blocks <- expand.grid(bx = seq_along(kx), by = seq_along(ky))
-  slice_of <- lapply(seq_len(nrow(blocks)), function(b) {
-    c(kx[[blocks$bx[[b]]]], slice_sub(ky[[blocks$by[[b]]]], hi))
-  })
+  # The blocks are walked in the order they will be emitted (`slice_of`), their kept
+  # values concatenated, and the whole run handed to ONE `paint_format()` call. That
+  # call is what makes the array one formatting unit -- see this function's docs.
+  #
   # `expand.grid(ri, ci)` is the order every rectangular structure's value chunk
   # comes back in, and a block is a rectangle, so it is this one's too.
   g <- expand.grid(ri = seq_along(ki), ci = seq_along(kj))
@@ -2118,10 +2292,10 @@ array_cells <- function(data,
   chunks <- vector("list", 0L)
   add <- function(x) if (!is.null(x)) chunks[[length(chunks) + 1L]] <<- x
 
-  for (b in seq_len(nrow(blocks))) {
+  for (b in seq_along(slice_of)) {
     s <- slice_of[[b]]
-    c0 <- col0_of[[bx_pos[[blocks$bx[[b]]]]]]
-    r0 <- row0_of[[by_pos[[blocks$by[[b]]]]]]
+    c0 <- c0_of[[b]]
+    r0 <- r0_of[[b]]
 
     # The subscript tail this block's labels carry: "" for a matrix, ", 3" for a
     # 3-D array's third slab, ", 3, 2" for a 4-D one's. THE THREE FORMULAE BELOW ARE
@@ -2310,33 +2484,22 @@ array_cells <- function(data,
   }
 
   # THE GAP BLOCKS. The package's contract is that the gap is ALWAYS drawn, and a
-  # hidden slice is a hidden slice whichever axis hid it. One `"..."` per gap slot
-  # per drawn block on the other axis, centred on the blocks it stands between.
-  if (!is.na(ex$gap)) {
-    add(gap_cells(
-      row = row0_of[by_pos[seq_along(ky)]] + lab_rows_b + (length(ki) - 1L) %/% 2L,
-      col = col0_of[[ex$gap]],
-      ellipsis = ellipsis
-    ))
-  }
-  if (!is.na(ey$gap)) {
-    add(gap_cells(
-      row = row0_of[[ey$gap]],
-      col = col0_of[bx_pos[seq_along(kx)]] + lab_cols_b + (length(kj) - 1L) %/% 2L,
-      ellipsis = ellipsis
-    ))
+  # hidden slice is a hidden slice whichever axis hid it. `block_layout()` has
+  # already worked out where each `"..."` sits -- the natural grid produces one per
+  # elided slice axis, the wrap produces one for the whole flat sequence -- so here
+  # we only emit them, after the blocks, so they land last in the table.
+  for (spec in bg$gap_specs) {
+    add(gap_cells(row = spec$row, col = spec$col, ellipsis = ellipsis))
   }
 
   out <- do.call(rbind, chunks)
   rownames(out) <- NULL
 
-  # What the two slice axes hid, together: a 4-D array elides on both at once, and
-  # "2 more slices, 1 more slice" would be nonsense. What the reader wants is how
-  # many BLOCKS are not on the page, which is every block the data has, less every
-  # block that was drawn. See `elide_note()`.
-  hidden_slices <- as.integer(
-    n_bx_data * n_by_data - length(kx) * length(ky)
-  )
+  # What the slice axes hid, in blocks: a 4-D array elides on both at once, and "2
+  # more slices, 1 more slice" would be nonsense; the wrap elides one flat sequence.
+  # Either way what the reader wants is how many BLOCKS are not on the page, which
+  # `block_layout()` has counted. See `elide_note()`.
+  hidden_slices <- bg$hidden_slices
 
   attr(out, "n_row") <- as.integer(n_row)
   attr(out, "n_col") <- as.integer(n_col)

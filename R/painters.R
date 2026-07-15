@@ -36,6 +36,8 @@
 #' @param max_rows,max_cols,max_slices,show_all Elision, passed to `paint_cells()`.
 #'   `max_slices` is an array's third elision axis and is `NULL` for every other
 #'   structure.
+#' @param slices_per_row Arrays only: how many slice blocks to wrap to a row.
+#'   `NULL` is the array's own grid, and it is `NULL` for every other structure.
 #' @param fontsize,family Passed to `paint_opts()`.
 #' @param layout Vectors only.
 #' @param summarise Lists only: one cell per element, saying what it is.
@@ -68,6 +70,7 @@ painter_prep <- function(data,
                          fontsize,
                          family,
                          max_slices = NULL,
+                         slices_per_row = NULL,
                          layout = "vertical",
                          summarise = FALSE,
                          show_names = TRUE,
@@ -104,6 +107,7 @@ painter_prep <- function(data,
     max_rows = max_rows,
     max_cols = max_cols,
     max_slices = max_slices,
+    slices_per_row = slices_per_row,
     show_all = show_all,
     gap = gap,
     ellipsis = ellipsis

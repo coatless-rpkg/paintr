@@ -18,6 +18,7 @@ paint_array(
   max_rows = NULL,
   max_cols = NULL,
   max_slices = 4L,
+  slices_per_row = NULL,
   show_all = FALSE,
   fontsize = NULL,
   family = "mono",
@@ -41,6 +42,7 @@ gpaint_array(
   max_rows = NULL,
   max_cols = NULL,
   max_slices = 4L,
+  slices_per_row = NULL,
   show_all = FALSE,
   fontsize = NULL,
   family = "mono",
@@ -111,6 +113,18 @@ The picture is \code{max_slices} matrices wide, so this is the knob that costs t
 most: at \code{4}, \code{Titanic} and \code{HairEyeColor} draw whole and \code{UCBAdmissions} draws
 three of its six departments and says \verb{# 3 more slices}. Raise it (or set
 \code{show_all}) to see them all, at a smaller size.}
+
+\item{slices_per_row}{Wrap the slice blocks into a grid this many to a row,
+instead of the array's own layout. \code{NULL} (the default) is today's picture
+exactly: a 3-D array in one row, a 4-D-or-higher array in its natural grid.
+A positive whole number takes the slices in their natural order -- the order
+the block titles enumerate -- and wraps them onto as many rows as it takes,
+like \code{ggplot2::facet_wrap()}. Every block keeps its FULL, honest slice title
+(\verb{, , 5} stays \verb{, , 5}), so wrap position is reading order, never a claim about
+the data: it cannot make a 3-D array read as a 4-D one. It composes with
+\code{max_slices} -- a wrapped array still elides and draws its \code{"..."} block -- and
+a value at least the slice count simply draws one row. A \code{matrix} has one
+slice, so it is a no-op there.}
 
 \item{show_all}{Draw every cell, however small the text becomes. Warns
 when the text falls below the legibility floor.}
@@ -226,6 +240,10 @@ drawn at half the size, two inches to the left. Equal panels, unequal fonts.
 # A 3-D array lays its slabs out in one line.
 paint_array(array(1:24, c(2, 3, 4)))
 
+# Wrap the same slabs three to a row instead. Every block keeps its true slice
+# title, so this is reading order, not a fourth dimension.
+paint_array(array(1:36, c(2, 3, 6)), slices_per_row = 3, show_all = TRUE)
+
 # A 4-D contingency table is a real grid of blocks: across is the third
 # dimension, down is the fourth.
 paint_array(Titanic)
@@ -248,6 +266,9 @@ paint_array(UCBAdmissions)
 # ggplot2 graphics ----
 
 gpaint_array(array(1:24, c(2, 3, 4)))
+
+# Wrap six slabs into a 2x3 grid, in reading order.
+gpaint_array(array(1:36, c(2, 3, 6)), slices_per_row = 3, show_all = TRUE)
 
 gpaint_array(HairEyeColor)
 \dontshow{\}) # examplesIf}

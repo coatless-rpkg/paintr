@@ -711,6 +711,181 @@ test_that("show_all draws every slice", {
   expect_true(is.na(attr(cells, "note")))
 })
 
+# ---------------------------------------------------------------------------
+# slices_per_row: wrap the slice blocks into a grid
+# ---------------------------------------------------------------------------
+#
+# The default (`NULL`) draws today's picture -- one line for a 3-D array, the
+# natural grid for a 4-D one -- and the two tests above ("slabs lay out in ONE
+# line", "two directions ARE two axes") are the regression guard for that. These
+# add the wrap.
+
+# The slice titles, ordered the way they are READ off the page: down the rows,
+# left to right within a row. The block at reading position n is the n-th entry.
+slice_titles_in_order <- function(cells) {
+  sl <- cells[cells$kind == "slicelabel", c("row", "col", "sig"), drop = FALSE]
+  sl <- sl[order(sl$row, sl$col), , drop = FALSE]
+  sl$sig
+}
+
+test_that("slices_per_row wraps the slice blocks into ceil(n / k) rows of <= k", {
+  a <- array(1:36, c(2, 3, 6))
+  cells <- paint_cells(a, slices_per_row = 3, show_all = TRUE)
+  sl <- cells[cells$kind == "slicelabel", , drop = FALSE]
+  sl <- sl[order(sl$row, sl$col), , drop = FALSE]
+
+  # Six slices, three to a row: two rows, three columns.
+  expect_equal(nrow(sl), 6L)
+  expect_equal(length(unique(sl$row)), 2L)     # ceiling(6 / 3)
+  expect_lte(max(table(sl$row)), 3L)           # no row holds more than k
+
+  # The blocks align in a grid: the three column positions repeat across the two
+  # rows, so a wrapped array reads as columns as well as rows.
+  by_row <- split(sl$col, sl$row)
+  expect_equal(by_row[[1L]], by_row[[2L]])
+})
+
+test_that("a wrapped block keeps its FULL, honest slice title", {
+  a <- array(1:36, c(2, 3, 6))
+  wrapped <- paint_cells(a, slices_per_row = 3, show_all = TRUE)
+  flat <- paint_cells(a, show_all = TRUE)
+
+  # Wrap position is READING ORDER, never a relabel: the titles the wrapped grid
+  # draws are exactly the titles the one-line array draws, in the same order. A
+  # `, , 5` is `, , 5` wherever it wraps to.
+  expect_equal(
+    slice_titles_in_order(wrapped),
+    slice_titles_in_order(flat)
+  )
+  expect_equal(
+    slice_titles_in_order(wrapped),
+    paste0(", , ", 1:6)
+  )
+})
+
+test_that("the natural slice order is preserved: slice k lands at reading position k", {
+  # A dimnamed array, so the titles are names -- and the assertion is about WHICH
+  # slice sits WHERE, not merely that six titles exist.
+  a <- array(1:24, c(2, 2, 6))
+  dimnames(a) <- list(NULL, NULL, c("Mo", "Tu", "We", "Th", "Fr", "Sa"))
+  cells <- paint_cells(a, slices_per_row = 2, show_all = TRUE)
+
+  # Two per row: Mo Tu / We Th / Fr Sa. So `We` opens the second row -- same column
+  # as `Mo`, a row below it.
+  expect_equal(slice_titles_in_order(cells), paste0(", , ", c("Mo", "Tu", "We", "Th", "Fr", "Sa")))
+  sl <- cells[cells$kind == "slicelabel", , drop = FALSE]
+  mo <- sl[sl$sig == ", , Mo", ]
+  we <- sl[sl$sig == ", , We", ]
+  expect_equal(we$col, mo$col)     # same grid column
+  expect_gt(we$row, mo$row)        # one grid row down
+})
+
+test_that("all wrapped blocks share ONE fitted font size", {
+  a <- array(1:36, c(2, 3, 6))
+  cells <- paint_cells(a, slices_per_row = 3, show_all = TRUE)
+  res <- paint_resolve(
+    cells, column_widths(cells), attr(cells, "n_row"),
+    panel_fake(7, 5), measure_mono("mono")
+  )
+  # The whole point of faceting into one cell table: one letterbox, one fit. Every
+  # value cell in every wrapped row is drawn at the same size.
+  vals <- res$cells$fontsize[res$cells$kind == "value"]
+  expect_equal(length(unique(vals)), 1L)
+  expect_false(res$floored)
+})
+
+test_that("slice elision and slices_per_row compose: the gap block and note survive", {
+  # UCBAdmissions is 2 x 2 x 6; the default max_slices = 4 elides three departments.
+  cells <- paint_cells(UCBAdmissions, slices_per_row = 2)
+  expect_equal(sum(cells$kind == "slicelabel"), 3L)      # A, B, F drawn
+  expect_gt(sum(cells$kind == "ellipsis"), 0L)           # the "..." is DRAWN
+  expect_equal(attr(cells, "hidden_slices"), 3L)
+  expect_match(attr(cells, "note"), "3 more slices")
+
+  # The gap sits in its natural reading place -- between the last kept head block
+  # and the tail block -- not tacked on at the end.
+  titles <- slice_titles_in_order(cells)
+  expect_equal(titles, c(", , A", ", , B", ", , F"))
+})
+
+test_that("a highlight fills the right cell whatever row the slice wraps to", {
+  a <- array(1:36, c(2, 3, 6))
+  # One cell, deep in slice 5, which wraps to the second row at slices_per_row = 3.
+  mask <- highlight_data(a, locations = rbind(c(1, 1, 5)))
+  cells <- paint_cells(a, slices_per_row = 3, show_all = TRUE, highlight_area = mask)
+  filled <- cells[cells$kind == "value" & cells$fill == "lemonchiffon", , drop = FALSE]
+  expect_equal(nrow(filled), 1L)
+  expect_equal(filled$i, 1L)
+  expect_equal(filled$j, 1L)
+})
+
+test_that("show_indices = 'cell' draws accessors that still RUN when wrapped", {
+  a <- array(1:24, c(2, 3, 4))
+  cells <- paint_cells(a, slices_per_row = 2, show_all = TRUE, show_indices = "cell")
+  labs <- index_labels(cells)
+  expect_gt(length(labs), 0L)
+  for (lab in labs) {
+    expect_no_error(val <- eval(parse(text = paste0("a", lab))))
+    expect_true(is.finite(val))
+  }
+})
+
+test_that("slices_per_row is validated, and one-row requests are graceful", {
+  a <- array(1:24, c(2, 3, 4))
+  expect_error(paint_cells(a, slices_per_row = 0), "slices_per_row")
+  expect_error(paint_cells(a, slices_per_row = -1), "slices_per_row")
+  expect_error(paint_cells(a, slices_per_row = 2.5), "slices_per_row")
+  expect_error(paint_cells(a, slices_per_row = "x"), "slices_per_row")
+  expect_error(paint_cells(a, slices_per_row = c(2, 3)), "slices_per_row")
+
+  # A value at least the slice count is a legal request for one row -- no error.
+  expect_no_error(one <- paint_cells(a, slices_per_row = 99, show_all = TRUE))
+  sl <- one[one$kind == "slicelabel", , drop = FALSE]
+  expect_equal(length(unique(sl$row)), 1L)
+})
+
+test_that("slices_per_row is a no-op on a matrix (one slice), not an error", {
+  m <- matrix(1:6, nrow = 2)
+  expect_no_error(cells <- paint_cells(m, slices_per_row = 3))
+  # A matrix has one slice, so wrapping cannot change the picture.
+  expect_identical(cells, paint_cells(m))
+  # And through the painter's own front door.
+  with_null_pdf(expect_silent(paint_array(m, slices_per_row = 3)))
+})
+
+test_that("both backends draw the wrapped picture, and from the same cell table", {
+  a <- array(1:36, c(2, 3, 6))
+  with_null_pdf(expect_silent(paint_array(a, slices_per_row = 3, show_all = TRUE)))
+
+  skip_if_not_installed("ggplot2")
+  p <- gpaint_array(a, slices_per_row = 3, show_all = TRUE)
+  expect_s3_class(p, "ggplot")
+  with_null_pdf(expect_silent(print(p)))
+})
+
+test_that("paint_size accounts for the wrapped shape and clears the floor at it", {
+  # A 12-slice array: one line is very wide, three to a row is narrow and tall.
+  a <- array(seq_len(3 * 4 * 12), c(3, 4, 12))
+  flat <- paint_size(a, show_all = TRUE)
+  wrapped <- paint_size(a, show_all = TRUE, slices_per_row = 3)
+  expect_gt(wrapped[["height"]], flat[["height"]])
+  expect_lt(wrapped[["width"]], flat[["width"]])
+
+  # Drawn at its own recommendation, a wrapped array clears the legibility floor --
+  # the same round-trip promise every other structure keeps.
+  grDevices::pdf(NULL, width = wrapped[["width"]], height = wrapped[["height"]])
+  on.exit(grDevices::dev.off(), add = TRUE)
+  res <- paint_array(a, show_all = TRUE, slices_per_row = 3)
+  expect_gte(res$fontsize, 5)
+  expect_false(res$floored)
+})
+
+test_that("slices_per_row = NULL is exactly the default (the wrap is opt-in)", {
+  for (a in list(array(1:24, c(2, 3, 4)), Titanic, UCBAdmissions)) {
+    expect_identical(paint_cells(a), paint_cells(a, slices_per_row = NULL))
+  }
+})
+
 test_that("every block gets its OWN outline", {
   cells <- paint_cells(array(1:24, c(2, 3, 4)))
   o <- cells[cells$kind == "outline", , drop = FALSE]

@@ -938,7 +938,20 @@ test_that("paint_size(): the recommended size DRAWS, for every structure", {
     # UCBAdmissions has 6 slices on its Dept axis, past the `max_slices = 4L`
     # default, so this is also the elision path: three blocks drawn, one "..." block
     # standing in for the rest. See the "3 more slices" note in `?paint_array`.
-    list(nm = "array elided",      d = UCBAdmissions,                  p = paint_array, all = FALSE)
+    list(nm = "array elided",      d = UCBAdmissions,                  p = paint_array, all = FALSE),
+    # WRAPPED: a taller, narrower shape than the one-line default. `paint_size()`
+    # forwards `slices_per_row` to the builder, so the recommendation must account
+    # for the wrapped panel -- and drawing at it must still clear the floor.
+    list(
+      nm = "array wrapped", d = array(seq_len(3 * 4 * 12), c(3, 4, 12)), p = paint_array, all = TRUE,
+      extra = list(slices_per_row = 3)
+    ),
+    # Wrapped AND elided: the flat slice sequence elides once, its "..." block
+    # wrapping into the grid with the rest.
+    list(
+      nm = "array wrapped elided", d = array(1:120, c(2, 2, 30)), p = paint_array, all = FALSE,
+      extra = list(slices_per_row = 2)
+    )
   )
 
   for (cs in cases) {
