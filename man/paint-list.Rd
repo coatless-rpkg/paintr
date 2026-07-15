@@ -254,3 +254,12 @@ gpaint_list(list(a = 1:4, b = "x", c = c(TRUE, FALSE, NA)))
 gpaint_list(list(a = 1:40, b = letters), summarise = TRUE)
 \dontshow{\}) # examplesIf}
 }
+\seealso{
+Other painters:
+\code{\link[=paint_array]{paint_array()}},
+\code{\link[=paint_data_frame]{paint_data_frame()}},
+\code{\link[=paint_matrix]{paint_matrix()}},
+\code{\link[=paint_size]{paint_size()}},
+\code{\link[=paint_vector]{paint_vector()}}
+}
+\concept{painters}

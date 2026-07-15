@@ -154,6 +154,7 @@ df_prep <- function(data,
 #' which `geom_text()` cannot do at all. A custom grob is the only mechanism that
 #' can do either.
 #'
+#' @family painters
 #' @rdname paint-data-frame
 #' @export
 #' @examples

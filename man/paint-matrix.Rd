@@ -138,9 +138,11 @@ of these is an error. Default: \code{NULL}.}
 \value{
 \code{paint_matrix()} invisibly returns the resolved cell table: a list with the
 components \code{cells}, \code{fontsize}, \code{floored}, \code{u}, \code{x0}, \code{y0}, \code{usr}, \code{pin},
-\code{graph_title}, \code{graph_subtitle} and \code{note}. The last three are the chrome as it
-was actually drawn, so \code{graph_subtitle} is the resolved default rather than the
-\code{NULL} that was passed in.
+\code{graph_title}, \code{graph_subtitle}, and -- only when the drawing elides -- \code{note}.
+\code{graph_title} and \code{graph_subtitle} are the chrome as it was actually drawn, so
+\code{graph_subtitle} is the resolved default rather than the \code{NULL} that was passed
+in. \code{note} holds the "# N more rows/columns" string and is present only when the
+drawing elides; it is absent otherwise.
 \code{gpaint_matrix()} returns a \code{ggplot} object.
 }
 \description{
@@ -231,3 +233,12 @@ mat_3x5 = matrix(round(rnorm(15, 5, 2), 2), ncol = 5)
 gpaint_matrix(mat_3x5, highlight_area = mat_3x5 > 2)
 \dontshow{\}) # examplesIf}
 }
+\seealso{
+Other painters:
+\code{\link[=paint_array]{paint_array()}},
+\code{\link[=paint_data_frame]{paint_data_frame()}},
+\code{\link[=paint_list]{paint_list()}},
+\code{\link[=paint_size]{paint_size()}},
+\code{\link[=paint_vector]{paint_vector()}}
+}
+\concept{painters}

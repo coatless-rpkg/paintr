@@ -81,7 +81,8 @@ shape as \code{x}: a logical vector of \code{length(x)} for 1D structures, and a
 matrix of \code{dim(x)} for matrices and data frames.
 }
 \description{
-Generate a logical structure codifies active areas.
+Build a logical mask that marks the cells to highlight in a subsequent
+\verb{paint_*()} / \verb{gpaint_*()} call.
 }
 \section{Supported structures}{
 
@@ -168,3 +169,8 @@ highlight_columns(iris[1:5, ], "Sepal.Width")
 highlight_rows(iris[1:5, ], rows = c(1, 3))
 highlight_locations(iris[1:5, ], rbind(c(1, 1), c(2, 5)))
 }
+\seealso{
+The painters that consume a mask, such as \code{\link[=paint_matrix]{paint_matrix()}} and
+\code{\link[=paint_data_frame]{paint_data_frame()}}.
+}
+\concept{highlighters}

@@ -6,19 +6,31 @@
 \alias{paintr-package}
 \title{paintr: Create Graphics of 'R' Data Structures}
 \description{
-Visualize the contents of different 'R' data structures.
+Draw teaching diagrams of the contents of common 'R' data structures.
+}
+\details{
+paintr draws five structures -- vectors, matrices, data frames, lists, and
+arrays -- with two backends: base graphics through the \verb{paint_*()} functions
+and 'ggplot2' through the \verb{gpaint_*()} functions. The label under each cell is
+the expression you would type to reach that cell, so every picture doubles as
+a lesson in how to subset and index the object it draws.
 }
 \seealso{
-Useful links:
+The package vignettes:
 \itemize{
-  \item \url{https://github.com/coatless-rpkg/paintr}
-  \item \url{https://r-pkg.thecoatlessprofessor.com/paintr/}
-  \item Report bugs at \url{https://github.com/coatless-rpkg/paintr/issues}
+\item \code{vignette("paintr", package = "paintr")}
+\item \code{vignette("highlighting", package = "paintr")}
+\item \code{vignette("base-vs-ggplot2", package = "paintr")}
+\item \code{vignette("teaching", package = "paintr")}
 }
-
 }
 \author{
 \strong{Maintainer}: James Joseph Balamuta \email{james.balamuta@gmail.com} (\href{https://orcid.org/0000-0003-2826-8458}{ORCID})
+
+Authors:
+\itemize{
+  \item James Joseph Balamuta \email{james.balamuta@gmail.com} (\href{https://orcid.org/0000-0003-2826-8458}{ORCID})
+}
 
 }
 \keyword{internal}

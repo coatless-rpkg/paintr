@@ -8,7 +8,13 @@ Authors@R: c(
                     comment = c(ORCID = "0000-0003-2826-8458")
                    )
             )
-Description: Visualize the contents of different 'R' data structures.
+Description: Draws teaching diagrams of the contents of common 'R' data
+    structures -- vectors, matrices, data frames, lists, and arrays -- so their
+    shape and values can be read at a glance. Two backends render the same
+    picture: base 'R' graphics through the paint_*() functions and 'ggplot2'
+    through the gpaint_*() functions. The label under each cell is the
+    expression you would type to reach that cell, so every diagram doubles as a
+    lesson in how to subset and index the object it draws.
 URL: https://github.com/coatless-rpkg/paintr, https://r-pkg.thecoatlessprofessor.com/paintr/
 BugReports: https://github.com/coatless-rpkg/paintr/issues
 Depends: R (>= 4.2.0)
@@ -24,7 +30,10 @@ Suggests:
     downlit,
     evaluate,
     ggplot2,
+    knitr,
+    quarto,
     svglite,
     testthat (>= 3.0.0),
     withr
 Config/testthat/edition: 3
+VignetteBuilder: quarto

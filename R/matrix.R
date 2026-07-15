@@ -161,9 +161,11 @@ matrix_prep <- function(data,
 #' @return
 #' `paint_matrix()` invisibly returns the resolved cell table: a list with the
 #' components `cells`, `fontsize`, `floored`, `u`, `x0`, `y0`, `usr`, `pin`,
-#' `graph_title`, `graph_subtitle` and `note`. The last three are the chrome as it
-#' was actually drawn, so `graph_subtitle` is the resolved default rather than the
-#' `NULL` that was passed in.
+#' `graph_title`, `graph_subtitle`, and -- only when the drawing elides -- `note`.
+#' `graph_title` and `graph_subtitle` are the chrome as it was actually drawn, so
+#' `graph_subtitle` is the resolved default rather than the `NULL` that was passed
+#' in. `note` holds the "# N more rows/columns" string and is present only when the
+#' drawing elides; it is absent otherwise.
 #' `gpaint_matrix()` returns a `ggplot` object.
 #'
 #' @section The ggplot object is a shell:
@@ -186,6 +188,7 @@ matrix_prep <- function(data,
 #' can do either.
 #'
 #' @importFrom graphics rect text mtext par plot.new plot.window
+#' @family painters
 #' @rdname paint-matrix
 #' @export
 #' @examples

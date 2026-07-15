@@ -1,6 +1,7 @@
 #' Highlight data
 #'
-#' Generate a logical structure codifies active areas.
+#' Build a logical mask that marks the cells to highlight in a subsequent
+#' `paint_*()` / `gpaint_*()` call.
 #'
 #' @param x          A vector, factor, matrix, or data frame.
 #' @param rows       A vector of valid row locations, given either as integer
@@ -57,6 +58,9 @@
 #' dispatches on `"table"` alone, so without a `table` method it would land on
 #' `highlight_data.default()` and be refused despite being paintable.
 #'
+#' @family highlighters
+#' @seealso The painters that consume a mask, such as [paint_matrix()] and
+#'   [paint_data_frame()].
 #' @rdname highlight-data
 #' @export
 #' @examples

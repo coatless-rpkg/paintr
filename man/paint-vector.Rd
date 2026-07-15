@@ -191,3 +191,12 @@ gpaint_vector(c(-3, 5, NA, Inf, 2, 1))
 gpaint_vector(letters[1:5], layout = "horizontal", show_indices = "outside")
 \dontshow{\}) # examplesIf}
 }
+\seealso{
+Other painters:
+\code{\link[=paint_array]{paint_array()}},
+\code{\link[=paint_data_frame]{paint_data_frame()}},
+\code{\link[=paint_list]{paint_list()}},
+\code{\link[=paint_matrix]{paint_matrix()}},
+\code{\link[=paint_size]{paint_size()}}
+}
+\concept{painters}

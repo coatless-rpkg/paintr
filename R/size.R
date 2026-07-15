@@ -35,10 +35,12 @@
 #' so round up in practice.
 #'
 #' @param data A vector, matrix, or data frame.
-#' @param ... Passed to the cell builder. Anything the painters accept that
-#'   changes the *shape* of the drawing belongs here -- `show_indices`,
-#'   `max_rows`, `max_cols`, `show_all`, `layout`, `sigfig`, `max_chars`,
-#'   `show_names`, `show_types`.
+#' @param ... Any shape-affecting painter argument -- for example
+#'   `show_indices`, `summarise`, `show_all`, `layout`, `max_rows`, `max_cols`,
+#'   `max_slices`, `sigfig`, `max_chars`, `show_names`, `show_types`,
+#'   `show_dimnames`, `max_name_chars`, `name_align`, or `type_align`. These are
+#'   passed to the cell builder, so the estimate matches what the painter would
+#'   draw.
 #' @param min_pt The legibility floor, in points. The returned size is the one
 #'   that puts the fitted text exactly here.
 #' @param family Font family. Only its metrics matter, and `measure_mono()` is
@@ -65,6 +67,7 @@
 #' # png("iris.png", width = s[["width"]], height = s[["height"]],
 #' #     units = "in", res = 96)
 #'
+#' @family painters
 #' @export
 paint_size <- function(data, ...,
                        min_pt = 5,

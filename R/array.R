@@ -200,6 +200,7 @@ array_prep <- function(data,
 #' three slices of one array come out at 24, 12.4 and 23.1 points: the same number,
 #' drawn at half the size, two inches to the left. Equal panels, unequal fonts.
 #'
+#' @family painters
 #' @rdname paint-array
 #' @export
 #' @examples

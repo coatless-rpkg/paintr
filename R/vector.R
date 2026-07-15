@@ -148,6 +148,7 @@ vector_prep <- function(data,
 #' can do either.
 #'
 #' @importFrom graphics rect text mtext par plot.new plot.window
+#' @family painters
 #' @rdname paint-vector
 #' @export
 #' @examples

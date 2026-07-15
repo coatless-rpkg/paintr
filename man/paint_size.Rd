@@ -16,10 +16,12 @@ paint_size(
 \arguments{
 \item{data}{A vector, matrix, or data frame.}
 
-\item{...}{Passed to the cell builder. Anything the painters accept that
-changes the \emph{shape} of the drawing belongs here -- \code{show_indices},
-\code{max_rows}, \code{max_cols}, \code{show_all}, \code{layout}, \code{sigfig}, \code{max_chars},
-\code{show_names}, \code{show_types}.}
+\item{...}{Any shape-affecting painter argument -- for example
+\code{show_indices}, \code{summarise}, \code{show_all}, \code{layout}, \code{max_rows}, \code{max_cols},
+\code{max_slices}, \code{sigfig}, \code{max_chars}, \code{show_names}, \code{show_types},
+\code{show_dimnames}, \code{max_name_chars}, \code{name_align}, or \code{type_align}. These are
+passed to the cell builder, so the estimate matches what the painter would
+draw.}
 
 \item{min_pt}{The legibility floor, in points. The returned size is the one
 that puts the fitted text exactly here.}
@@ -62,3 +64,12 @@ s
 #     units = "in", res = 96)
 
 }
+\seealso{
+Other painters:
+\code{\link[=paint_array]{paint_array()}},
+\code{\link[=paint_data_frame]{paint_data_frame()}},
+\code{\link[=paint_list]{paint_list()}},
+\code{\link[=paint_matrix]{paint_matrix()}},
+\code{\link[=paint_vector]{paint_vector()}}
+}
+\concept{painters}

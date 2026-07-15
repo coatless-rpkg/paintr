@@ -252,3 +252,12 @@ gpaint_array(array(1:24, c(2, 3, 4)))
 gpaint_array(HairEyeColor)
 \dontshow{\}) # examplesIf}
 }
+\seealso{
+Other painters:
+\code{\link[=paint_data_frame]{paint_data_frame()}},
+\code{\link[=paint_list]{paint_list()}},
+\code{\link[=paint_matrix]{paint_matrix()}},
+\code{\link[=paint_size]{paint_size()}},
+\code{\link[=paint_vector]{paint_vector()}}
+}
+\concept{painters}

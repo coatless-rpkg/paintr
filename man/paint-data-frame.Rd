@@ -275,3 +275,12 @@ gpaint_data_frame(head(iris, 5))
 gpaint_df(head(mtcars, 4))
 \dontshow{\}) # examplesIf}
 }
+\seealso{
+Other painters:
+\code{\link[=paint_array]{paint_array()}},
+\code{\link[=paint_list]{paint_list()}},
+\code{\link[=paint_matrix]{paint_matrix()}},
+\code{\link[=paint_size]{paint_size()}},
+\code{\link[=paint_vector]{paint_vector()}}
+}
+\concept{painters}

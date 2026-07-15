@@ -1,4 +1,35 @@
-url: http://r-pkg.thecoatlessprofessor.com/drawr/
+url: https://r-pkg.thecoatlessprofessor.com/paintr/
 template:
   bootstrap: 5
+  light-switch: true
 
+reference:
+- title: Painters (base graphics)
+  desc: Draw a data structure on the current base graphics device.
+  contents:
+  - paint_vector
+  - paint_matrix
+  - paint_data_frame
+  - paint_list
+  - paint_array
+  - paint_df
+- title: Painters (ggplot2)
+  desc: Return a ggplot object drawing the same picture.
+  contents:
+  - gpaint_vector
+  - gpaint_matrix
+  - gpaint_data_frame
+  - gpaint_list
+  - gpaint_array
+  - gpaint_df
+- title: Highlighting
+  desc: Build a logical mask marking the cells a painter should fill.
+  contents:
+  - highlight_data
+  - highlight_rows
+  - highlight_columns
+  - highlight_locations
+- title: Sizing
+  desc: Compute the device size a structure needs to stay legible.
+  contents:
+  - paint_size

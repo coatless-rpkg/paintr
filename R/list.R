@@ -219,6 +219,7 @@ list_prep <- function(data,
 #' meaning, so `ggplot_build()` sees an empty layer and `+ scale_fill_*()` has no
 #' effect on the drawing. Use `highlight_area` and `highlight_color` to fill cells.
 #'
+#' @family painters
 #' @rdname paint-list
 #' @export
 #' @examples
