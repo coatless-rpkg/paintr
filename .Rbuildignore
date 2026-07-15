@@ -7,3 +7,6 @@
 ^README\.Rmd$
 ^CRAN-SUBMISSION$
 ^cran-comments\.md$
+\.quarto$
+vignettes/\.quarto$
+^vignettes/\.gitignore$
