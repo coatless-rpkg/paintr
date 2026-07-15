@@ -717,16 +717,34 @@ lane_text <- function(nms, idx, wrap = NULL, max_chars = 8L, ellipsis = "...") {
 
 #' One axis's subscript token for a cell index
 #'
-#' The quoted NAME where the axis has names, the bare positional number where it
-#' does not -- so a matrix with row names but no column names indexes `["r1", 2]`,
-#' each axis answered on its own. THE GATE IS WHETHER THE AXIS HAS NAMES, and the
-#' axis's own names decide it, not `show_dimnames`: `show_dimnames` draws the
-#' margin lanes, it does not change what the accessor under the cell says.
+#' The quoted NAME where the axis has a name to reach the cell with, the bare
+#' positional number where it does not -- so a matrix with row names but no column
+#' names indexes `["r1", 2]`, each axis answered on its own. THE GATE IS WHETHER
+#' THE AXIS HAS NAMES, and the axis's own names decide it, not `show_dimnames`:
+#' `show_dimnames` draws the margin lanes, it does not change what the accessor
+#' under the cell says.
+#'
+#' **UNLIKE THE MARGIN, THE CELL INDEX FALLS BACK TO THE POSITION WHEN THE NAME
+#' WOULD BE TRUNCATED**, per axis, and that difference is the whole point of the
+#' cell index. The margin gutter is a CAPTION: it names the row, and `["Mazda
+#' RX4...", ]` still tells the reader which row even though the tail is cut. The
+#' cell index is not a caption, it is THE STRICT ACCESSOR -- the expression you
+#' type to get the value in the cell -- and `mtcars["Mazda...", 1]` returns `NA`,
+#' not `21`, because `"Mazda..."` is no row of `mtcars`. A truncated name is a
+#' WRONG subscript, so an axis whose name would be cut indexes by POSITION, which
+#' is always exact: `[1, 1]` reaches the same cell and runs. The predicate is
+#' `truncate_chr()`'s own -- cut iff the name is wider than the budget -- so the
+#' name drawn here and the decision to fall back cannot disagree. A name that is
+#' `NA` (a real `NA` in `names()`, drawn `<NA>` in the margin) is likewise no
+#' subscript you can type, so it too falls back to the position.
 #'
 #' @param nms The axis's names for the cells being labelled, already subset to
 #'   them, or `NULL` when the axis is unnamed.
-#' @param idx The positional indices, drawn where `nms` is `NULL`.
+#' @param idx The positional indices, drawn where `nms` is `NULL` and wherever a
+#'   name would be truncated or is `NA`.
 #' @param max_chars,ellipsis Truncation of the name, applied before it is quoted.
+#'   `max_chars` is also the fallback budget: a name of exactly `max_chars` is
+#'   drawn in full and kept, a name of `max_chars + 1` is cut and dropped.
 #'
 #' @return A character vector the length of `idx`.
 #'
@@ -736,7 +754,15 @@ axis_sub <- function(nms, idx, max_chars = 8L, ellipsis = "...") {
   if (is.null(nms)) {
     return(as.character(idx))
   }
-  accessor_quote(truncate_chr(normalize_names(nms), max_chars, ellipsis))
+  nm <- normalize_names(nms)
+  # A name is the accessor ONLY when it is drawn in FULL. `truncate_chr()` cuts a
+  # name wider than `max_chars`; a cut name is a wrong subscript, so keep the name
+  # only where it is not cut (and not a real `NA`), and index by position
+  # otherwise. Same predicate as the drawing, so the two never drift.
+  keep <- !is.na(nms) & nchar(nm, type = "chars") <= as.integer(max_chars)
+  out <- as.character(idx)
+  out[keep] <- accessor_quote(nm[keep])
+  out
 }
 
 # ---------------------------------------------------------------------------

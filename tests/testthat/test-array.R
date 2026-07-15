@@ -109,6 +109,67 @@ test_that("every NAMED and MIXED index label RUNS too, per axis", {
   expect_true('["r1", 2, 3]' %in% rc)
 })
 
+# THE CONTRACT, WITH LONG DIMNAMES: a cell index must return the value drawn in the
+# cell. A named subscript reaches the cell only when the name is drawn IN FULL, so a
+# dimname longer than the 8-char budget would truncate to a wrong subscript that
+# errors or misses. The too-long axis must fall back to its POSITION. This strips
+# the dimnames to get a guaranteed-positional cell index for the SAME shape and grid
+# (`show_dimnames = "none"` draws no name margins on either twin, so the two grids
+# line up cell for cell), then demands the NAMED label returns the same value the
+# POSITIONAL label does from the same object.
+expect_cell_index_hits_value_nd <- function(x, show_indices = "cell", label = NULL) {
+  bare <- x
+  dimnames(bare) <- NULL
+  named <- paint_cells(x, show_indices = show_indices, show_dimnames = "none")
+  pos <- paint_cells(bare, show_indices = show_indices, show_dimnames = "none")
+  named <- named[named$kind == "cellindex", , drop = FALSE]
+  pos <- pos[pos$kind == "cellindex", , drop = FALSE]
+  expect_gt(nrow(named), 0L)
+  pos_sig <- pos$sig
+  names(pos_sig) <- paste(pos$row, pos$col)
+  env <- new.env(parent = baseenv())
+  assign("x", x, envir = env)
+  for (r in seq_len(nrow(named))) {
+    lab <- named$sig[[r]]
+    plab <- pos_sig[[paste(named$row[[r]], named$col[[r]])]]
+    got <- tryCatch(
+      eval(parse(text = paste0("x", lab)), envir = env),
+      error = function(e) structure(conditionMessage(e), class = "paintr_label_error")
+    )
+    expect_false(
+      inherits(got, "paintr_label_error"),
+      info = sprintf("%s: `x%s` ERRORED: %s", label, lab, as.character(got))
+    )
+    want <- eval(parse(text = paste0("x", plab)), envir = env)
+    expect_equal(
+      unname(got), unname(want),
+      info = sprintf("%s: `x%s` != positional `x%s`", label, lab, plab)
+    )
+  }
+}
+
+test_that("EVERY array cell index runs AND returns the cell's value, with LONG dimnames", {
+  long <- array(1:24, c(2, 3, 4), dimnames = list(
+    c("Sepal.Length", "Sepal.Width"),
+    c("Column.Alpha", "Column.Beta", "Column.Gamma"),
+    c("SlabOne.Long", "SlabTwo.Long", "SlabThree", "SlabFour")
+  ))
+  expect_cell_index_hits_value_nd(long, show_indices = "cell", label = "long array cell")
+  expect_cell_index_hits_value_nd(long, show_indices = "all", label = "long array all")
+
+  # A short slab name ("SlabFour", exactly 8) stays named; the long ones go
+  # positional -- per axis, in the same array.
+  ci <- unique(paint_cells(long, show_indices = "cell")$sig[
+    paint_cells(long, show_indices = "cell")$kind == "cellindex"
+  ])
+  expect_true("[1, 1, 1]" %in% ci)
+  expect_true('[1, 1, "SlabFour"]' %in% ci)
+
+  # Short dimnames still index BY NAME and still return the cell.
+  short <- array(1:24, c(2, 3, 4), dimnames = list(c("r1", "r2"), c("c1", "c2", "c3"), c("s1", "s2", "s3", "s4")))
+  expect_cell_index_hits_value_nd(short, show_indices = "cell", label = "short array cell")
+})
+
 test_that("the index labels carry the array's full subscript ARITY", {
   a3 <- array(1:24, c(2, 3, 4))
   cells <- paint_cells(a3, show_indices = "all")

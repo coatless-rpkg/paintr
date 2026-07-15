@@ -1031,6 +1031,137 @@ test_that("a half-dimnamed matrix indexes each axis on its own", {
   expect_true('["r1", "c1"]' %in% hidden$sig[hidden$kind == "cellindex"])
 })
 
+# THE CONTRACT: a cell index is THE EXPRESSION YOU TYPE TO REACH THE CELL, and it
+# must return THE VALUE IN THAT CELL. A named subscript only reaches the cell when
+# the name is drawn in FULL -- a TRUNCATED name is a wrong subscript
+# (`mtcars["Mazda...", 1]` is `NA`, not `21`), so a too-long name falls back to the
+# position, which is always exact. This helper evaluates every cell index against
+# the object and demands it returns the value at the cell's own `(i, j)` -- the
+# value the picture drew there, since the value cell was formatted from that
+# position. Rank-2 only: `(i, j)` fully locates a matrix or data frame cell.
+expect_cell_index_hits_value <- function(x, ..., label = NULL) {
+  cells <- paint_cells(x, ...)
+  ci <- cells[cells$kind == "cellindex", , drop = FALSE]
+  expect_gt(nrow(ci), 0L)
+  env <- new.env(parent = baseenv())
+  assign("x", x, envir = env)
+  for (r in seq_len(nrow(ci))) {
+    lab <- ci$sig[[r]]
+    got <- tryCatch(
+      eval(parse(text = paste0("x", lab)), envir = env),
+      error = function(e) structure(conditionMessage(e), class = "paintr_label_error")
+    )
+    expect_false(
+      inherits(got, "paintr_label_error"),
+      info = sprintf("%s: `x%s` ERRORED: %s", label, lab, as.character(got))
+    )
+    want <- x[ci$i[[r]], ci$j[[r]]]
+    expect_equal(
+      unname(got), unname(want),
+      info = sprintf("%s: `x%s` did not return the cell's value", label, lab)
+    )
+  }
+}
+
+test_that("EVERY matrix / data frame cell index runs AND returns the cell's value", {
+  # The flagship regression: `mtcars`'s row names are longer than the 8-char name
+  # budget, so a named row subscript would truncate to `["Mazda...", 1]` and return
+  # `NA`. The row axis must fall back to the position.
+  expect_cell_index_hits_value(head(mtcars, 4), show_indices = "cell", label = "mtcars cell")
+  expect_cell_index_hits_value(head(mtcars, 4), show_indices = "all", label = "mtcars all")
+
+  # A matrix with long dimnames on BOTH axes: a named subscript would error
+  # ("subscript out of bounds"); both axes fall back to the position.
+  long_mat <- matrix(1:6, 2, 3, dimnames = list(
+    c("Sepal.Length", "Sepal.Width"),
+    c("Column.Alpha", "Column.Beta", "Column.Gamma")
+  ))
+  expect_cell_index_hits_value(long_mat, show_indices = "cell", label = "long matrix cell")
+  expect_cell_index_hits_value(long_mat, show_indices = "all", label = "long matrix all")
+
+  # Short names still index BY NAME, and the named accessor returns the cell.
+  short_mat <- matrix(1:6, 2, 3, dimnames = list(c("r1", "r2"), c("alpha", "beta", "gamma")))
+  expect_cell_index_hits_value(short_mat, show_indices = "cell", label = "short matrix cell")
+
+  # Mixed: a long axis and a short axis in the SAME structure -- one positional,
+  # one named -- each still exact.
+  mix_mat <- matrix(1:6, 2, 3, dimnames = list(c("Sepal.Length", "Sepal.Width"), c("a", "b", "c")))
+  expect_cell_index_hits_value(mix_mat, show_indices = "cell", label = "mixed matrix cell")
+
+  # A data frame with SHORT row names keeps the named row subscript and still hits.
+  short_df <- data.frame(a = 1:2, b = 3:4, row.names = c("x", "y"))
+  expect_cell_index_hits_value(short_df, show_indices = "cell", label = "short df cell")
+
+  # A factor column, whose cell value is a level, not a number.
+  expect_cell_index_hits_value(head(iris, 3), show_indices = "all", label = "iris factor cell")
+})
+
+test_that("the cell index falls back per axis: named only where the name is drawn IN FULL", {
+  # Short row + short col: both named.
+  both <- matrix(1:6, 2, 3, dimnames = list(c("r1", "r2"), c("alpha", "beta", "gamma")))
+  bc <- paint_cells(both, show_indices = "cell")
+  expect_true('["r1", "alpha"]' %in% bc$sig[bc$kind == "cellindex"])
+
+  # Long row + short col: the ROW goes positional, the column stays named.
+  long_row <- matrix(1:6, 2, 3, dimnames = list(c("Sepal.Length", "Sepal.Width"), c("a", "b", "c")))
+  lr <- paint_cells(long_row, show_indices = "cell")
+  expect_true('[1, "a"]' %in% lr$sig[lr$kind == "cellindex"])
+  expect_true('[2, "c"]' %in% lr$sig[lr$kind == "cellindex"])
+
+  # Short row + long col: the COLUMN goes positional, the row stays named.
+  long_col <- matrix(1:6, 2, 3, dimnames = list(c("r1", "r2"), c("Column.Alpha", "Column.Beta", "Column.Gamma")))
+  lc <- paint_cells(long_col, show_indices = "cell")
+  expect_true('["r1", 1]' %in% lc$sig[lc$kind == "cellindex"])
+  expect_true('["r2", 3]' %in% lc$sig[lc$kind == "cellindex"])
+
+  # Long row + long col: both positional.
+  both_long <- matrix(1:6, 2, 3, dimnames = list(
+    c("Sepal.Length", "Sepal.Width"),
+    c("Column.Alpha", "Column.Beta", "Column.Gamma")
+  ))
+  bl <- paint_cells(both_long, show_indices = "cell")
+  expect_true("[1, 1]" %in% bl$sig[bl$kind == "cellindex"])
+  expect_true("[2, 3]" %in% bl$sig[bl$kind == "cellindex"])
+
+  # The decision is PER NAME, not per axis wholesale: a name exactly at the 8-char
+  # budget is kept, one character over it is dropped -- in the SAME axis.
+  edge <- matrix(1:2, 2, 1, dimnames = list(c("12345678", "123456789"), "c"))
+  ec <- paint_cells(edge, show_indices = "cell")$sig[paint_cells(edge, show_indices = "cell")$kind == "cellindex"]
+  expect_true('["12345678", "c"]' %in% ec)
+  expect_true('[2, "c"]' %in% ec)
+})
+
+test_that("the MARGIN keeps the (truncated) NAME while the cell index goes positional", {
+  # The two lanes are DIFFERENT jobs. The row gutter is a caption naming the row, and
+  # it may show a truncated name (`["Mazda RX4...", ]`). The cell index is the strict
+  # accessor and must not (`[1, 1]`). This asserts they intentionally differ.
+  cells <- paint_cells(head(mtcars, 4), show_indices = "cell")
+  rowlab <- cells$sig[cells$kind == "rowlabel"]
+  cellix <- cells$sig[cells$kind == "cellindex"]
+
+  # The margin still carries the truncated name.
+  expect_true('["Mazda RX4...", ]' %in% rowlab)
+  # The cell index for that same first row went positional.
+  expect_true("[1, 1]" %in% cellix)
+  # And no cell index carries the truncated name that only the margin may show.
+  expect_false(any(grepl("Mazda", cellix)))
+})
+
+test_that("a cell index skips a name that is a true NA and indexes by position", {
+  # `["<NA>", ]` in the margin is a caption; `m["<NA>", ]` is not the row (the row's
+  # name is a real NA, not the string "<NA>"), so the cell index must fall back to
+  # the position for that axis.
+  m <- matrix(1:4, 2, dimnames = list(c(NA, "r2"), c("c1", "c2")))
+  cells <- paint_cells(m, show_indices = "cell")
+  ci <- cells$sig[cells$kind == "cellindex"]
+  # Row 1 (NA name) indexes positionally; row 2 ("r2") stays named.
+  expect_true("[1, \"c1\"]" %in% ci)
+  expect_true('["r2", "c1"]' %in% ci)
+  expect_false(any(grepl("<NA>", ci)))
+  # And every one of them runs and returns the cell's value.
+  expect_cell_index_hits_value(m, show_indices = "cell", label = "NA-named matrix")
+})
+
 test_that("a named label truncates the NAME, then wraps -- no overflow past the cap", {
   # `max_name_chars` caps the visible NAME; the brackets and quotes go on AFTER, so
   # the wrapped token is a little wider but the name budget is what stays bounded.
