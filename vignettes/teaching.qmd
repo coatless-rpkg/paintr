@@ -124,6 +124,20 @@ The outline is gone, because the object is no longer rectangular. `data.frame()`
 would have refused to build this. That refusal, and this broken picture, are the
 same rule seen from two sides: a data frame is a list that stayed a rectangle.
 
+The tight rectangle is a convenience, though, not the truth of the object. A list
+is a bag of independent vectors that happen, here, to line up. Set `gap` and the
+columns move apart to say so -- the outline, the mark of a table, falls away.
+
+```{r}
+#| fig-alt: "The same equal-length list drawn with gap = 0.5, which pushes the two columns x and grp
+#|   apart into separate boxed vectors with clear space between them and no enclosing outline; the
+#|   values are unchanged, but the picture now reads as two independent columns rather than one table."
+paint_list(as.list(df), gap = 0.5)
+```
+
+Same values, same columns, but set side by side rather than fused into a table --
+which is what a list was all along.
+
 ## An array is a stack of matrices
 
 A 2-D thing is a matrix; add a dimension and you have a stack of them. paintr draws
