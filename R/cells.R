@@ -971,6 +971,7 @@ paint_cells <- function(data,
                         max_cols = NULL,
                         max_slices = NULL,
                         show_all = FALSE,
+                        gap = 0,
                         ellipsis = "...") {
   layout <- match.arg(layout)
   subtle_digits <- match.arg(subtle_digits)
@@ -979,6 +980,13 @@ paint_cells <- function(data,
   # vector: see `check_show_indices()`.
   name_align <- match.arg(name_align)
   type_align <- match.arg(type_align)
+  # `gap` is a WIDTH, in column-width units, and it is validated wherever it
+  # enters -- here -- so `paint_size()` (which reaches this builder through `...`)
+  # is guarded by the same one sentence the painters are. Zero is the default and
+  # the no-op; a spaced list is the only thing that reads it, below.
+  if (length(gap) != 1L || !is.numeric(gap) || !is.finite(gap) || gap < 0) {
+    stop("`gap` must be a single non-negative number.")
+  }
 
   # -- what are we drawing? ---------------------------------------------------
   is_df <- is.data.frame(data)
@@ -1217,12 +1225,42 @@ paint_cells <- function(data,
   lab_cols <- as.integer(lane_row)
 
   row_of <- drawn_pos(ki, er$gap) + lab_rows
-  col_of <- drawn_pos(kj, ec$gap) + lab_cols
   gap_row <- if (is.na(er$gap)) NA_integer_ else er$gap + lab_rows
-  gap_col <- if (is.na(ec$gap)) NA_integer_ else ec$gap + lab_cols
-
   n_row <- lab_rows + length(ki) + as.integer(!is.na(er$gap))
-  n_col <- lab_cols + length(kj) + as.integer(!is.na(ec$gap))
+
+  # THE COLUMN SLOTS. After the gutter come the drawn column SLOTS -- one per drawn
+  # element (or matrix/data-frame column), plus the `"..."` elision lane if the
+  # columns were elided -- and by default they sit at consecutive grid columns, so
+  # `stride == 1` and `slot_col()` is `drawn_pos(kj, ec$gap) + lab_cols` exactly as
+  # before. Every rectangular structure, and every un-gapped list, takes this path
+  # and this cell table is byte-identical to the one with no `gap` at all.
+  #
+  # A LIST GAP WIDENS THE SPACE BETWEEN ADJACENT SLOTS INTO AN EMPTY SEPARATOR LANE,
+  # exactly as an array widens the space between its block slots (see `array_cells()`:
+  # one blank grid column between blocks). Slot `p` moves to grid column
+  # `2*(p - 1) + 1`, and the blank column it leaves at `2*(p - 1) + 2` carries the
+  # gap's width -- `column_widths()` reads it off `sep_w` and exempts it from the
+  # content and `min_w` rules, so a `gap` below one column-width is honoured. The
+  # elision lane is a slot like any other, so the `"..."` gets its gaps too. The
+  # separator holds NO cell: the gap is empty background, not a value.
+  list_gap <- is_list && gap > 0
+  stride <- if (list_gap) 2L else 1L
+  n_slot <- length(kj) + as.integer(!is.na(ec$gap))
+  slot_col <- function(p) lab_cols + stride * (p - 1L) + 1L
+
+  col_of <- slot_col(drawn_pos(kj, ec$gap))
+  gap_col <- if (is.na(ec$gap)) NA_integer_ else slot_col(ec$gap)
+  n_col <- slot_col(n_slot)
+
+  # The separator lanes and their width, carried to `column_widths()` as `sep_w`.
+  # One lane between each adjacent pair of slots, and none before the first or after
+  # the last. `NULL` when there is no gap, so the attribute never appears on an
+  # un-gapped table and the no-op is total.
+  sep_w <- NULL
+  if (list_gap && n_slot > 1L) {
+    sep_w <- rep(NA_real_, n_col)
+    sep_w[slot_col(seq_len(n_slot - 1L)) + 1L] <- gap
+  }
 
   # -- format the VISIBLE slice, once per formatting unit ---------------------
   fmt_args <- list(
@@ -1356,7 +1394,16 @@ paint_cells <- function(data,
   # while the table holds exactly ONE block. It is the last drawn row and the last
   # drawn column, which is what that `max()` computed, and now it is a fact the
   # cell states rather than one the layout guesses.
-  outline <- if (all(col_len == col_len[[1L]])) {
+  # A SPACED LIST DRAWS NO OUTLINE, and that is the other half of "the box is the
+  # lesson". A closed outline says "these columns are one rectangle" -- true of a
+  # data frame, and true of a rectangular list, which is the whole teaching point.
+  # But a gap SEPARATES the columns on purpose, and a single solid border would then
+  # run straight across the empty separator lanes and enclose a rectangle that the
+  # picture is deliberately breaking apart. So a gapped list reads as what it is -- a
+  # bag of independent columns, each in its own box -- and the block outline is
+  # withheld. `gap == 0` leaves this untouched: the rectangle still closes when every
+  # column is the same depth, exactly as before.
+  outline <- if (all(col_len == col_len[[1L]]) && !list_gap) {
     cell_rows(
       kind = "outline",
       row = lab_rows + 1L, col = lab_cols + 1L,
@@ -1570,7 +1617,10 @@ paint_cells <- function(data,
       gap_row_of[[col_of[[cc]]]] <- el[[cc]]$gap + lab_rows
     }
   }
-  gap <- NULL
+  # The ELISION gap cells -- the `"..."` chunk. Named `gap_chunk`, not `gap`, because
+  # `gap` is now the separator-WIDTH argument: two unrelated senses of the word, kept
+  # apart by name so neither shadows the other.
+  gap_chunk <- NULL
   if (any(!is.na(gap_row_of)) || !is.na(gap_col)) {
     grd <- expand.grid(
       row = seq.int(lab_rows + 1L, n_row),
@@ -1583,10 +1633,10 @@ paint_cells <- function(data,
     if (lane_row && !is.na(gap_row)) {
       grd <- rbind(data.frame(row = gap_row, col = 1L), grd)
     }
-    gap <- gap_cells(grd$row, grd$col, ellipsis)
+    gap_chunk <- gap_cells(grd$row, grd$col, ellipsis)
   }
 
-  out <- rbind(outline, collabel, header, type, rowlabel, value, cellindex, gap)
+  out <- rbind(outline, collabel, header, type, rowlabel, value, cellindex, gap_chunk)
   rownames(out) <- NULL
 
   # What is hidden DOWN the drawing. A rectangle hides the same rows in every
@@ -1601,6 +1651,9 @@ paint_cells <- function(data,
 
   attr(out, "n_row") <- as.integer(n_row)
   attr(out, "n_col") <- as.integer(n_col)
+  # The separator-lane widths, for `column_widths()`. Set only when a gap is drawn,
+  # so an un-gapped table carries no such attribute and stays identical to HEAD.
+  if (!is.null(sep_w)) attr(out, "sep_w") <- sep_w
   attr(out, "hidden_rows") <- as.integer(hidden_rows)
   attr(out, "hidden_cols") <- as.integer(ec$hidden)
   # `is_vec` is threaded in because a vector has ELEMENTS. The grid it is drawn on
@@ -2395,5 +2448,21 @@ column_widths <- function(cells, char_w = 0.35, pad = 0.3, min_w = 1) {
     out[k] <- max(raw[k])
   }
 
-  pmax(min_w, out)
+  out <- pmax(min_w, out)
+
+  # A SEPARATOR LANE CARRIES ITS OWN WIDTH, and it is exempt from both rules above:
+  # it holds no cell, so content demands nothing of it, and it may be NARROWER than
+  # `min_w` -- a `gap = 0.5` is half a column, which `pmax(min_w, .)` would silently
+  # round up to one. So the width the list builder wrote into `sep_w` is stamped in
+  # last, over whatever the content rules computed. `sep_w` is absent on every
+  # un-gapped table, so this is inert unless a gap was actually drawn, and a lane
+  # past the last drawn cell (which cannot occur for an interior gap) is dropped
+  # rather than allowed to run `out` off its end.
+  sep <- attr(cells, "sep_w")
+  if (!is.null(sep)) {
+    k <- which(!is.na(sep))
+    k <- k[k <= length(out)]
+    out[k] <- sep[k]
+  }
+  out
 }

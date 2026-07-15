@@ -25,6 +25,7 @@ paint_list(
   show_names = TRUE,
   name_align = c("center", "left", "right"),
   type_align = c("center", "left", "right"),
+  gap = 0,
   highlight_rows = NULL,
   highlight_columns = NULL,
   highlight_locations = NULL
@@ -50,6 +51,7 @@ gpaint_list(
   show_names = TRUE,
   name_align = c("center", "left", "right"),
   type_align = c("center", "left", "right"),
+  gap = 0,
   highlight_rows = NULL,
   highlight_columns = NULL,
   highlight_locations = NULL
@@ -143,6 +145,19 @@ structure whose parts are named one at a time.)}
 \item{type_align}{How the type tags sit over their column. Independent of
 \code{name_align}. Neither moves the values, which keep their
 own alignment.}
+
+\item{gap}{Empty space to insert BETWEEN adjacent element columns, in
+units of one column width. Default: \code{0}, which draws the
+columns tight -- so a rectangular list stays pixel-identical
+to the equivalent data frame. \code{gap = 0.5} inserts half a
+column of background between each pair of elements, \code{gap = 1}
+a full column, to emphasise that a list is a BAG OF
+INDEPENDENT VECTORS and not a 2-D grid. The space is empty
+background, never a cell; it goes only between columns, not
+before the first, after the last, or down the index gutter.
+A spaced list draws no block outline, because a single border
+across the gaps would imply the rectangle the gap is there to
+break; see the outline section.}
 
 \item{highlight_rows, highlight_columns, highlight_locations}{Shorthand for
 \code{highlight_area}, built for you with \code{\link[=highlight_data]{highlight_data()}}:
@@ -246,6 +261,10 @@ paint_list(list(a = 1:40, b = letters, c = matrix(1:4, 2)), summarise = TRUE)
 # Highlight an element by name.
 l <- list(a = 1:4, b = "x", c = c(TRUE, FALSE, NA))
 paint_list(l, highlight_area = highlight_columns(l, "c"))
+
+# Space the columns apart to stress that a list is a bag of independent
+# vectors, not a grid. A spaced list draws no block outline.
+paint_list(list(a = 1:3, b = c("x", "y", "z"), c = c(TRUE, FALSE, NA)), gap = 0.5)
 \dontshow{if (requireNamespace("ggplot2", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 # ggplot2 graphics ----
 

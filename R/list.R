@@ -50,6 +50,7 @@ list_prep <- function(data,
                       show_names,
                       name_align,
                       type_align,
+                      gap,
                       highlight_rows = NULL,
                       highlight_columns = NULL,
                       highlight_locations = NULL) {
@@ -86,7 +87,8 @@ list_prep <- function(data,
     show_names = show_names,
     show_types = show_types,
     name_align = name_align,
-    type_align = type_align
+    type_align = type_align,
+    gap = gap
   )
 
   list(prep = prep, graph_subtitle = graph_subtitle)
@@ -181,6 +183,18 @@ list_prep <- function(data,
 #' @param max_cols        Elide the middle of the list when it has more elements than
 #'                        this. Default: `8`, because a list's columns are as wide as
 #'                        a name.
+#' @param gap             Empty space to insert BETWEEN adjacent element columns, in
+#'                        units of one column width. Default: `0`, which draws the
+#'                        columns tight -- so a rectangular list stays pixel-identical
+#'                        to the equivalent data frame. `gap = 0.5` inserts half a
+#'                        column of background between each pair of elements, `gap = 1`
+#'                        a full column, to emphasise that a list is a BAG OF
+#'                        INDEPENDENT VECTORS and not a 2-D grid. The space is empty
+#'                        background, never a cell; it goes only between columns, not
+#'                        before the first, after the last, or down the index gutter.
+#'                        A spaced list draws no block outline, because a single border
+#'                        across the gaps would imply the rectangle the gap is there to
+#'                        break; see the outline section.
 #' @inheritParams paint_matrix
 #' @param graph_subtitle  Subtitle to appear immediately under the graph title.
 #'                        `NULL` (the default) describes the data: how many elements,
@@ -248,6 +262,10 @@ list_prep <- function(data,
 #' # Highlight an element by name.
 #' l <- list(a = 1:4, b = "x", c = c(TRUE, FALSE, NA))
 #' paint_list(l, highlight_area = highlight_columns(l, "c"))
+#'
+#' # Space the columns apart to stress that a list is a bag of independent
+#' # vectors, not a grid. A spaced list draws no block outline.
+#' paint_list(list(a = 1:3, b = c("x", "y", "z"), c = c(TRUE, FALSE, NA)), gap = 0.5)
 paint_list <- function(
     data,
     summarise = FALSE,
@@ -268,6 +286,7 @@ paint_list <- function(
     show_names = TRUE,
     name_align = c("center", "left", "right"),
     type_align = c("center", "left", "right"),
+    gap = 0,
     highlight_rows = NULL,
     highlight_columns = NULL,
     highlight_locations = NULL) {
@@ -292,6 +311,7 @@ paint_list <- function(
     show_names = show_names,
     name_align = name_align,
     type_align = type_align,
+    gap = gap,
     highlight_rows = highlight_rows,
     highlight_columns = highlight_columns,
     highlight_locations = highlight_locations
@@ -337,6 +357,7 @@ gpaint_list <- function(
     show_names = TRUE,
     name_align = c("center", "left", "right"),
     type_align = c("center", "left", "right"),
+    gap = 0,
     highlight_rows = NULL,
     highlight_columns = NULL,
     highlight_locations = NULL) {
@@ -362,6 +383,7 @@ gpaint_list <- function(
     show_names = show_names,
     name_align = name_align,
     type_align = type_align,
+    gap = gap,
     highlight_rows = highlight_rows,
     highlight_columns = highlight_columns,
     highlight_locations = highlight_locations

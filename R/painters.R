@@ -47,6 +47,8 @@
 #' @param max_name_chars The cap on a name lane that shares a formatting unit with
 #'   the values under it.
 #' @param name_align,type_align Data frames only. Already matched by the painter.
+#' @param gap Lists only: empty space between element columns, in column-width
+#'   units. `0` (the default) is the no-op every other structure takes.
 #'
 #' @return A list with `cells`, `col_w`, `n_row`, `note` (a string, or `NULL`
 #'   when nothing was elided), `opts`, and `warn_floor`.
@@ -74,7 +76,8 @@ painter_prep <- function(data,
                          show_rownames = NULL,
                          max_name_chars = 8L,
                          name_align = "center",
-                         type_align = "center") {
+                         type_align = "center",
+                         gap = 0) {
   # The two options, read once, in the one place that is allowed to read them.
   ellipsis <- getOption("paintr.ellipsis", "...")
   warn_floor <- isTRUE(getOption("paintr.warn_floor", TRUE))
@@ -102,6 +105,7 @@ painter_prep <- function(data,
     max_cols = max_cols,
     max_slices = max_slices,
     show_all = show_all,
+    gap = gap,
     ellipsis = ellipsis
   )
 

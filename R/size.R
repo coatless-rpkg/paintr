@@ -38,9 +38,9 @@
 #' @param ... Any shape-affecting painter argument -- for example
 #'   `show_indices`, `summarise`, `show_all`, `layout`, `max_rows`, `max_cols`,
 #'   `max_slices`, `sigfig`, `max_chars`, `show_names`, `show_types`,
-#'   `show_dimnames`, `max_name_chars`, `name_align`, or `type_align`. These are
-#'   passed to the cell builder, so the estimate matches what the painter would
-#'   draw.
+#'   `show_dimnames`, `max_name_chars`, `name_align`, `type_align`, or a list's
+#'   `gap`. These are passed to the cell builder, so the estimate matches what the
+#'   painter would draw.
 #' @param min_pt The legibility floor, in points. The returned size is the one
 #'   that puts the fitted text exactly here.
 #' @param family Font family. Only its metrics matter, and `measure_mono()` is

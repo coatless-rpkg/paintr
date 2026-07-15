@@ -498,3 +498,195 @@ test_that("a data frame IS a list whose elements share a length", {
   # And the rectangle breaks on exactly one change: the shared length.
   expect_equal(sum(paint_cells(list(a = 1:3, b = c(4.5, 5.5)))$kind == "outline"), 0L)
 })
+
+# ---------------------------------------------------------------------------
+# gap: spacing the element columns apart
+# ---------------------------------------------------------------------------
+#
+# A LIST IS A BAG OF INDEPENDENT VECTORS, NOT A GRID, and `gap` is the argument that
+# says so out loud: it inserts empty background between adjacent element columns. It
+# is built on exactly the array's separator lane -- an empty grid column that carries
+# its own width -- so no renderer learns a new thing and `gap = 0` is a total no-op.
+
+# The columns each drawn value cell occupies, in table order.
+val_cols <- function(cells) sort(unique(cells$col[cells$kind == "value"]))
+
+# The empty separator lanes a gap opened, read off the width attribute.
+sep_cols <- function(cells) {
+  s <- attr(cells, "sep_w")
+  if (is.null(s)) integer(0) else which(!is.na(s))
+}
+
+# The empty space between each adjacent pair of ELEMENT columns, in layout units:
+# the leading edge of one value column minus the trailing edge of the previous one.
+inter_col_gaps <- function(cells) {
+  cols <- val_cols(cells)
+  edge <- c(0, cumsum(column_widths(cells)))
+  edge[cols[-1L]] - edge[cols[-length(cols)] + 1L]
+}
+
+test_that("gap == 0 is a total no-op: the cell table is identical to gap-absent", {
+  # THE NO-OP PROOF. `gap = 0` must reproduce today's cell table byte for byte across
+  # every shape the builder draws -- otherwise a default call is not the default call.
+  # A difference here is a snapshot regression in every picture at once.
+  battery <- list(
+    equal_len   = list(a = 1:3, b = 4:6),
+    ragged      = list(a = 1:4, b = "x", c = c(TRUE, FALSE, NA)),
+    named_mixed = list(1:3, b = letters[1:2]),
+    wide_elided = stats::setNames(as.list(1:20), paste0("e", 1:20)),
+    deep_elided = list(a = 1:40, b = letters)
+  )
+  for (nm in names(battery)) {
+    d <- battery[[nm]]
+    expect_identical(paint_cells(d), paint_cells(d, gap = 0), info = nm)
+    expect_null(attr(paint_cells(d, gap = 0), "sep_w"), info = nm)
+  }
+  # The variants the painters expose, each still a no-op at gap = 0.
+  expect_identical(
+    paint_cells(ragged, summarise = TRUE),
+    paint_cells(ragged, summarise = TRUE, gap = 0)
+  )
+  expect_identical(
+    paint_cells(ragged, show_indices = "cell"),
+    paint_cells(ragged, show_indices = "cell", gap = 0)
+  )
+  # And gap = 0 changes nothing for the structures that are not lists at all.
+  expect_identical(paint_cells(matrix(1:12, 3)), paint_cells(matrix(1:12, 3), gap = 0))
+  expect_identical(paint_cells(head(iris)), paint_cells(head(iris), gap = 0))
+  expect_identical(paint_cells(1:10), paint_cells(1:10, gap = 0))
+})
+
+test_that("gap > 0 spaces the element columns by exactly the gap", {
+  l <- list(a = 1:3, b = c("x", "y", "z"), c = c(TRUE, FALSE, NA))
+
+  # Tight: the element columns touch, so the space between them is zero.
+  expect_equal(inter_col_gaps(paint_cells(l, gap = 0)), c(0, 0))
+
+  # Spaced: each adjacent pair is pushed apart by precisely `gap` layout units --
+  # half a column at 0.5, a full column at 1. This is the whole feature, measured.
+  expect_equal(inter_col_gaps(paint_cells(l, gap = 0.5)), c(0.5, 0.5))
+  expect_equal(inter_col_gaps(paint_cells(l, gap = 1)), c(1, 1))
+  expect_equal(inter_col_gaps(paint_cells(l, gap = 2)), c(2, 2))
+
+  # The element columns move off their tight positions onto a stride-2 grid, the
+  # separator lanes filling the odd gaps between them.
+  expect_equal(val_cols(paint_cells(l, gap = 0)), c(1L, 2L, 3L))
+  expect_equal(val_cols(paint_cells(l, gap = 0.5)), c(1L, 3L, 5L))
+})
+
+test_that("the gap is empty: no cell of any kind lands in a separator lane", {
+  # The gap is background, not a value. Every drawn cell -- value, header, type,
+  # index, outline, ellipsis -- must sit in a real column, never in the empty lane.
+  for (g in c(0.5, 1, 2)) {
+    cells <- paint_cells(
+      list(a = 1:4, b = "x", c = c(TRUE, FALSE, NA)),
+      show_indices = "cell", gap = g
+    )
+    seps <- sep_cols(cells)
+    expect_gt(length(seps), 0L)
+    expect_false(any(cells$col %in% seps))
+    expect_false(any(cells$col_end %in% seps))
+    # And the lane really is the requested width.
+    expect_equal(unique(column_widths(cells)[seps]), g)
+  }
+})
+
+test_that("a gapped list draws NO outline; a tight equal-length list still does", {
+  # THE OUTLINE INTERACTION. A closed border across separated columns would enclose
+  # the very gaps the feature opened and imply a rectangle that is not there, so a
+  # spaced list withholds it -- while gap = 0 leaves the lesson exactly as it was.
+  eq <- list(a = 1:3, b = 4:6, c = 7:9)
+  expect_equal(sum(paint_cells(eq, gap = 0)$kind == "outline"), 1L)
+  expect_equal(sum(paint_cells(eq, gap = 0.5)$kind == "outline"), 0L)
+  expect_equal(sum(paint_cells(eq, gap = 1)$kind == "outline"), 0L)
+
+  # summarise makes every list rectangular (one row), and the rule holds there too:
+  # outlined when tight, bare when spaced.
+  expect_equal(sum(paint_cells(ragged, summarise = TRUE, gap = 0)$kind == "outline"), 1L)
+  expect_equal(sum(paint_cells(ragged, summarise = TRUE, gap = 1)$kind == "outline"), 0L)
+})
+
+test_that("highlight lands on the right cells with a gap, and never in the lane", {
+  l <- list(a = 1:4, b = "x", c = c(TRUE, FALSE, NA))
+  m <- highlight_columns(l, "c")
+
+  filled <- function(cells) {
+    f <- cells[cells$fill == "lemonchiffon" & cells$kind == "value", c("i", "j")]
+    f[order(f$i), ]
+  }
+  # The same value cells fill whether or not the columns are spaced: the gap is
+  # empty, so it holds nothing to fill, and the fill keys on the element, not the
+  # grid column it happens to sit in.
+  expect_equal(filled(paint_cells(l, highlight_area = m, gap = 0)),
+               filled(paint_cells(l, highlight_area = m, gap = 0.5)),
+               ignore_attr = TRUE)
+
+  cells <- paint_cells(l, highlight_area = m, gap = 0.5)
+  expect_equal(unique(cells$j[cells$fill == "lemonchiffon" & cells$kind == "value"]), 3L)
+  expect_false(any(cells$fill[cells$col %in% sep_cols(cells)] == "lemonchiffon"))
+})
+
+test_that("elision works with a gap: the ... lane sits in its column, gaps around it", {
+  wide <- stats::setNames(as.list(1:20), paste0("e", 1:20))
+  cells <- paint_cells(wide, gap = 1)
+
+  # The column elision still fires, and its "..." lane is a slot like any other --
+  # so it has an empty separator on either side of it.
+  ell_col <- unique(cells$col[cells$sig == "..." & !is.na(cells$sig)])
+  expect_length(ell_col, 1L)
+  seps <- sep_cols(cells)
+  expect_true((ell_col - 1L) %in% seps)
+  expect_true((ell_col + 1L) %in% seps)
+  # The ellipsis is not itself a separator, and nothing leaks into the lanes.
+  expect_false(ell_col %in% seps)
+  expect_false(any(cells$col %in% seps & cells$kind == "value"))
+
+  # Row elision inside a deep element is likewise untouched by the gap.
+  deep <- paint_cells(list(a = 1:40, b = letters), gap = 0.5)
+  expect_true(any(deep$sig == "..." & !is.na(deep$sig)))
+})
+
+test_that("paint_size() accounts for the gap: wider, and it clears the floor", {
+  # `paint_size()` forwards `...` to the cell builder, so a gap flows through to
+  # `column_widths()` and widens the recommended device for free. A panel-bound list
+  # (its values wide enough that the panel, not the title, sets the width) shows it.
+  gappy <- stats::setNames(
+    lapply(1:8, function(i) c(1234567890, 987654321)), letters[1:8]
+  )
+  s0 <- paint_size(gappy, gap = 0)
+  s5 <- paint_size(gappy, gap = 0.5)
+  expect_gt(s5[["width"]], s0[["width"]])
+  expect_equal(s5[["height"]], s0[["height"]])
+
+  # Rendered at the size it recommends, the fit clears the floor -- so no warning.
+  # (The size is the load-bearing fact; the fitted font is never snapshotted.)
+  grDevices::pdf(NULL, width = s5[["width"]], height = s5[["height"]])
+  on.exit(grDevices::dev.off(), add = TRUE)
+  expect_no_warning(paint_list(gappy, gap = 0.5))
+})
+
+test_that("gap is validated with a plain sentence", {
+  msg <- "`gap` must be a single non-negative number."
+  for (bad in list(-1, "x", c(1, 2), NA, Inf, NaN)) {
+    expect_error(paint_cells(list(a = 1:2, b = 3:4), gap = bad), msg, fixed = TRUE)
+  }
+  with_null_pdf({
+    expect_error(paint_list(list(a = 1:2), gap = -1), msg, fixed = TRUE)
+    expect_error(paint_list(list(a = 1:2), gap = "x"), msg, fixed = TRUE)
+  })
+  # A default call, and an explicit zero, are silent.
+  expect_no_error(paint_cells(list(a = 1:2, b = 3:4), gap = 0))
+})
+
+test_that("both backends draw the same gapped picture", {
+  skip_if_not_installed("ggplot2")
+  l <- list(a = 1:3, b = c("x", "y", "z"), c = c(TRUE, FALSE, NA))
+
+  # The cell table both backends consume carries the gap the same way, so the two
+  # cannot draw different pictures of it -- they share `list_prep()` and the resolve.
+  grDevices::pdf(NULL, width = 7, height = 5)
+  on.exit(grDevices::dev.off(), add = TRUE)
+  expect_no_error(paint_list(l, gap = 0.5))
+  expect_no_error(print(gpaint_list(l, gap = 0.5)))
+  expect_s3_class(gpaint_list(l, gap = 1), "ggplot")
+})

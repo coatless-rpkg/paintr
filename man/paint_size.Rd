@@ -19,9 +19,9 @@ paint_size(
 \item{...}{Any shape-affecting painter argument -- for example
 \code{show_indices}, \code{summarise}, \code{show_all}, \code{layout}, \code{max_rows}, \code{max_cols},
 \code{max_slices}, \code{sigfig}, \code{max_chars}, \code{show_names}, \code{show_types},
-\code{show_dimnames}, \code{max_name_chars}, \code{name_align}, or \code{type_align}. These are
-passed to the cell builder, so the estimate matches what the painter would
-draw.}
+\code{show_dimnames}, \code{max_name_chars}, \code{name_align}, \code{type_align}, or a list's
+\code{gap}. These are passed to the cell builder, so the estimate matches what the
+painter would draw.}
 
 \item{min_pt}{The legibility floor, in points. The returned size is the one
 that puts the fitted text exactly here.}
