@@ -366,6 +366,18 @@ test_that("the cell table is pure ASCII", {
   expect_true("..." %in% cells$sig)
 })
 
+test_that("a control character in a dimname never reaches a label lane", {
+  # A dimname with a newline would break the row lane exactly as a value does:
+  # the renderer would stack it onto a second line. It flows through the same
+  # truncate_chr() choke point, so the label lane is clean.
+  m <- matrix(1:4, nrow = 2, dimnames = list(c("a\nb", "c"), c("d\te", "f")))
+  cells <- paint_cells(m, show_dimnames = "all")
+  labels <- cells$sig[cells$kind %in% c("rowlabel", "collabel")]
+  expect_true("a b" %in% labels)
+  expect_true("d e" %in% labels)
+  expect_false(any(grepl("[[:cntrl:]]", cells$sig)))
+})
+
 test_that("highlight resolves to a colour string in `fill`", {
   m <- matrix(1:6, nrow = 3)
   h <- highlight_locations(m, rbind(c(1, 1), c(3, 2)))

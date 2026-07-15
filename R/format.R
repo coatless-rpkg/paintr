@@ -206,6 +206,25 @@ split_dec <- function(tok) {
 #' default and must stay ASCII by default: `pdf()`, the device `R CMD check`
 #' uses, cannot encode U+2026.
 #'
+#' **A CONTROL CHARACTER IS NOT A GLYPH, AND IT DIES HERE.** A CSV cell can hold
+#' a newline, a tab or a carriage return -- exactly the messy input a learner
+#' throws at a teaching tool -- and a renderer handed one draws it literally:
+#' `graphics::text()` turns `"e\nf"` into TWO STACKED LINES that spill into the
+#' neighbouring cell, so an embedded control character breaks the LAYOUT, not
+#' just the glyph. The renderers stay dumb; the cell table must already be clean.
+#' Every control character therefore becomes a single space BEFORE the width is
+#' measured, so it is the escaped string -- not the raw one -- that is truncated
+#' to `max_chars`. `[[:cntrl:]]` covers `\n`, `\t`, `\r` and the other C0/C1
+#' controls, and the replacement is a plain ASCII space on purpose: `pdf()`, the
+#' device `R CMD check` draws on, cannot encode a non-ASCII replacement mark.
+#'
+#' This is the single choke point for every user-supplied string a painter
+#' draws. Character, factor and fallback-formatted VALUES arrive here from
+#' `paint_format()`; a matrix's dimnames, a vector's names, a data frame's row
+#' and column names, a list's element names and an array's slice names all
+#' arrive here from `lane_text()`, `list_header()` and the header lane. Cleaning
+#' them once, here, means no cell of any picture ever holds a control character.
+#'
 #' @param x A character vector.
 #' @param max_chars Maximum width of the result, in characters.
 #' @param ellipsis The marker appended to a truncated string.
@@ -218,6 +237,9 @@ truncate_chr <- function(x, max_chars = 12L, ellipsis = "...") {
   if (length(x) == 0L) {
     return(character(0))
   }
+  # Escape control characters before anything measures or cuts the string. NA
+  # survives gsub() as NA, so the `!is.na(x)` guard below still holds.
+  x <- gsub("[[:cntrl:]]", " ", x)
   max_chars <- as.integer(max_chars)
   keep <- max_chars - nchar(ellipsis, type = "chars")
   if (keep < 1L) {

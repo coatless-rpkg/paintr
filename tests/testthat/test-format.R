@@ -390,6 +390,42 @@ test_that("truncate_chr() leaves short strings and NA alone", {
   expect_equal(truncate_chr("", 12L), "")
 })
 
+test_that("a control character never survives into a drawn token", {
+  # A newline, a tab and a carriage return each become a single space, so the
+  # renderer is never handed a value that would spill onto a second line.
+  f <- paint_format(c("a", "e\nf", "x\ty", "u\rv"))
+  expect_equal(f$sig, c("a", "e f", "x y", "u v"))
+  expect_false(any(grepl("[[:cntrl:]]", f$sig)))
+  expect_false(any(grepl("[[:cntrl:]]", paste0(f$sig, f$insig))))
+  # ASCII, so pdf() can encode it: the replacement is a plain space.
+  expect_false(any(grepl("[^ -~]", f$sig)))
+})
+
+test_that("a value is escaped BEFORE it is truncated to max_chars", {
+  # Eight letters joined by newlines is 15 characters. Escaping turns each
+  # newline into a space, and it is that 15-character escaped string -- not the
+  # raw one -- that is cut to 12.
+  x <- paste(letters[1:8], collapse = "\n")
+  f <- paint_format(x, max_chars = 12L)
+  expect_equal(f$sig, "a b c d e...")
+  expect_equal(nchar(f$sig), 12L)
+  expect_false(grepl("[[:cntrl:]]", f$sig))
+})
+
+test_that("a factor with a control character in a level is clean", {
+  f <- paint_format(factor(c("p\nq", "z")))
+  expect_equal(f$sig, c("p q", "z"))
+  expect_false(any(grepl("[[:cntrl:]]", f$sig)))
+})
+
+test_that("escaping a control character leaves an ordinary string untouched", {
+  # The regression guard: only control characters change. "apple" stays "apple".
+  plain <- c("apple", "banana cream", "x-1_2.3")
+  f <- paint_format(plain)
+  expect_equal(f$sig, plain)
+  expect_equal(truncate_chr(plain, 20L), plain)
+})
+
 test_that("logical columns render TRUE/FALSE/NA and align right", {
   f <- paint_format(c(TRUE, FALSE, NA))
   expect_equal(f$sig, c("TRUE", "FALSE", "NA"))
