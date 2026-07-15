@@ -1113,19 +1113,21 @@ test_that("both backends draw a vector's names", {
   skip_if_not_installed("ggplot2")
   v <- c(alpha = 1, beta = 2, gamma = 3)
 
+  # The name lane is the accessor: `v["alpha"]`.
   base <- with_null_pdf(paint_vector(v))
-  expect_equal(lane_sig(base, "rowlabel"), c("alpha", "beta", "gamma"))
+  expect_equal(lane_sig(base, "rowlabel"), c('["alpha"]', '["beta"]', '["gamma"]'))
 
   g <- with_null_pdf(gpaint_vector(v))
-  expect_equal(lane_sig(g, "rowlabel"), c("alpha", "beta", "gamma"))
+  expect_equal(lane_sig(g, "rowlabel"), c('["alpha"]', '["beta"]', '["gamma"]'))
 
   # Horizontal puts them over the cells instead.
   h <- with_null_pdf(paint_vector(v, layout = "horizontal"))
-  expect_equal(lane_sig(h, "collabel"), c("alpha", "beta", "gamma"))
+  expect_equal(lane_sig(h, "collabel"), c('["alpha"]', '["beta"]', '["gamma"]'))
 
-  # And they compose with an in-cell index.
+  # And they compose with an in-cell index, which stays POSITIONAL: the name is
+  # already the whole accessor in the gutter, so the in-cell lane adds the position.
   both <- with_null_pdf(paint_vector(v, show_indices = "inside"))
-  expect_equal(lane_sig(both, "rowlabel"), c("alpha", "beta", "gamma"))
+  expect_equal(lane_sig(both, "rowlabel"), c('["alpha"]', '["beta"]', '["gamma"]'))
   expect_equal(lane_sig(both, "cellindex"), c("[1]", "[2]", "[3]"))
 
   off <- with_null_pdf(paint_vector(v, show_names = FALSE))
@@ -1139,22 +1141,22 @@ test_that("both backends draw a matrix's dimnames", {
   m <- matrix(1:6, nrow = 2, dimnames = list(c("r1", "r2"), c("c1", "c2", "c3")))
 
   base <- with_null_pdf(paint_matrix(m))
-  expect_equal(lane_sig(base, "rowlabel"), c("r1", "r2"))
-  expect_equal(lane_sig(base, "collabel"), c("c1", "c2", "c3"))
+  expect_equal(lane_sig(base, "rowlabel"), c('["r1", ]', '["r2", ]'))
+  expect_equal(lane_sig(base, "collabel"), c('[, "c1"]', '[, "c2"]', '[, "c3"]'))
 
   g <- with_null_pdf(gpaint_matrix(m))
-  expect_equal(lane_sig(g, "rowlabel"), c("r1", "r2"))
-  expect_equal(lane_sig(g, "collabel"), c("c1", "c2", "c3"))
+  expect_equal(lane_sig(g, "rowlabel"), c('["r1", ]', '["r2", ]'))
+  expect_equal(lane_sig(g, "collabel"), c('[, "c1"]', '[, "c2"]', '[, "c3"]'))
 
   # The doc example: the name above the column, the accessor under the value.
   both <- with_null_pdf(paint_matrix(m, show_indices = "cell"))
-  expect_equal(lane_sig(both, "collabel"), c("c1", "c2", "c3"))
-  expect_true("[2, 3]" %in% lane_sig(both, "cellindex"))
+  expect_equal(lane_sig(both, "collabel"), c('[, "c1"]', '[, "c2"]', '[, "c3"]'))
+  expect_true('["r2", "c3"]' %in% lane_sig(both, "cellindex"))
 
   # An index lane the user asked for wins over the names on that axis.
   idx <- with_null_pdf(paint_matrix(m, show_indices = "row"))
   expect_equal(lane_sig(idx, "rowlabel"), c("[1, ]", "[2, ]"))
-  expect_equal(lane_sig(idx, "collabel"), c("c1", "c2", "c3"))
+  expect_equal(lane_sig(idx, "collabel"), c('[, "c1"]', '[, "c2"]', '[, "c3"]'))
 
   none <- with_null_pdf(paint_matrix(m, show_dimnames = "none"))
   expect_equal(length(lane_sig(none, "rowlabel")), 0L)
@@ -1170,8 +1172,9 @@ test_that("both backends draw a matrix's dimnames", {
 test_that("both backends draw a data frame's row names, when they are real", {
   skip_if_not_installed("ggplot2")
   df <- head(mtcars[, 1:3], 3)
-  # The gutter keeps `max_chars`, and "Mazda RX4 Wag" is one character over it.
-  rn <- c("Mazda RX4", "Mazda RX4...", "Datsun 710")
+  # The gutter keeps `max_chars`, and "Mazda RX4 Wag" is one character over it. It
+  # is drawn as the accessor: `df["Mazda RX4", ]`.
+  rn <- c('["Mazda RX4", ]', '["Mazda RX4...", ]', '["Datsun 710", ]')
 
   base <- with_null_pdf(paint_data_frame(df))
   expect_equal(lane_sig(base, "rowlabel"), rn)

@@ -373,8 +373,10 @@ test_that("a control character in a dimname never reaches a label lane", {
   m <- matrix(1:4, nrow = 2, dimnames = list(c("a\nb", "c"), c("d\te", "f")))
   cells <- paint_cells(m, show_dimnames = "all")
   labels <- cells$sig[cells$kind %in% c("rowlabel", "collabel")]
-  expect_true("a b" %in% labels)
-  expect_true("d e" %in% labels)
+  # The accessor is built from the SANITISED name, not the raw one: the newline is
+  # a space before the quotes go on, so `["a b", ]` is clean end to end.
+  expect_true('["a b", ]' %in% labels)
+  expect_true('[, "d e"]' %in% labels)
   expect_false(any(grepl("[[:cntrl:]]", cells$sig)))
 })
 
@@ -912,13 +914,16 @@ test_that("axis_names() does not go out of bounds on a 1-D dimnamed array", {
 test_that("a named vector draws its names, in the lane its layout gives it", {
   v <- c(alpha = 1, beta = 2, gamma = 3)
 
+  # The name lane is the ACCESSOR: `v["alpha"]` is how you reach the cell, so the
+  # label reads `["alpha"]` -- the same bracket the positional `[1]` uses, with the
+  # name quoted.
   vert <- paint_cells(v)
-  expect_equal(vert$sig[vert$kind == "rowlabel"], c("alpha", "beta", "gamma"))
+  expect_equal(vert$sig[vert$kind == "rowlabel"], c('["alpha"]', '["beta"]', '["gamma"]'))
   expect_equal(sum(vert$kind == "collabel"), 0L)
   expect_equal(attr(vert, "n_col"), 2L) # the name gutter
 
   horiz <- paint_cells(v, layout = "horizontal")
-  expect_equal(horiz$sig[horiz$kind == "collabel"], c("alpha", "beta", "gamma"))
+  expect_equal(horiz$sig[horiz$kind == "collabel"], c('["alpha"]', '["beta"]', '["gamma"]'))
   expect_equal(sum(horiz$kind == "rowlabel"), 0L)
 
   # An unnamed vector falls back to no lane at all, exactly as before.
@@ -932,17 +937,19 @@ test_that("a named vector draws its names, in the lane its layout gives it", {
 test_that("a dimnamed matrix draws its dimnames", {
   m <- matrix(1:6, nrow = 2, dimnames = list(c("r1", "r2"), c("c1", "c2", "c3")))
 
+  # A dimname is drawn as the subscript that reaches it: `m["r1", ]` down the
+  # gutter, `m[, "c1"]` across the header.
   cells <- paint_cells(m)
-  expect_equal(cells$sig[cells$kind == "rowlabel"], c("r1", "r2"))
-  expect_equal(cells$sig[cells$kind == "collabel"], c("c1", "c2", "c3"))
+  expect_equal(cells$sig[cells$kind == "rowlabel"], c('["r1", ]', '["r2", ]'))
+  expect_equal(cells$sig[cells$kind == "collabel"], c('[, "c1"]', '[, "c2"]', '[, "c3"]'))
 
   # One axis at a time, because dimnames() is a list with one slot per axis.
   only_row <- paint_cells(m, show_dimnames = "row")
-  expect_equal(only_row$sig[only_row$kind == "rowlabel"], c("r1", "r2"))
+  expect_equal(only_row$sig[only_row$kind == "rowlabel"], c('["r1", ]', '["r2", ]'))
   expect_equal(sum(only_row$kind == "collabel"), 0L)
 
   only_col <- paint_cells(m, show_dimnames = "column")
-  expect_equal(only_col$sig[only_col$kind == "collabel"], c("c1", "c2", "c3"))
+  expect_equal(only_col$sig[only_col$kind == "collabel"], c('[, "c1"]', '[, "c2"]', '[, "c3"]'))
   expect_equal(sum(only_col$kind == "rowlabel"), 0L)
 
   none <- paint_cells(m, show_dimnames = "none")
@@ -959,14 +966,15 @@ test_that("a dimnamed matrix draws its dimnames", {
 test_that("show_indices OVERRIDES names on the axis it names", {
   m <- matrix(1:6, nrow = 2, dimnames = list(c("r1", "r2"), c("c1", "c2", "c3")))
 
-  # The user typed it, so it wins -- on that axis and no other.
+  # The user typed it, so it wins -- on that axis and no other. The axis it does
+  # NOT name keeps its dimname, now drawn as the accessor.
   r <- paint_cells(m, show_indices = "row")
   expect_equal(r$sig[r$kind == "rowlabel"], c("[1, ]", "[2, ]"))
-  expect_equal(r$sig[r$kind == "collabel"], c("c1", "c2", "c3"))
+  expect_equal(r$sig[r$kind == "collabel"], c('[, "c1"]', '[, "c2"]', '[, "c3"]'))
 
   cc <- paint_cells(m, show_indices = "column")
   expect_equal(cc$sig[cc$kind == "collabel"], c("[, 1]", "[, 2]", "[, 3]"))
-  expect_equal(cc$sig[cc$kind == "rowlabel"], c("r1", "r2"))
+  expect_equal(cc$sig[cc$kind == "rowlabel"], c('["r1", ]', '["r2", ]'))
 
   a <- paint_cells(m, show_indices = "all")
   expect_equal(a$sig[a$kind == "rowlabel"], c("[1, ]", "[2, ]"))
@@ -981,14 +989,62 @@ test_that("an in-cell index COMPOSES with names -- they are different lanes", {
   m <- matrix(1:6, nrow = 2, dimnames = list(c("r1", "r2"), c("c1", "c2", "c3")))
 
   cells <- paint_cells(m, show_indices = "cell")
-  expect_equal(cells$sig[cells$kind == "rowlabel"], c("r1", "r2"))
-  expect_equal(cells$sig[cells$kind == "collabel"], c("c1", "c2", "c3"))
-  expect_true("[2, 3]" %in% cells$sig[cells$kind == "cellindex"])
+  expect_equal(cells$sig[cells$kind == "rowlabel"], c('["r1", ]', '["r2", ]'))
+  expect_equal(cells$sig[cells$kind == "collabel"], c('[, "c1"]', '[, "c2"]', '[, "c3"]'))
+  # A dimnamed matrix's cell index is the named accessor, one per axis.
+  expect_true('["r2", "c3"]' %in% cells$sig[cells$kind == "cellindex"])
 
+  # A VECTOR keeps its in-cell index POSITIONAL: the name lane already shows the
+  # full accessor `["alpha"]`, so the in-cell `[1]` adds the complementary
+  # position. The two lanes stay different things -- which is the point.
   v <- c(alpha = 1, beta = 2)
   vc <- paint_cells(v, show_indices = "inside")
-  expect_equal(vc$sig[vc$kind == "rowlabel"], c("alpha", "beta"))
+  expect_equal(vc$sig[vc$kind == "rowlabel"], c('["alpha"]', '["beta"]'))
   expect_equal(vc$sig[vc$kind == "cellindex"], c("[1]", "[2]"))
+})
+
+test_that("a half-dimnamed matrix indexes each axis on its own", {
+  # The gate is whether the AXIS HAS names, answered per axis: a name where there
+  # is one, a number where there is not. `show_dimnames` draws the margins; it does
+  # not change what the accessor under the cell says.
+  rows_only <- matrix(1:6, 2, dimnames = list(c("r1", "r2"), NULL))
+  rc <- paint_cells(rows_only, show_indices = "cell")
+  expect_equal(rc$sig[rc$kind == "rowlabel"], c('["r1", ]', '["r2", ]'))
+  expect_equal(sum(rc$kind == "collabel"), 0L) # no column names to draw
+  expect_true('["r1", 2]' %in% rc$sig[rc$kind == "cellindex"])
+  expect_true('["r2", 3]' %in% rc$sig[rc$kind == "cellindex"])
+
+  cols_only <- matrix(1:6, 2, dimnames = list(NULL, c("alpha", "beta", "gamma")))
+  cc <- paint_cells(cols_only, show_indices = "cell")
+  expect_equal(cc$sig[cc$kind == "collabel"], c('[, "alpha"]', '[, "beta"]', '[, "gamma"]'))
+  expect_equal(sum(cc$kind == "rowlabel"), 0L)
+  expect_true('[1, "alpha"]' %in% cc$sig[cc$kind == "cellindex"])
+  expect_true('[2, "gamma"]' %in% cc$sig[cc$kind == "cellindex"])
+
+  # The cell index names the axis even when its margin is hidden -- the accessor is
+  # the accessor whether or not the gutter that echoes it is drawn.
+  hidden <- paint_cells(
+    matrix(1:6, 2, dimnames = list(c("r1", "r2"), c("c1", "c2", "c3"))),
+    show_indices = "cell", show_dimnames = "none"
+  )
+  expect_equal(sum(hidden$kind %in% c("rowlabel", "collabel")), 0L)
+  expect_true('["r1", "c1"]' %in% hidden$sig[hidden$kind == "cellindex"])
+})
+
+test_that("a named label truncates the NAME, then wraps -- no overflow past the cap", {
+  # `max_name_chars` caps the visible NAME; the brackets and quotes go on AFTER, so
+  # the wrapped token is a little wider but the name budget is what stays bounded.
+  m <- matrix(1:4, 2, dimnames = list(NULL, c("Sepal.Length", "x")))
+  cc <- paint_cells(m, max_name_chars = 8L)$sig[paint_cells(m, max_name_chars = 8L)$kind == "collabel"]
+  expect_equal(cc, c('[, "Sepal..."]', '[, "x"]'))
+  inside <- sub('^\\[, "(.*)"\\]$', "\\1", cc)
+  expect_true(all(nchar(inside) <= 8L))
+
+  # The gutter is free and keeps the full `max_chars`, so the same long name is cut
+  # less tightly there.
+  g <- matrix(1:4, 2, dimnames = list(c("Sepal.Length", "x"), NULL))
+  rl <- paint_cells(g)$sig[paint_cells(g)$kind == "rowlabel"]
+  expect_equal(rl, c('["Sepal.Length", ]', '["x", ]'))
 })
 
 test_that("a name that is a true NA becomes a token and never reaches sig as NA", {
@@ -996,7 +1052,9 @@ test_that("a name that is a true NA becomes a token and never reaches sig as NA"
   names(v) <- c("a", NA, "")
   cells <- paint_cells(v)
 
-  expect_equal(cells$sig[cells$kind == "rowlabel"], c("a", "<NA>", ""))
+  # The `<NA>` token is wrapped like any other name -- it is the sanitised text the
+  # lane already used, now inside the accessor brackets.
+  expect_equal(cells$sig[cells$kind == "rowlabel"], c('["a"]', '["<NA>"]', '[""]'))
   expect_false(anyNA(cells$sig))
   expect_false(anyNA(cells$insig))
   # The shared predicate must be able to answer without a warning or a surprise.
@@ -1004,8 +1062,8 @@ test_that("a name that is a true NA becomes a token and never reaches sig as NA"
 
   m <- matrix(1:4, 2, dimnames = list(c(NA, "r2"), c("c1", NA)))
   mc <- paint_cells(m)
-  expect_equal(mc$sig[mc$kind == "rowlabel"], c("<NA>", "r2"))
-  expect_equal(mc$sig[mc$kind == "collabel"], c("c1", "<NA>"))
+  expect_equal(mc$sig[mc$kind == "rowlabel"], c('["<NA>", ]', '["r2", ]'))
+  expect_equal(mc$sig[mc$kind == "collabel"], c('[, "c1"]', '[, "<NA>"]'))
   expect_false(anyNA(mc$sig))
 })
 
@@ -1023,9 +1081,13 @@ test_that("a data frame does not draw its column names twice", {
 
 test_that("a data frame grows a row-name gutter only when the names are real", {
   m <- paint_cells(head(mtcars, 3))
-  # The gutter is free -- it holds no value cell -- so it keeps the full
-  # `max_chars`, and "Mazda RX4 Wag" is one character over it.
-  expect_equal(m$sig[m$kind == "rowlabel"], c("Mazda RX4", "Mazda RX4...", "Datsun 710"))
+  # The gutter is free -- it holds no value cell -- so the NAME keeps the full
+  # `max_chars`, and "Mazda RX4 Wag" is one character over it. The accessor wraps
+  # the truncated name: `mtcars["Mazda RX4", ]`.
+  expect_equal(
+    m$sig[m$kind == "rowlabel"],
+    c('["Mazda RX4", ]', '["Mazda RX4...", ]', '["Datsun 710", ]')
+  )
 
   # 1, 2, 3 is noise pretending to be data. `print()` draws it; a picture must not.
   i <- paint_cells(head(iris, 3))
@@ -1036,7 +1098,7 @@ test_that("a data frame grows a row-name gutter only when the names are real", {
   off <- paint_cells(head(mtcars, 3), show_rownames = FALSE)
   expect_equal(sum(off$kind == "rowlabel"), 0L)
   on <- paint_cells(head(iris, 3), show_rownames = TRUE)
-  expect_equal(on$sig[on$kind == "rowlabel"], c("1", "2", "3"))
+  expect_equal(on$sig[on$kind == "rowlabel"], c('["1", ]', '["2", ]', '["3", ]'))
 
   # And an index lane still wins over them.
   idx <- paint_cells(head(mtcars, 2), show_indices = "row")
@@ -1073,15 +1135,18 @@ test_that("names truncate at the cap on the shared lane and at max_chars on the 
   cells <- paint_cells(m)
 
   # A column name shares a formatting unit with the values it sits over, so it
-  # widens EVERY cell of the matrix. It is capped at `max_name_chars`.
-  expect_equal(cells$sig[cells$kind == "collabel"][1L], "a_ver...")
-  expect_true(all(nchar(cells$sig[cells$kind == "collabel"]) <= 8L))
+  # widens EVERY cell of the matrix. The NAME is capped at `max_name_chars` and the
+  # accessor brackets go on after, so the visible name -- inside the quotes -- is
+  # what stays within the budget.
+  expect_equal(cells$sig[cells$kind == "collabel"][1L], '[, "a_ver..."]')
+  col_names <- sub('^\\[, "(.*)"\\]$', "\\1", cells$sig[cells$kind == "collabel"])
+  expect_true(all(nchar(col_names) <= 8L))
   # A row name is in a gutter that holds no value, so it costs the values nothing
   # and it keeps the full `max_chars`.
-  expect_equal(cells$sig[cells$kind == "rowlabel"][1L], "a_very_lo...")
+  expect_equal(cells$sig[cells$kind == "rowlabel"][1L], '["a_very_lo...", ]')
 
   wider <- paint_cells(m, max_name_chars = 12L)
-  expect_equal(wider$sig[wider$kind == "collabel"][1L], "a_very_lo...")
+  expect_equal(wider$sig[wider$kind == "collabel"][1L], '[, "a_very_lo..."]')
 
   # A data frame's header lane is one formatting unit per column, so it is free
   # too: unchanged at `max_chars`.

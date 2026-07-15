@@ -654,27 +654,89 @@ normalize_names <- function(x) {
   x
 }
 
-#' What a label lane draws: the name, or else the index
+#' A character subscript, quoted exactly as you would type it
+#'
+#' The name `mon` becomes `"mon"`, so the label reads `["mon"]` and names the
+#' accessor `x["mon"]` -- straight ASCII double quotes, the same character you
+#' type at the console. This is the ONE place a name is quoted, so every subscript
+#' lane and the cell index quote it identically and cannot drift. A positional
+#' index is a bare number and never comes here.
+#'
+#' @param x A character vector of names, already sanitised and already truncated.
+#'
+#' @return `x` with each element wrapped in double quotes.
+#'
+#' @keywords internal
+#' @noRd
+accessor_quote <- function(x) {
+  paste0("\"", x, "\"")
+}
+
+#' What a label lane draws: the accessor, or else the index
 #'
 #' A lane holds exactly ONE thing. The precedence is decided by the caller, which
 #' passes `nms = NULL` when the user has explicitly asked for indices on that axis;
 #' here the rule is simply "a name if there is one".
 #'
+#' **THE LABEL IS THE EXPRESSION YOU TYPE TO REACH THE CELL.** For a positional
+#' lane that is the index -- `[3]`, `[1, ]`, `[, 2]` -- handed in as `idx`. For a
+#' NAMED lane it is the same subscript with the name quoted in the SAME bracket
+#' form: `mon` beside a vector cell becomes `["mon"]`, because you reach it with
+#' `x["mon"]` and not `x[mon]`. The bracket form differs by lane -- a row gutter,
+#' a column header, a bare vector -- so the caller passes `wrap`, which drops the
+#' quoted name into its own brackets. The name is sanitised and truncated FIRST
+#' and the brackets go on AFTER, so a control character in a name never survives
+#' and `max_chars` bounds the VISIBLE name rather than the whole token.
+#'
 #' @param nms The axis's names, or `NULL`.
-#' @param idx The index labels the lane draws when there are no names.
-#' @param max_chars Truncation width for a name. The index is never truncated: it
-#'   is short, and half of an accessor is not an accessor.
+#' @param idx The index labels the lane draws when there are no names. A positional
+#'   index is never truncated: it is short, and half of an accessor is not an
+#'   accessor.
+#' @param wrap `NULL`, or a function turning a vector of quoted name tokens into
+#'   the lane's accessor labels -- `function(q) paste0("[", q, ", ]")` for a matrix
+#'   row gutter, say. `NULL` draws the bare name, which no subscript lane wants but
+#'   a caller may.
+#' @param max_chars Truncation width for a name, applied to the NAME before it is
+#'   wrapped.
 #' @param ellipsis The truncation mark.
 #'
 #' @return A character vector the length of `idx`.
 #'
 #' @keywords internal
 #' @noRd
-lane_text <- function(nms, idx, max_chars = 8L, ellipsis = "...") {
+lane_text <- function(nms, idx, wrap = NULL, max_chars = 8L, ellipsis = "...") {
   if (is.null(nms)) {
     return(idx)
   }
-  truncate_chr(normalize_names(nms), max_chars, ellipsis)
+  nm <- truncate_chr(normalize_names(nms), max_chars, ellipsis)
+  if (is.null(wrap)) {
+    return(nm)
+  }
+  wrap(accessor_quote(nm))
+}
+
+#' One axis's subscript token for a cell index
+#'
+#' The quoted NAME where the axis has names, the bare positional number where it
+#' does not -- so a matrix with row names but no column names indexes `["r1", 2]`,
+#' each axis answered on its own. THE GATE IS WHETHER THE AXIS HAS NAMES, and the
+#' axis's own names decide it, not `show_dimnames`: `show_dimnames` draws the
+#' margin lanes, it does not change what the accessor under the cell says.
+#'
+#' @param nms The axis's names for the cells being labelled, already subset to
+#'   them, or `NULL` when the axis is unnamed.
+#' @param idx The positional indices, drawn where `nms` is `NULL`.
+#' @param max_chars,ellipsis Truncation of the name, applied before it is quoted.
+#'
+#' @return A character vector the length of `idx`.
+#'
+#' @keywords internal
+#' @noRd
+axis_sub <- function(nms, idx, max_chars = 8L, ellipsis = "...") {
+  if (is.null(nms)) {
+    return(as.character(idx))
+  }
+  accessor_quote(truncate_chr(normalize_names(nms), max_chars, ellipsis))
 }
 
 # ---------------------------------------------------------------------------
@@ -1307,6 +1369,12 @@ paint_cells <- function(data,
       sig = lane_text(
         nms = nm_col[kj],
         idx = if (is_vec) paste0("[", kj, "]") else paste0("[, ", kj, "]"),
+        # A vector's single axis needs no second subscript; a matrix column does.
+        wrap = if (is_vec) {
+          function(q) paste0("[", q, "]")
+        } else {
+          function(q) paste0("[, ", q, "]")
+        },
         max_chars = max_name_chars,
         ellipsis = ellipsis
       ),
@@ -1370,6 +1438,11 @@ paint_cells <- function(data,
       sig = lane_text(
         nms = nm_row[ki],
         idx = if (is_vec) paste0("[", ki, "]") else paste0("[", ki, ", ]"),
+        wrap = if (is_vec) {
+          function(q) paste0("[", q, "]")
+        } else {
+          function(q) paste0("[", q, ", ]")
+        },
         max_chars = max_chars,
         ellipsis = ellipsis
       ),
@@ -1401,6 +1474,31 @@ paint_cells <- function(data,
   # `l[[2]][3]` is the value -- and here it is printed under the number it returns.
   # A summarised element has no `i`, and its accessor is the one that returns the
   # element itself: `[[j]]`.
+  #
+  # THE GRID CELL INDEX IS NAMED PER AXIS. `[1, 1]` on a dimnamed matrix becomes
+  # `["r1", "alpha"]`, because that is the expression that reaches the cell. Each
+  # axis is answered on its OWN by `axis_sub()`: an axis with names gives its name,
+  # an axis without keeps its number, so a matrix named down the rows only indexes
+  # `["r1", 2]`. The gate is whether the AXIS HAS NAMES, not whether the margin is
+  # drawn -- `show_dimnames` hides the gutter, it does not change the accessor.
+  #
+  #   * A MATRIX reads both axes off `dimnames()`.
+  #   * A DATA FRAME reads its ROW axis off its real row names (`has_row_names()`),
+  #     and keeps its COLUMN axis POSITIONAL: a data frame's columns are already
+  #     named in the header lane, and `df[i, 2]` is the accessor that pairs with it.
+  #   * A VECTOR keeps its in-cell index POSITIONAL. Its single axis is already the
+  #     whole accessor, drawn in the name lane beside the cell as `["mon"]`; the
+  #     in-cell `[1]` then adds the complementary POSITION rather than repeating the
+  #     name. That is the whole point of composing the two lanes.
+  acc_row <- if (is_mat) {
+    axis_names(data, "row")
+  } else if (is_df && has_row_names(data)) {
+    axis_names(data, "row")
+  } else {
+    NULL
+  }
+  acc_col <- if (is_mat) axis_names(data, "column") else NULL
+
   cellindex <- NULL
   if (idx_cell && nrow(value) > 0L) {
     cellindex <- cell_rows(
@@ -1416,7 +1514,13 @@ paint_cells <- function(data,
           paste0("[[", j_v, "]][", i_v, "]")
         )
       } else {
-        paste0("[", i_v, ", ", j_v, "]")
+        paste0(
+          "[",
+          axis_sub(acc_row[i_v], i_v, max_name_chars, ellipsis),
+          ", ",
+          axis_sub(acc_col[j_v], j_v, max_name_chars, ellipsis),
+          "]"
+        )
       },
       ink = "grey50", align = "center", size_rel = 0.7,
       dy_rel = cellindex_dy
@@ -1852,6 +1956,15 @@ array_cells <- function(data,
   lane_row <- lanes$lane_row
   lane_col <- lanes$lane_col
 
+  # The RAW axis names, for the cell index's accessor. Unlike `nm_row`/`nm_col` --
+  # the MARGIN lanes, which `grid_lanes()` has already gated on `show_dimnames` and
+  # on an index lane winning the axis -- these gate on nothing: the cell index
+  # names an axis whenever the axis has names, because the accessor under the cell
+  # is the accessor whether or not the margin that echoes it is drawn. The slice
+  # axes are read the same way, per block, below.
+  acc_row <- axis_names(data, "row")
+  acc_col <- axis_names(data, "column")
+
   # -- elide FIRST, on shape, on all four axes ------------------------------
   hi <- if (n_ax >= 4L) d[4:n_ax] else integer(0)
   n_bx_data <- d[[3L]]
@@ -1935,7 +2048,22 @@ array_cells <- function(data,
     # 3-D array's third slab, ", 3, 2" for a 4-D one's. THE THREE FORMULAE BELOW ARE
     # RANK-AGNOSTIC because of it -- at rank 2 the tail is empty and they collapse
     # to `[1, ]`, `[, 2]` and `[1, 2]`, which is exactly what a matrix draws.
+    #
+    # `tail_s` is the POSITIONAL tail, drawn by the margin index lanes: a matrix's
+    # `[1, , 3]`, filled in from this block's slab. `acc_tail` is the ACCESSOR tail
+    # the CELL INDEX carries -- each slab axis contributing its quoted NAME when the
+    # axis has names and its number when it does not, so `["r1", "c2", 3]` names a
+    # 3-D array whose first two axes are named and whose slab axis is not. A slab
+    # name is capped like the slice title, at `max_name_chars`.
     tail_s <- paste0(", ", paste(s, collapse = ", "))
+    acc_tail <- paste0(", ", paste(
+      vapply(
+        seq_along(s),
+        function(q) axis_sub(axis_names(data, q + 2L)[s[[q]]], s[[q]], max_name_chars, ellipsis),
+        character(1)
+      ),
+      collapse = ", "
+    ))
 
     cols_of <- c0 + lab_cols_b + drawn_pos(kj, ec$gap) - 1L
     rows_of <- r0 + lab_rows_b + drawn_pos(ki, er$gap) - 1L
@@ -1995,6 +2123,19 @@ array_cells <- function(data,
       ink = "grey30", align = "left", size_rel = 0.9
     ))
 
+    # THE MARGIN NAME IS DRAWN BARE, and that is the one place the array parts from
+    # the matrix -- deliberately. A matrix row lane wraps to the accessor `["r1", ]`
+    # because that IS the whole subscript. An array's is not: `Titanic["1st", ]`
+    # errors, and the runnable accessor `Titanic["1st", , "Child", "No"]` repeats
+    # `, "Child", "No"` from the slice title drawn directly ABOVE the block -- so
+    # the wrapped lane would be both redundant with the title and, measured, wide
+    # enough to drive the canonical contingency tables (`Titanic`, `HairEyeColor`,
+    # `UCBAdmissions`) below the 5pt legibility floor at their DEFAULT size, because
+    # a column lane widens every value column it shares a formatting unit with. So
+    # the block's title carries the slice subscripts, the margins name their axis
+    # exactly as `print()` does, and the CELL INDEX below is the one lane that
+    # spells out the full per-axis accessor -- drawn only on request, where its
+    # width is the caller's to spend.
     if (lane_col) {
       add(cell_rows(
         kind = "collabel",
@@ -2044,7 +2185,17 @@ array_cells <- function(data,
         kind = "cellindex",
         row = rows_of[g$ri], col = cols_of[g$ci],
         i = ki[g$ri], j = kj[g$ci],
-        sig = paste0("[", ki[g$ri], ", ", kj[g$ci], tail_s, "]"),
+        # Named per axis, exactly as the matrix's cell index is: `["r1", "c2", 3]`
+        # where the first two axes are named and the slab axis is not. `acc_tail`
+        # carries the slab subscripts with the same per-axis rule.
+        sig = paste0(
+          "[",
+          axis_sub(acc_row[ki[g$ri]], ki[g$ri], max_name_chars, ellipsis),
+          ", ",
+          axis_sub(acc_col[kj[g$ci]], kj[g$ci], max_name_chars, ellipsis),
+          acc_tail,
+          "]"
+        ),
         ink = "grey50", align = "center", size_rel = 0.7,
         dy_rel = cellindex_dy
       ))

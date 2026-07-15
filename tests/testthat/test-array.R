@@ -22,8 +22,13 @@ with_null_pdf <- function(code) {
   force(code)
 }
 
-# The index lanes, and only them: a NAME is not an accessor ("Male" is not something
-# you can subscript with, unquoted), and a slice title is a title.
+# The subscript lanes, filtered to the labels that are ACCESSORS -- the ones that
+# start with `[`. That takes the positional margins (`[1, , 3]`), the named matrix
+# margins (`["r1", ]`), and every cell index, positional or named
+# (`["1st", "Male", "Child", "No"]`). It skips an array's bare margin name (`1st`,
+# which is not something you subscript with unquoted) and a slice title
+# (`, , Child, No`, which is a title, not a subscript) -- neither is claimed to be
+# an accessor, so neither is evaluated.
 index_labels <- function(cells) {
   lanes <- cells[cells$kind %in% c("rowlabel", "collabel", "cellindex"), , drop = FALSE]
   s <- lanes$sig
@@ -69,6 +74,39 @@ test_that("every index label RUNS, for a 2-D, 3-D and 4-D array", {
 
   # And with the names explicitly off, which is the other way to get an index lane.
   expect_labels_run(Titanic, show_indices = "all", show_dimnames = "none", label = "no dimnames")
+})
+
+test_that("every NAMED and MIXED index label RUNS too, per axis", {
+  # The named margins and the named cell index are accessors as much as the
+  # positional ones. `show_indices = "cell"` draws the cell index and composes with
+  # the default name lanes, so this battery evaluates `["r1", , 3]`, `[, "c2", 3]`
+  # and `["r1", "c2", 3]` -- names where an axis has them, numbers where it does
+  # not -- and demands each one runs.
+  fully <- array(1:24, c(2, 3, 4), dimnames = list(c("r1", "r2"), c("c1", "c2", "c3"), NULL))
+  rows_only <- array(1:24, c(2, 3, 4), dimnames = list(c("r1", "r2"), NULL, NULL))
+  cols_only <- array(1:24, c(2, 3, 4), dimnames = list(NULL, c("c1", "c2", "c3"), NULL))
+  slab_named <- array(1:24, c(2, 3, 4), dimnames = list(c("r1", "r2"), NULL, c("s1", "s2", "s3", "s4")))
+
+  expect_labels_run(fully, show_indices = "cell", label = "rows+cols named")
+  expect_labels_run(rows_only, show_indices = "cell", label = "rows only")
+  expect_labels_run(cols_only, show_indices = "cell", label = "cols only")
+  expect_labels_run(slab_named, show_indices = "cell", label = "rows+slab named")
+
+  # The fully dimnamed contingency tables, at their default named display.
+  expect_labels_run(Titanic, show_indices = "cell", label = "Titanic named")
+  expect_labels_run(HairEyeColor, show_indices = "cell", label = "HairEyeColor named")
+  expect_labels_run(UCBAdmissions, show_indices = "cell", label = "UCBAdmissions named")
+
+  # The mix is drawn correctly: a named axis uses its name, an unnamed one its
+  # number, in the SAME label.
+  ci <- unique(paint_cells(fully, show_indices = "cell")$sig[
+    paint_cells(fully, show_indices = "cell")$kind == "cellindex"
+  ])
+  expect_true('["r1", "c2", 3]' %in% ci)
+  rc <- unique(paint_cells(rows_only, show_indices = "cell")$sig[
+    paint_cells(rows_only, show_indices = "cell")$kind == "cellindex"
+  ])
+  expect_true('["r1", 2, 3]' %in% rc)
 })
 
 test_that("the index labels carry the array's full subscript ARITY", {
@@ -218,15 +256,31 @@ test_that("paint_array() draws a matrix, and draws it as paint_matrix() does", {
 # The claim under test is the package's own teaching claim: A BLOCK IS A MATRIX. So
 # take a 3-D array's block, take `paint_matrix()` of the very same 2-D slice, and
 # demand that the lanes are `identical()` -- ink, size_rel, align, fit, and the text
-# itself.
+# of every lane whose text is not fixed by RANK.
+#
+# ONE thing IS fixed by rank, and it parts here: a subscript lane's TEXT. A
+# standalone matrix's row accessor is `["r1", ]` -- two subscripts, the whole of
+# it. A block's is not: the block is a slice of a higher-rank array, its slab
+# subscripts live in the title above it, and so its margin names the axis BARE
+# (`r1`) while its cell index carries the full arity (`["r1", "c1", 1]`). That the
+# text differs by rank is itself the contract -- pinned explicitly below -- so the
+# structural comparison holds every OTHER attribute of every lane, the subscript
+# lanes' STYLING included, and sets their text aside.
 test_that("a 3-D array's BLOCK lanes are IDENTICAL to paint_matrix()'s on that slice", {
-  # The block's lanes and the matrix's, stripped of the ONE thing that legitimately
-  # differs: WHERE they sit. A block is offset inside the grid of blocks and carries
-  # a title row the matrix has no need of, so `row`/`col` must differ. Everything
-  # else -- the text, the ink, the size, the alignment, the fit, the fill, the border,
-  # the formatting unit -- is the contract, and the contract must not.
+  # The block's lanes and the matrix's, stripped of the two things that legitimately
+  # differ: WHERE they sit, and a subscript lane's TEXT (fixed by rank -- see above).
+  # A block is offset inside the grid of blocks and carries a title row the matrix
+  # has no need of, so `row`/`col` differ. Everything else -- the ink, the size, the
+  # alignment, the fit, the fill, the border, the formatting unit, and the text of
+  # every value and gap -- is the contract, and the contract must not.
+  subscript_lanes <- c("rowlabel", "collabel", "cellindex")
   lanes_of <- function(cells) {
     x <- cells[cells$kind != "slicelabel" & cells$kind != "outline", , drop = FALSE]
+    # Rank fixes a subscript lane's text; the structural contract is everything else.
+    # `head` mirrors `sig` at construction, so it is set aside with it.
+    is_sub <- x$kind %in% subscript_lanes
+    x$sig[is_sub] <- ""
+    x$head[is_sub] <- ""
     x <- x[order(x$kind, x$i, x$j, x$sig), c(
       "kind", "sig", "insig", "head", "tail", "ink", "fill", "border", "align",
       "size_rel", "dy_rel", "fit", "fmt_group"
@@ -262,6 +316,16 @@ test_that("a 3-D array's BLOCK lanes are IDENTICAL to paint_matrix()'s on that s
       info = nm
     )
   }
+
+  # The text that lanes_of() sets aside, pinned explicitly so the divergence is
+  # intentional: a standalone matrix draws the 2-D accessor, an array block names
+  # its axis bare, and the block's full accessor lives in the cell index.
+  a <- cases[["dimnamed, both name lanes"]]
+  blk <- array_cells(a)
+  mat <- paint_cells(a[, , 1L])
+  expect_equal(blk$sig[blk$kind == "rowlabel"], c("1st", "2nd", "3rd", "Crew"))
+  expect_equal(mat$sig[mat$kind == "rowlabel"], c('["1st", ]', '["2nd", ]', '["3rd", ]', '["Crew", ]'))
+  expect_true('["1st", "Male", "Child"]' %in% array_cells(a, show_indices = "cell")$sig)
 
   # And on a REAL multi-block array, every block draws the same LANE contract as the
   # matrix does -- the tuple set has to match exactly, so re-tuning `grey40` in one
@@ -603,6 +667,9 @@ test_that("every block gets its OWN outline", {
 # ---------------------------------------------------------------------------
 
 test_that("show_dimnames draws the row and column names of a contingency table", {
+  # An array's MARGINS name their axis bare, as `print()` does: the slice title
+  # above the block carries the slab subscripts, and the cell index below spells
+  # the full accessor -- so the gutter does not repeat either. (See array_cells().)
   cells <- paint_cells(Titanic)
   expect_true("1st" %in% cells$sig[cells$kind == "rowlabel"])
   expect_true("Crew" %in% cells$sig[cells$kind == "rowlabel"])
