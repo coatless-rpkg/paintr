@@ -5,12 +5,7 @@ template:
 
 reference:
 - title: Painters
-  desc: >
-    Draw an R data structure as a picture, one function per structure. Each page
-    documents both backends: a base-graphics painter (`paint_*()`, drawn to the
-    current device) and a ggplot2 painter (`gpaint_*()`, returning a ggplot
-    object). Under every cell the painter writes the expression you would type to
-    reach that value.
+  desc: One per data structure, in base graphics (`paint_*`) and ggplot2 (`gpaint_*`).
   contents:
   - paint_vector
   - paint_matrix
@@ -18,16 +13,8 @@ reference:
   - paint_list
   - paint_array
 - title: Highlighting
-  desc: >
-    Draw attention to specific cells. Build a logical mask with `highlight_data()`
-    or its `highlight_rows()` / `highlight_columns()` / `highlight_locations()`
-    shortcuts and pass it as `highlight_area`, or hand the same arguments straight
-    to a painter.
   contents:
   - highlight_data
 - title: Sizing
-  desc: >
-    Estimate the device size a structure needs so its text stays above the
-    legibility floor.
   contents:
   - paint_size
