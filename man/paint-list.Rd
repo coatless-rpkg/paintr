@@ -21,6 +21,7 @@ paint_list(
   show_all = FALSE,
   fontsize = NULL,
   family = "mono",
+  palette = NULL,
   show_types = TRUE,
   show_names = TRUE,
   name_align = c("center", "left", "right"),
@@ -47,6 +48,7 @@ gpaint_list(
   show_all = FALSE,
   fontsize = NULL,
   family = "mono",
+  palette = NULL,
   show_types = TRUE,
   show_names = TRUE,
   name_align = c("center", "left", "right"),
@@ -128,6 +130,12 @@ when the text falls below the legibility floor.}
 to the device.}
 
 \item{family}{Font family. \code{"mono"} by default.}
+
+\item{palette}{Colour palette for the drawing. One of \code{"mint"} (the
+default), \code{"slate"}, \code{"warm"}, or \code{"classic"} (the
+original look). Defaults to the \code{"paintr.palette"}
+option when unset. A named list of colours is also
+accepted.}
 
 \item{show_types}{Draw the type-tag row (\verb{<dbl>}, \verb{<chr>}, ...) under the
 element names. Default: \code{TRUE}.}

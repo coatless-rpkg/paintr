@@ -54,7 +54,13 @@ height_ref <- "Mg"
 #' @param grey The ink the insignificant digits are drawn in. It lives here
 #'   rather than on the cell table because `insig` is only ever non-empty on a
 #'   black numeric cell, so one colour serves the whole plot -- and because both
-#'   renderers need it.
+#'   renderers need it. A non-classic `palette` overrides it with the palette's
+#'   `insig` colour, so the insignificant span matches the rest of the drawing.
+#' @param palette Colour palette, resolved by [resolve_palette()] and stored as
+#'   `palette`. `NULL` (the default) follows the `paintr.palette` option; the
+#'   resolved value is `NULL` for classic -- which is what keeps classic
+#'   byte-identical to the original look, since [paint_resolve()] then does no
+#'   remap and `grey` stays at its default.
 #'
 #' @return A list.
 #'
@@ -66,7 +72,8 @@ paint_opts <- function(family = "mono",
                        max_pt = 24,
                        pad = 0.12,
                        ref_pt = 100,
-                       grey = "grey70") {
+                       grey = "grey70",
+                       palette = NULL) {
   if (!is.null(fontsize)) {
     if (length(fontsize) != 1L || is.na(fontsize) || !is.numeric(fontsize) || fontsize <= 0) {
       stop("`fontsize` must be a single positive number, or NULL to autofit.")
@@ -85,6 +92,12 @@ paint_opts <- function(family = "mono",
   if (length(ref_pt) != 1L || is.na(ref_pt) || ref_pt <= 0) {
     stop("`ref_pt` must be a single positive number.")
   }
+  # `resolve_palette()` does all the validation; a NULL result is the classic
+  # signal, and classic leaves `grey` untouched so the original look is exact.
+  palette <- resolve_palette(palette)
+  if (!is.null(palette)) {
+    grey <- palette$insig
+  }
   list(
     family = as.character(family)[1L],
     fontsize = fontsize,
@@ -92,7 +105,8 @@ paint_opts <- function(family = "mono",
     max_pt = as.double(max_pt),
     pad = as.double(pad),
     ref_pt = as.double(ref_pt),
-    grey = as.character(grey)[1L]
+    grey = as.character(grey)[1L],
+    palette = palette
   )
 }
 
@@ -744,6 +758,11 @@ paint_resolve <- function(cells, col_w, n_row, panel, measure, opts = paint_opts
       max(cells$col), " columns."
     )
   }
+  # The colour palette is a pure remap of the classic tokens on the cell table,
+  # applied here at the one seam both backends share -- so base and grid cannot
+  # disagree about a colour. `opts$palette` is `NULL` for classic, and the remap
+  # is then the identity (see `apply_palette()`).
+  cells <- apply_palette(cells, opts$palette)
   geom <- cell_geometry(col_w, n_row, panel)
   u <- geom$u
 

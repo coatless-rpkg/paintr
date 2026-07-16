@@ -39,6 +39,7 @@ matrix_prep <- function(data,
                         show_all,
                         fontsize,
                         family,
+                        palette,
                         show_dimnames,
                         max_name_chars,
                         highlight_rows = NULL,
@@ -74,6 +75,7 @@ matrix_prep <- function(data,
     show_all = show_all,
     fontsize = fontsize,
     family = family,
+    palette = palette,
     show_dimnames = show_dimnames,
     max_name_chars = max_name_chars
   )
@@ -157,6 +159,11 @@ matrix_prep <- function(data,
 #' @param fontsize        Font size in points. `NULL` (the default) fits the text
 #'                        to the device.
 #' @param family          Font family. `"mono"` by default.
+#' @param palette         Colour palette for the drawing. One of `"mint"` (the
+#'                        default), `"slate"`, `"warm"`, or `"classic"` (the
+#'                        original look). Defaults to the `"paintr.palette"`
+#'                        option when unset. A named list of colours is also
+#'                        accepted.
 #'
 #' @return
 #' `paint_matrix()` invisibly returns the resolved cell table: a list with the
@@ -245,6 +252,7 @@ paint_matrix <- function(
     show_all = FALSE,
     fontsize = NULL,
     family = "mono",
+    palette = NULL,
     show_dimnames = "all",
     max_name_chars = 8L,
     highlight_rows = NULL,
@@ -268,6 +276,7 @@ paint_matrix <- function(
     show_all = show_all,
     fontsize = fontsize,
     family = family,
+    palette = palette,
     show_dimnames = show_dimnames,
     max_name_chars = max_name_chars,
     highlight_rows = highlight_rows,
@@ -322,6 +331,7 @@ gpaint_matrix <- function(
     show_all = FALSE,
     fontsize = NULL,
     family = "mono",
+    palette = NULL,
     show_dimnames = "all",
     max_name_chars = 8L,
     highlight_rows = NULL,
@@ -344,6 +354,7 @@ gpaint_matrix <- function(
     show_all = show_all,
     fontsize = fontsize,
     family = family,
+    palette = palette,
     show_dimnames = show_dimnames,
     max_name_chars = max_name_chars,
     highlight_rows = highlight_rows,

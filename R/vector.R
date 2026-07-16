@@ -33,6 +33,7 @@ vector_prep <- function(data,
                         show_all,
                         fontsize,
                         family,
+                        palette,
                         show_names,
                         max_name_chars,
                         highlight_locations = NULL) {
@@ -60,6 +61,7 @@ vector_prep <- function(data,
     show_all = show_all,
     fontsize = fontsize,
     family = family,
+    palette = palette,
     layout = layout,
     show_names = show_names,
     max_name_chars = max_name_chars
@@ -192,6 +194,7 @@ paint_vector <- function(
     show_all = FALSE,
     fontsize = NULL,
     family = "mono",
+    palette = NULL,
     show_names = TRUE,
     max_name_chars = 8L,
     highlight_locations = NULL) {
@@ -212,6 +215,7 @@ paint_vector <- function(
     show_all = show_all,
     fontsize = fontsize,
     family = family,
+    palette = palette,
     show_names = show_names,
     max_name_chars = max_name_chars,
     highlight_locations = highlight_locations
@@ -253,6 +257,7 @@ gpaint_vector <- function(
     show_all = FALSE,
     fontsize = NULL,
     family = "mono",
+    palette = NULL,
     show_names = TRUE,
     max_name_chars = 8L,
     highlight_locations = NULL) {
@@ -274,6 +279,7 @@ gpaint_vector <- function(
     show_all = show_all,
     fontsize = fontsize,
     family = family,
+    palette = palette,
     show_names = show_names,
     max_name_chars = max_name_chars,
     highlight_locations = highlight_locations

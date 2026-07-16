@@ -38,7 +38,7 @@
 #'   structure.
 #' @param slices_per_row Arrays only: how many slice blocks to wrap to a row.
 #'   `NULL` is the array's own grid, and it is `NULL` for every other structure.
-#' @param fontsize,family Passed to `paint_opts()`.
+#' @param fontsize,family,palette Passed to `paint_opts()`.
 #' @param layout Vectors only.
 #' @param summarise Lists only: one cell per element, saying what it is.
 #' @param show_names Data frames and lists (the column-name row) and vectors (their
@@ -69,6 +69,7 @@ painter_prep <- function(data,
                          show_all,
                          fontsize,
                          family,
+                         palette = NULL,
                          max_slices = NULL,
                          slices_per_row = NULL,
                          layout = "vertical",
@@ -85,7 +86,7 @@ painter_prep <- function(data,
   ellipsis <- getOption("paintr.ellipsis", "...")
   warn_floor <- isTRUE(getOption("paintr.warn_floor", TRUE))
 
-  opts <- paint_opts(family = family, fontsize = fontsize)
+  opts <- paint_opts(family = family, fontsize = fontsize, palette = palette)
 
   cells <- paint_cells(
     data = data,

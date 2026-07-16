@@ -20,6 +20,7 @@ paint_matrix(
   show_all = FALSE,
   fontsize = NULL,
   family = "mono",
+  palette = NULL,
   show_dimnames = "all",
   max_name_chars = 8L,
   highlight_rows = NULL,
@@ -42,6 +43,7 @@ gpaint_matrix(
   show_all = FALSE,
   fontsize = NULL,
   family = "mono",
+  palette = NULL,
   show_dimnames = "all",
   max_name_chars = 8L,
   highlight_rows = NULL,
@@ -105,6 +107,12 @@ when the text falls below the legibility floor.}
 to the device.}
 
 \item{family}{Font family. \code{"mono"} by default.}
+
+\item{palette}{Colour palette for the drawing. One of \code{"mint"} (the
+default), \code{"slate"}, \code{"warm"}, or \code{"classic"} (the
+original look). Defaults to the \code{"paintr.palette"}
+option when unset. A named list of colours is also
+accepted.}
 
 \item{show_dimnames}{Which of the matrix's \code{dimnames()} to draw. A character
 vector, because \code{dimnames()} is a \emph{list} with one slot

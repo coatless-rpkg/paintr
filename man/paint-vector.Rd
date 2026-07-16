@@ -21,6 +21,7 @@ paint_vector(
   show_all = FALSE,
   fontsize = NULL,
   family = "mono",
+  palette = NULL,
   show_names = TRUE,
   max_name_chars = 8L,
   highlight_locations = NULL
@@ -42,6 +43,7 @@ gpaint_vector(
   show_all = FALSE,
   fontsize = NULL,
   family = "mono",
+  palette = NULL,
   show_names = TRUE,
   max_name_chars = 8L,
   highlight_locations = NULL
@@ -97,6 +99,12 @@ when the text falls below the legibility floor.}
 to the device.}
 
 \item{family}{Font family. \code{"mono"} by default.}
+
+\item{palette}{Colour palette for the drawing. One of \code{"mint"} (the
+default), \code{"slate"}, \code{"warm"}, or \code{"classic"} (the
+original look). Defaults to the \code{"paintr.palette"}
+option when unset. A named list of colours is also
+accepted.}
 
 \item{show_names}{Draw the vector's \code{names()} in the label lane its layout
 gives it: a gutter to the left when the vector is

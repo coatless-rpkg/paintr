@@ -222,6 +222,8 @@ test_that("highlight_locations() feeds a character vector into paint_vector()", 
 # table, so it needs no image diffing.
 
 test_that("a character matrix renders its strings, not 'Unknown'", {
+  # Assert on the stable classic ink tokens, not the active palette's hexes.
+  withr::local_options(paintr.palette = "classic")
   m <- matrix(c("apple", "banana", "cherry", "date"), nrow = 2)
 
   res <- with_null_pdf(paint_matrix(m))
@@ -241,6 +243,8 @@ test_that("a character matrix renders its strings, not 'Unknown'", {
 })
 
 test_that("a character vector renders its strings, not 'Unknown'", {
+  # Assert on the stable classic ink tokens, not the active palette's hexes.
+  withr::local_options(paintr.palette = "classic")
   res <- with_null_pdf(paint_vector(c("alpha", "beta", NA)))
   vals <- res$cells[res$cells$kind == "value", , drop = FALSE]
 
@@ -413,6 +417,8 @@ test_that("a mis-shaped highlight_area reports the actual dimensions", {
 })
 
 test_that("highlight_area = NULL highlights nothing and a length-1 logical recycles", {
+  # Assert on the stable classic fill tokens, not the active palette's hexes.
+  withr::local_options(paintr.palette = "classic")
   m <- matrix(1:4, nrow = 2)
 
   none <- with_null_pdf(paint_matrix(m))

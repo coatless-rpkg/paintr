@@ -188,6 +188,9 @@ test_that("a pinned fontsize is obeyed on every device", {
 # ---------------------------------------------------------------------------
 
 test_that("makeContent() emits rects plus one textGrob per span", {
+  # The grey/black ink assertions below name the stable classic tokens, so pin
+  # the palette to classic rather than track the default palette's hexes.
+  withr::local_options(paintr.palette = "classic")
   g <- grob_of(matrix(c(123456.789, 1 / 3, 100000, 0.5), nrow = 2))
   kids <- with_panel(7, grid::makeContent(g)$children)
 

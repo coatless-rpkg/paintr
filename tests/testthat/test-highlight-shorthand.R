@@ -35,6 +35,8 @@ v  <- c(-3, 5, NA, Inf, 2, 1)
 # ---------------------------------------------------------------------------
 
 test_that("paint_matrix(highlight_rows=) equals highlight_area=highlight_rows()", {
+  # The fill assertion names the stable classic highlight token.
+  withr::local_options(paintr.palette = "classic")
   expect_identical(
     base_cells(paint_matrix(m, show_indices = "row", highlight_rows = 1)),
     base_cells(paint_matrix(m, show_indices = "row",
@@ -213,6 +215,9 @@ test_that("a bad selection errors through highlight_data(), unchanged", {
 })
 
 test_that("passing no highlight argument at all still highlights nothing", {
+  # Pin classic so the highlight token this asserts on is stable and the check
+  # stays meaningful (a cell that WAS highlighted would carry "lemonchiffon").
+  withr::local_options(paintr.palette = "classic")
   none <- base_cells(paint_matrix(m))
   # "Nothing highlighted" means no cell carries the highlight colour; ordinary
   # value cells still fill white.
