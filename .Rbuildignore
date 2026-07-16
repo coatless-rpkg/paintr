@@ -4,6 +4,11 @@
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
-^README\.Rmd$
+^README\.qmd$
+^README_files$
+^README\.knit\.md$
 ^CRAN-SUBMISSION$
 ^cran-comments\.md$
+\.quarto$
+vignettes/\.quarto$
+^vignettes/\.gitignore$

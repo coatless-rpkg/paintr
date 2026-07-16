@@ -8,45 +8,180 @@
 paint_matrix(
   data,
   show_indices = "none",
-  highlight_area = matrix(FALSE, nrow = nrow(data), ncol = ncol(data)),
+  highlight_area = NULL,
   highlight_color = "lemonchiffon",
   graph_title = paste0("Data Object: ", deparse(substitute(data))),
-  graph_subtitle = paste0("Dimensions: ", paste(n_row, "rows x", n_col, "columns"),
-    " | ", "Data Type: ", paste(class(data), collapse = ", "))
+  graph_subtitle = NULL,
+  sigfig = 3L,
+  subtle_digits = c("insignificant", "rounded", "none"),
+  max_chars = 12L,
+  max_rows = 20L,
+  max_cols = 15L,
+  show_all = FALSE,
+  fontsize = NULL,
+  family = "mono",
+  palette = NULL,
+  show_dimnames = "all",
+  max_name_chars = 8L,
+  highlight_rows = NULL,
+  highlight_columns = NULL,
+  highlight_locations = NULL
 )
 
 gpaint_matrix(
   data,
   show_indices = "none",
-  highlight_area = matrix(FALSE, nrow(data), ncol(data)),
+  highlight_area = NULL,
   highlight_color = "lemonchiffon",
   graph_title = paste0("Data Object: ", deparse(substitute(data))),
-  graph_subtitle = paste0("Dimensions: ", paste(n_row, "rows x", n_col, "columns"),
-    " | ", "Data Type: ", paste(class(data), collapse = ", "))
+  graph_subtitle = NULL,
+  sigfig = 3L,
+  subtle_digits = c("insignificant", "rounded", "none"),
+  max_chars = 12L,
+  max_rows = 20L,
+  max_cols = 15L,
+  show_all = FALSE,
+  fontsize = NULL,
+  family = "mono",
+  palette = NULL,
+  show_dimnames = "all",
+  max_name_chars = 8L,
+  highlight_rows = NULL,
+  highlight_columns = NULL,
+  highlight_locations = NULL
 )
 }
 \arguments{
-\item{data}{A object that has the class of \code{matrix}.}
+\item{data}{An object that has the class of \code{matrix}.}
 
-\item{show_indices}{Display indices based on location. Options are:
-\code{"none"}: no indices, \code{"cell"}:  matrix cell indices \verb{[i, j]},
+\item{show_indices}{Display indices based on location. A character vector,
+so several kinds of index can be asked for at once.
+Values are:
+\code{"none"}: no indices, \code{"cell"}: matrix cell indices \verb{[i, j]},
 \code{"row"}: row indices \verb{[i, ]} to the left of the matrix,
-\code{"column"}: column indices \verb{[,j]} above matrix, and
-\code{"all"}: row, column, and inside options. Default: \code{"none"}.}
+\code{"column"}: column indices \verb{[, j]} above the matrix, and
+\code{"all"}: row, column, and cell indices together.
+Default: \code{"none"}.
 
-\item{highlight_area}{Matrix of logical values that provide a mask for what
-cells should be filled. Default: None.}
+Each value switches on its own lane, so \code{c("row", "column")} draws the row
+\emph{and} the column indices but no cell indices, and \code{"all"} is the same as
+\code{c("cell", "row", "column")}. Combining \code{"none"} with anything else is
+contradictory, and the other values win: \code{c("none", "row")} draws row
+indices. An unknown value is an error, not a silent no-op.}
+
+\item{highlight_area}{Logical matrix the same shape as \code{data}, marking the
+cells to fill. A length-one logical is recycled.
+Default: \code{NULL}, which highlights nothing.}
 
 \item{highlight_color}{Color to use to fill the background of a cell.}
 
 \item{graph_title}{Title to appear in the upper left hand corner of the graph.}
 
-\item{graph_subtitle}{Subtitle to appear immediately under the graph title
-in the upper left hand side of the graph.}
+\item{graph_subtitle}{Subtitle to appear immediately under the graph title.
+\code{NULL} (the default) describes the data: its dimensions
+and its class. \code{NA} or \code{""} draws no subtitle; any other
+string is drawn as given. The default reports the
+dimensions of the data itself, not of the drawing, so an
+elided matrix still reports all of its rows.}
+
+\item{sigfig}{Significant digits drawn in black. Digits past the
+\code{sigfig}-th are drawn in grey; nothing is discarded.
+Must be in \code{1:15}.}
+
+\item{subtle_digits}{Which digits are drawn grey. \code{"insignificant"} (the
+default) greys everything past the \code{sigfig}-th
+significant digit; \code{"rounded"} greys only digits the
+rendering actually lost; \code{"none"} draws everything black.}
+
+\item{max_chars}{Strings longer than this are truncated with an ellipsis.}
+
+\item{max_rows, max_cols}{Elide the middle of the matrix when it has more rows
+or columns than this. The decision is made on the
+dimensions alone, with no device consulted, so the same
+object elides the same way on every device.}
+
+\item{show_all}{Draw every cell, however small the text becomes. Warns
+when the text falls below the legibility floor.}
+
+\item{fontsize}{Font size in points. \code{NULL} (the default) fits the text
+to the device.}
+
+\item{family}{Font family. \code{"mono"} by default.}
+
+\item{palette}{Colour palette for the drawing. One of \code{"mint"} (the
+default), \code{"slate"}, \code{"warm"}, or \code{"classic"} (the
+original look). Defaults to the \code{"paintr.palette"}
+option when unset. A named list of colours is also
+accepted.}
+
+\item{show_dimnames}{Which of the matrix's \code{dimnames()} to draw. A character
+vector, because \code{dimnames()} is a \emph{list} with one slot
+per axis: \code{"none"}, \code{"row"}, \code{"column"}, or \code{"all"}
+(the default). \code{c("row", "column")} is the same as
+\code{"all"}, and an axis with no names draws no lane.
+
+An index lane the caller asks for \strong{wins} the axis it names: with
+\code{show_indices = "row"} the row lane draws \verb{[1, ]}, not the row names. To see
+both a name and an accessor, ask for \code{show_indices = "cell"} -- the cell index
+is drawn \emph{inside} the cell, so it composes with the names rather than
+competing for their lane.}
+
+\item{max_name_chars}{Longest a \emph{column} name may be drawn before it is
+truncated. Default: \code{8}. A matrix is one formatting unit,
+so every column of it is as wide as the widest: a long
+column name widens every cell in the picture. Row names
+sit in a gutter of their own, cost the values nothing, and
+are truncated at \code{max_chars} instead.}
+
+\item{highlight_rows, highlight_columns, highlight_locations}{Shorthand for
+\code{highlight_area}: instead of building a mask, name the
+rows, columns, or cell locations to fill and the mask is
+built for you with \code{\link[=highlight_data]{highlight_data()}}. So
+\code{highlight_rows = 1} is exactly
+\code{highlight_area = highlight_rows(data, 1)}, and the object
+need not be named twice. Give several at once to fill
+their union. Supplying \code{highlight_area} together with any
+of these is an error. Default: \code{NULL}.}
+}
+\value{
+\code{paint_matrix()} invisibly returns the resolved cell table: a list with the
+components \code{cells}, \code{fontsize}, \code{floored}, \code{u}, \code{x0}, \code{y0}, \code{usr}, \code{pin},
+\code{graph_title}, \code{graph_subtitle}, and -- only when the drawing elides -- \code{note}.
+\code{graph_title} and \code{graph_subtitle} are the chrome as it was actually drawn, so
+\code{graph_subtitle} is the resolved default rather than the \code{NULL} that was passed
+in. \code{note} holds the "# N more rows/columns" string and is present only when the
+drawing elides; it is absent otherwise.
+\code{gpaint_matrix()} returns a \code{ggplot} object.
 }
 \description{
 Generate a graph showing the contents of a matrix.
 }
+\details{
+\code{paint_matrix()} draws on the current base graphics device.
+\code{gpaint_matrix()} returns a \code{ggplot} object.
+}
+\section{The ggplot object is a shell}{
+
+\code{gpaint_matrix()} returns a real \code{ggplot} object -- \code{+ theme()}, \code{ggsave()},
+\code{print()} and knitr chunks all work -- but its panel is drawn \emph{entirely} by a
+custom grid grob, held in a single \code{annotation_custom()} over a meaningless
+\verb{0..1} coordinate system. There is no \code{aes()}, no geom and no scale carrying
+any meaning, so:
+\itemize{
+\item \code{ggplot_build()} sees an empty layer.
+\item \verb{+ scale_fill_*()}, \verb{+ scale_x_*()} and friends have no effect on the drawing.
+Use \code{highlight_area} and \code{highlight_color} to fill cells.
+\item \code{+ geom_point()} would draw onto the \verb{0..1} coordinate system, not onto the
+cells.
+}
+
+This is not a shortcut around ggplot2. The cell text is fitted to the device at
+\emph{draw} time, which no geom can do, because a layer is built long before the
+device size is known; and every number is drawn as two spans in two colors,
+which \code{geom_text()} cannot do at all. A custom grob is the only mechanism that
+can do either.
+}
+
 \examples{
 # Base graphics
 
@@ -57,23 +192,43 @@ paint_matrix(mat_3x3)
 # Show the cell indices
 paint_matrix(mat_3x3, show_indices = "cell")
 
+# Character data renders as the strings it contains.
+paint_matrix(matrix(letters[1:6], nrow = 2))
+
+# A dimnamed matrix labels its rows and columns with its names, like print().
+mat_named = matrix(
+  c(21, 6, 22.8, 4), nrow = 2, byrow = TRUE,
+  dimnames = list(c("Mazda", "Datsun"), c("mpg", "cyl"))
+)
+paint_matrix(mat_named)
+
+# The name above the column, the accessor under the value: both at once.
+paint_matrix(mat_named, show_indices = "cell")
+
+# An index lane wins the axis it names.
+paint_matrix(mat_named, show_indices = "row")
+
+# Or draw no names at all.
+paint_matrix(mat_named, show_dimnames = "none")
+
 # Highlight a row
 mat_4x4 = matrix(seq_len(16), nrow = 4)
 paint_matrix(
-  mat_4x4, show_indices = "row", 
+  mat_4x4, show_indices = "row",
   highlight_area = highlight_rows(mat_4x4, rows = 1)
 )
 
 # Highlight values above 5
 mat_2x4 = matrix(round(rnorm(16, 5, 2), 2), ncol = 4)
-paint_matrix(mat_2x4, highlight_area = mat_2x4 > 2) 
+paint_matrix(mat_2x4, highlight_area = mat_2x4 > 2)
+\dontshow{if (requireNamespace("ggplot2", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 # ggplot2 graphics ----
 
 # Visualize a 3x3
 mat_3x3 = matrix(c(10, 200, -30, 40, 500, 30, 90, -55, 10), ncol = 3)
 gpaint_matrix(mat_3x3)
 
-# View the matrix without indices present
+# View the matrix without any highlighting
 gpaint_matrix(mat_3x3, highlight_area = FALSE)
 
 # Highlight a row
@@ -83,5 +238,15 @@ gpaint_matrix(mat_2x2, highlight_area = mat_2x2_mask)
 
 # Highlight values above 5
 mat_3x5 = matrix(round(rnorm(15, 5, 2), 2), ncol = 5)
-gpaint_matrix(mat_3x5, highlight_area = mat_3x5 > 2) 
+gpaint_matrix(mat_3x5, highlight_area = mat_3x5 > 2)
+\dontshow{\}) # examplesIf}
 }
+\seealso{
+Other painters:
+\code{\link[=paint_array]{paint_array()}},
+\code{\link[=paint_data_frame]{paint_data_frame()}},
+\code{\link[=paint_list]{paint_list()}},
+\code{\link[=paint_size]{paint_size()}},
+\code{\link[=paint_vector]{paint_vector()}}
+}
+\concept{painters}
