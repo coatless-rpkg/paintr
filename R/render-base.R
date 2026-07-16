@@ -595,12 +595,29 @@ draw_base <- function(resolved, opts) {
   # pictures. The weight is a column now, and `boxed_cells()` -- shared by both
   # renderers -- puts the heavy stroke last so the cell borders cannot paint over
   # it. This backend no longer knows that an outline exists.
+  # Square cells stay ONE vectorised `rect()`; a refined palette's rounded cells
+  # (the block outline and the header band) are drawn as polygons from the shared
+  # `rounded_rect_xy()`, the same vertices `paintr_children()` traces, so the two
+  # backends round the identical card. The square cells draw first and the rounded
+  # ones after, in `boxed_cells()`'s heavy-last order, so the outline still lands
+  # on top of the cell grid.
   b <- boxed_cells(cells)
-  if (nrow(b) > 0L) {
+  sq <- b[b$radius <= 0, , drop = FALSE]
+  rd <- b[b$radius > 0, , drop = FALSE]
+  if (nrow(sq) > 0L) {
     graphics::rect(
-      xleft = ux(b$xl), ybottom = uy(b$yb),
-      xright = ux(b$xr), ytop = uy(b$yt),
-      col = b$fill, border = b$border, lwd = b$lwd
+      xleft = ux(sq$xl), ybottom = uy(sq$yb),
+      xright = ux(sq$xr), ytop = uy(sq$yt),
+      col = sq$fill, border = sq$border, lwd = sq$lwd
+    )
+  }
+  for (k in seq_len(nrow(rd))) {
+    p <- rounded_rect_xy(rd$xl[[k]], rd$yb[[k]], rd$xr[[k]], rd$yt[[k]], rd$radius[[k]])
+    # The band carries `lwd = 0` and no border; `polygon()` rejects a zero `lwd`
+    # even when it draws no stroke, so floor it -- the outline keeps its own weight.
+    graphics::polygon(
+      x = ux(p$x), y = uy(p$y),
+      col = rd$fill[[k]], border = rd$border[[k]], lwd = max(rd$lwd[[k]], 1)
     )
   }
 

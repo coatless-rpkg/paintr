@@ -95,6 +95,9 @@ paint_opts <- function(family = "mono",
   # `resolve_palette()` does all the validation; a NULL result is the classic
   # signal, and classic leaves `grey` untouched so the original look is exact.
   palette <- resolve_palette(palette)
+  # A refined palette rounds its block outlines and header band; classic is square.
+  # In points -- `paint_resolve()` turns the flagged cells' radius into inches.
+  corner <- if (is.null(palette)) 0 else 3
   if (!is.null(palette)) {
     grey <- palette$insig
   }
@@ -106,7 +109,8 @@ paint_opts <- function(family = "mono",
     pad = as.double(pad),
     ref_pt = as.double(ref_pt),
     grey = as.character(grey)[1L],
-    palette = palette
+    palette = palette,
+    corner = as.double(corner)
   )
 }
 
@@ -763,6 +767,17 @@ paint_resolve <- function(cells, col_w, n_row, panel, measure, opts = paint_opts
   # disagree about a colour. `opts$palette` is `NULL` for classic, and the remap
   # is then the identity (see `apply_palette()`).
   cells <- apply_palette(cells, opts$palette)
+
+  # Corner rounding. A refined palette rounds every block outline (the heavy
+  # stroke) and the header band (flagged `radius = 1` at build); classic leaves
+  # `opts$corner` at 0 so the multiply below zeroes every radius and the picture
+  # stays square. The flag becomes a physical radius in inches, the units the
+  # cell table carries, so both renderers trace the same polygon.
+  if (!is.null(opts$palette)) {
+    cells$radius[!is.na(cells$border) & cells$lwd >= 1.5] <- 1
+  }
+  cells$radius <- ifelse(cells$radius > 0, opts$corner / 72, 0)
+
   geom <- cell_geometry(col_w, n_row, panel)
   u <- geom$u
 

@@ -363,7 +363,7 @@ cell_rows <- function(kind, row, col,
                       ink = "black", fill = NA_character_, border = NA_character_,
                       lwd = 1,
                       align = "center", fontface = "plain",
-                      size_rel = 1, dy_rel = 0, fit = TRUE) {
+                      size_rel = 1, dy_rel = 0, fit = TRUE, radius = 0) {
   n <- max(length(row), length(col))
   if (is.null(head)) {
     head <- sig
@@ -398,6 +398,7 @@ cell_rows <- function(kind, row, col,
     size_rel = rep_len(as.double(size_rel), n),
     dy_rel = rep_len(as.double(dy_rel), n),
     fit = rep_len(as.logical(fit), n),
+    radius = rep_len(as.double(radius), n),
     kind = rep_len(as.character(kind), n),
     stringsAsFactors = FALSE
   )
@@ -1472,7 +1473,7 @@ paint_cells <- function(data,
       row = header_row, col = lab_cols + 1L,
       row_end = lab_rows, col_end = n_col,
       fill = "headerband", border = NA_character_, lwd = 0,
-      align = "center", fit = FALSE
+      align = "center", fit = FALSE, radius = 1
     )
   } else {
     NULL
@@ -1818,6 +1819,47 @@ boxed_cells <- function(cells) {
     return(b)
   }
   b[order(b$lwd), , drop = FALSE]
+}
+
+#' The outline of one rounded rectangle, as a closed polygon
+#'
+#' A refined palette rounds the block outline and the header band. Base graphics
+#' has no rounded rectangle and cannot clip to one, so a rounded corner is drawn
+#' as an ordinary polygon -- and BOTH renderers trace it from THIS function, so
+#' `graphics::polygon()` and `grid::polygonGrob()` receive the identical vertices
+#' and the two backends cannot round the same card differently. The corners are
+#' quarter-circle arcs of `n` segments each; `r` is capped to half the shorter
+#' side so a small card cannot invert. `r <= 0` returns the plain rectangle, so a
+#' caller need not special-case the square.
+#'
+#' The vertices are in the same units as the inputs (inches, as the cell table
+#' carries them); each renderer maps them into its own coordinates.
+#'
+#' @param xl,yb,xr,yt The rectangle, left/bottom/right/top.
+#' @param r Corner radius, same units as the rectangle.
+#' @param n Segments per corner arc.
+#'
+#' @return A list with `x` and `y`, the closed polygon's vertices.
+#'
+#' @keywords internal
+#' @noRd
+rounded_rect_xy <- function(xl, yb, xr, yt, r, n = 8L) {
+  r <- min(r, (xr - xl) / 2, (yt - yb) / 2)
+  if (r <= 0) {
+    return(list(x = c(xl, xr, xr, xl), y = c(yb, yb, yt, yt)))
+  }
+  arc <- function(cx, cy, a0, a1) {
+    a <- seq(a0, a1, length.out = n)
+    list(x = cx + r * cos(a), y = cy + r * sin(a))
+  }
+  bl <- arc(xl + r, yb + r, pi, 3 * pi / 2)        # bottom-left
+  br <- arc(xr - r, yb + r, 3 * pi / 2, 2 * pi)     # bottom-right
+  tr <- arc(xr - r, yt - r, 0, pi / 2)              # top-right
+  tl <- arc(xl + r, yt - r, pi / 2, pi)             # top-left
+  list(
+    x = c(bl$x, br$x, tr$x, tl$x),
+    y = c(bl$y, br$y, tr$y, tl$y)
+  )
 }
 
 #' The cells that draw a given text span, or their union

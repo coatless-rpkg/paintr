@@ -362,7 +362,9 @@ test_that("both backends stroke the outline at the SAME weight, and heavier", {
     list(1:5, show_indices = "outside")
   )) {
     f <- do.call(fx, case)
-    opts <- paint_opts(family = "mono")
+    # The outline is an ordinary rect under `classic`; a refined palette rounds it
+    # into a polygon, which the rounded-corner tests cover on their own.
+    opts <- paint_opts(family = "mono", palette = "classic")
     lab <- paste(class(case[[1L]])[[1L]], nrow(f$cells), "cells")
 
     # -- base: the arguments that reached graphics::rect() ---------------------
@@ -424,7 +426,10 @@ test_that("an empty insig draws nothing at all", {
 })
 
 test_that("the drawn geometry is the resolved geometry, in inches", {
-  g <- grob_of(matrix(1:6, nrow = 2, ncol = 3), show_indices = "all")
+  # Classic: every box is a rect, so `paintr.rect` carries the whole picture. The
+  # rounded-corner path is covered by the corner tests.
+  g <- grob_of(matrix(1:6, nrow = 2, ncol = 3), show_indices = "all",
+               opts = paint_opts(palette = "classic"))
 
   got <- with_panel(7, {
     kids <- grid::makeContent(g)$children
@@ -679,4 +684,84 @@ test_that("the NA-in-sig bug: an NA insig is dropped by both backends too", {
 
   # And grid emits no grey grob at all, because no cell has a grey span.
   expect_null(kid(kids, "paintr.insig"))
+})
+
+# What `draw_base()` hands `graphics::polygon()` -- the rounded cells (block
+# outline, header band) a refined palette draws. Same capture trick as
+# `base_rects()`; classic draws none, so the list comes back empty.
+base_polygons <- function(f, opts = paint_opts()) {
+  got <- list()
+  testthat::local_mocked_bindings(
+    polygon = function(...) {
+      got[[length(got) + 1L]] <<- list(...)
+      invisible(NULL)
+    },
+    .package = "graphics"
+  )
+  grDevices::pdf(NULL, width = 7, height = 7)
+  on.exit(grDevices::dev.off(), add = TRUE)
+  render_base(f$cells, f$col_w, f$n_row, opts = opts, warn_floor = FALSE)
+  got
+}
+
+test_that("a refined palette rounds the outline into a polygon; classic is a rect", {
+  f <- fx(matrix(1:9, nrow = 3))
+
+  # -- classic: no polygon at all, and the heavy stroke is an ordinary rect --
+  expect_length(base_polygons(f, paint_opts(family = "mono", palette = "classic")), 0L)
+  g_c <- paintr_grob(f$cells, f$col_w, f$n_row,
+    opts = paint_opts(family = "mono", palette = "classic"), warn_floor = FALSE)
+  kids_c <- with_panel(7, grid::makeContent(g_c)$children)
+  expect_null(kid(kids_c, "paintr.round.1"))
+  expect_false(is.null(kid(kids_c, "paintr.rect")))
+
+  # -- mint: the outline is ONE polygon, in both backends, at the outline weight --
+  opts <- paint_opts(family = "mono", palette = "mint")
+  polys <- base_polygons(f, opts)
+  expect_length(polys, 1L)                    # a matrix has no band, so just the card
+  expect_equal(polys[[1L]]$lwd, outline_lwd)
+  expect_length(polys[[1L]]$x, 32L)           # four quarter-circle arcs of n = 8
+
+  g_m <- paintr_grob(f$cells, f$col_w, f$n_row, opts = opts, warn_floor = FALSE)
+  round_g <- with_panel(7, Filter(
+    function(z) startsWith(z$name, "paintr.round."),
+    grid::makeContent(g_m)$children
+  ))
+  expect_length(round_g, 1L)
+  expect_equal(round_g[[1L]]$gp$lwd, outline_lwd)
+
+  # -- parity: grid traces EXACTLY the shared rounded_rect_xy of the resolved card --
+  got <- with_panel(7, {
+    res <- paint_resolve(f$cells, f$col_w, f$n_row,
+      panel = panel_grid(), measure = measure_grid(opts$family), opts = opts)
+    ol <- res$cells[!is.na(res$cells$border) & res$cells$lwd >= 1.5, ]
+    exp <- rounded_rect_xy(ol$xl, ol$yb, ol$xr, ol$yt, ol$radius)
+    g <- kid(grid::makeContent(g_m)$children, "paintr.round.1")
+    list(exp = exp,
+         gx = grid::convertX(g$x, "in", valueOnly = TRUE),
+         gy = grid::convertY(g$y, "in", valueOnly = TRUE),
+         radius = ol$radius)
+  })
+  expect_equal(got$radius, 3 / 72)            # 3pt, in inches
+  expect_equal(got$gx, got$exp$x, tolerance = 1e-6)
+  expect_equal(got$gy, got$exp$y, tolerance = 1e-6)
+})
+
+test_that("a styled data frame rounds BOTH the card and the header band", {
+  # The band cell exists only on a styled table; the painters pass styled with a
+  # non-classic palette, so pair the two here to reach the banded path.
+  f <- fx(head(mtcars, 4), styled = TRUE)
+  opts <- paint_opts(family = "mono", palette = "mint")
+  polys <- base_polygons(f, opts)
+  # Two rounded shapes: the outline (outline_lwd) and the band (floored to 1).
+  lwds <- vapply(polys, function(p) p$lwd, numeric(1))
+  expect_true(outline_lwd %in% lwds)
+  expect_gte(length(polys), 2L)
+
+  g <- paintr_grob(f$cells, f$col_w, f$n_row, opts = opts, warn_floor = FALSE)
+  round_g <- with_panel(7, Filter(
+    function(z) startsWith(z$name, "paintr.round."),
+    grid::makeContent(g)$children
+  ))
+  expect_gte(length(round_g), 2L)
 })

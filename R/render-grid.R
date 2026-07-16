@@ -174,16 +174,32 @@ paintr_children <- function(res, opts) {
   # `boxed_cells()` is shared with `draw_base()`: it selects the same cells and
   # puts them in the same order (heaviest stroke last, so the cell borders cannot
   # paint over the outline). Neither renderer names a `kind`.
+  # Square cells stay ONE `rectGrob`; a refined palette's rounded cells (the block
+  # outline and the header band) become polygon grobs tracing the SAME vertices
+  # `draw_base()` does, from the shared `rounded_rect_xy()`, so neither backend can
+  # round the card differently. Square first, rounded after, in `boxed_cells()`'s
+  # heavy-last order.
   boxed <- boxed_cells(cells)
-  if (nrow(boxed) > 0L) {
+  sq <- boxed[boxed$radius <= 0, , drop = FALSE]
+  rd <- boxed[boxed$radius > 0, , drop = FALSE]
+  if (nrow(sq) > 0L) {
     kids[[length(kids) + 1L]] <- grid::rectGrob(
-      x = grid::unit(boxed$xl, "in"),
-      y = grid::unit(boxed$yb, "in"),
-      width = grid::unit(boxed$xr - boxed$xl, "in"),
-      height = grid::unit(boxed$yt - boxed$yb, "in"),
+      x = grid::unit(sq$xl, "in"),
+      y = grid::unit(sq$yb, "in"),
+      width = grid::unit(sq$xr - sq$xl, "in"),
+      height = grid::unit(sq$yt - sq$yb, "in"),
       just = c("left", "bottom"),
-      gp = grid::gpar(fill = boxed$fill, col = boxed$border, lwd = boxed$lwd),
+      gp = grid::gpar(fill = sq$fill, col = sq$border, lwd = sq$lwd),
       name = "paintr.rect"
+    )
+  }
+  for (k in seq_len(nrow(rd))) {
+    p <- rounded_rect_xy(rd$xl[[k]], rd$yb[[k]], rd$xr[[k]], rd$yt[[k]], rd$radius[[k]])
+    kids[[length(kids) + 1L]] <- grid::polygonGrob(
+      x = grid::unit(p$x, "in"),
+      y = grid::unit(p$y, "in"),
+      gp = grid::gpar(fill = rd$fill[[k]], col = rd$border[[k]], lwd = max(rd$lwd[[k]], 1)),
+      name = paste0("paintr.round.", k)
     )
   }
 

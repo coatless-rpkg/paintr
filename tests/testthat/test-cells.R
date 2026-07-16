@@ -320,7 +320,7 @@ test_that("paint_cells() returns a BARE data frame with the exact columns", {
     c(
       "i", "j", "row", "col", "row_end", "col_end", "fmt_group", "sig", "insig",
       "head", "tail", "ink", "fill", "border", "lwd", "align", "fontface",
-      "size_rel", "dy_rel", "fit", "kind"
+      "size_rel", "dy_rel", "fit", "radius", "kind"
     )
   )
   expect_type(cells$i, "integer")
@@ -332,6 +332,7 @@ test_that("paint_cells() returns a BARE data frame with the exact columns", {
   expect_type(cells$size_rel, "double")
   expect_type(cells$dy_rel, "double")
   expect_type(cells$fit, "logical")
+  expect_type(cells$radius, "double")
   expect_type(cells$kind, "character")
   expect_true(all(cells$kind %in% c(
     "value", "outline", "rowlabel", "collabel",
@@ -1334,4 +1335,24 @@ test_that("the elision gap runs through the name lanes too", {
   expect_true(any(gap$col == 1L))
   expect_equal(sum(cells$kind == "rowlabel"), 3L)
   expect_equal(sum(cells$kind == "collabel"), 3L)
+})
+
+test_that("rounded_rect_xy() traces a closed polygon inside its bounds, capped", {
+  # r <= 0 is the plain rectangle, four corners, so a caller need not branch.
+  sq <- rounded_rect_xy(0, 0, 4, 2, 0)
+  expect_equal(sq$x, c(0, 4, 4, 0))
+  expect_equal(sq$y, c(0, 0, 2, 2))
+
+  # r > 0: every vertex sits within the rectangle, and the corners are inset by r.
+  p <- rounded_rect_xy(0, 0, 4, 2, 0.5, n = 8L)
+  expect_true(all(p$x >= 0 - 1e-9 & p$x <= 4 + 1e-9))
+  expect_true(all(p$y >= 0 - 1e-9 & p$y <= 2 + 1e-9))
+  # No vertex reaches a true corner: the nearest is r away along each edge.
+  expect_false(any(abs(p$x - 0) < 1e-9 & abs(p$y - 0) < 1e-9))
+  expect_gt(length(p$x), 4L)
+
+  # r is capped to half the shorter side, so a small box cannot invert.
+  cap <- rounded_rect_xy(0, 0, 2, 1, 10, n = 8L)
+  expect_true(all(cap$x >= -1e-9 & cap$x <= 2 + 1e-9))
+  expect_true(all(cap$y >= -1e-9 & cap$y <= 1 + 1e-9))
 })
