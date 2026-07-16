@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="173.205" height="200" viewBox="0 0 173.205 200" role="img" aria-label="paintr"><metadata><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/"><rdf:Description><dc:creator>RealFaviconGenerator</dc:creator><dc:source>https://realfavicongenerator.net</dc:source></rdf:Description></rdf:RDF></metadata><title>paintr</title><desc>Two inks on cream stock. A three-by-six matrix is printed in graphite and black, every cell holding its value. A fluorescent pink highlight is printed over row 2 and column 6, one plate out of register. The wordmark paintr IS row 2, one letter to a cell. Where the pink row crosses the pink column both inks hit 100 percent, and the letter r is knocked out of that solid cell in bare stock.</desc><defs>
+    <clipPath id="op-hex">
+      <path d="M86.6025 0 L173.205 50 L173.205 150 L86.6025 200 L0 150 L0 50 Z"></path>
+    </clipPath>
+
+    <!-- One rect per clipPath. Two rects in one clipPath would XOR and punch a hole
+         exactly where the pink row crosses the pink column. These are the pink plate's
+         footprint AFTER the slip: everything the pink ink covers. They are the SAME two
+         rects as the pink plate itself, and they are wiped by the same keyframe tracks,
+         so ink and overprint share one advancing edge and cannot drift apart. -->
+    <clipPath id="op-row"><rect class="clip-row" x="19.6" y="83" width="126" height="30"></rect></clipPath>
+    <clipPath id="op-col"><rect class="clip-col" x="124.6" y="53" width="21" height="90"></rect></clipPath>
+
+    <!-- The second impression is three plates, so each can be re-printed in its own
+         overprint colour where the pink ink already sits underneath it. -->
+
+    <!-- PLATE 1: the cell rules. Hairline. Light enough that they separate the letters of
+         row 2 without amputating the word. -->
+    <g id="op-rules">
+      <g fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M44.6 55V145 M65.6 55V145 M86.6 55V145 M107.6 55V145 M128.6 55V145"></path>
+        <path d="M23.6 85H149.6 M23.6 115H149.6"></path>
+      </g>
+    </g>
+
+    <!-- PLATE 2: the matrix border. Heavier, but still short of the full ink, so the one
+         solid cell stays the only solid mass in the grid. -->
+    <g id="op-frame">
+      <rect x="23.6" y="55" width="126" height="90" fill="none" stroke="currentColor" stroke-width="2.6"></rect>
+    </g>
+
+    <!-- PLATE 3: the ink. Values, wordmark, and the solid selected cell. -->
+    <g id="op-ink">
+      <rect x="128.6" y="85" width="21" height="30" fill="currentColor"></rect>
+
+      <g fill="currentColor" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="16" font-weight="400" letter-spacing="0" text-anchor="middle">
+        <text x="34.1" y="75.8">4</text>
+        <text x="76.1" y="75.8">9</text>
+        <text x="97.1" y="75.8">1</text>
+        <text x="118.1" y="75.8">7</text>
+        <text x="139.1" y="75.8">3</text>
+
+        <text x="34.1" y="135.8">6</text>
+        <text x="55.1" y="135.8">5</text>
+        <text x="76.1" y="135.8">8</text>
+        <text x="97.1" y="135.8">2</text>
+        <text x="118.1" y="135.8">4</text>
+        <text x="139.1" y="135.8">1</text>
+      </g>
+
+      <!-- The wordmark IS row 2, one glyph to a cell. The r is absent from this plate: it
+           is knocked out of the solid cell instead. -->
+      <g fill="currentColor" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="0" text-anchor="middle">
+        <text x="34.1" y="106.2">p</text>
+        <text x="55.1" y="106.2">a</text>
+        <text x="76.1" y="106.2">i</text>
+        <text x="97.1" y="106.2">n</text>
+        <text x="118.1" y="106.2">t</text>
+      </g>
+    </g>
+  </defs><g clip-path="url(#op-hex)">
+    <!-- the stock -->
+    <rect x="0" y="0" width="173.205" height="200" fill="#F3EDE0"></rect>
+
+    <!-- THE PAINT. Fluorescent pink, hung 4 left and 2 up of where it should be — the slip
+         is in the coordinates, not in a transform, so these rects ARE the clip rects above.
+         This is highlight_data(m, rows = 2, columns = 6), and it is the only thing on the
+         sticker that moves: it is rolled on, it holds, it is carried off. -->
+    <g class="op-paint">
+      <rect class="ink-row" x="19.6" y="83" width="126" height="30" fill="#FA4E96"></rect>
+      <rect class="ink-col" x="124.6" y="53" width="21" height="90" fill="#FA4E96"></rect>
+    </g>
+
+    <!-- THE DATA. Never animated, never faded, never absent. Every rule, every value, the
+         NA, the wordmark and the r are on the sheet at every frame of the cycle — a cell
+         that blinks empty is a cell that reads as missing, and this package exists to make
+         missingness visible, not to manufacture it. Note that not one of these elements
+         carries a class: there is no selector that could reach them. -->
+    <use xlink:href="#op-rules" href="#op-rules" color="#565460"></use>
+    <use xlink:href="#op-frame" href="#op-frame" color="#3C3A46"></use>
+    <use xlink:href="#op-ink" href="#op-ink" color="#1B1A21"></use>
+
+    <!-- paint_matrix() prints NA in the hot colour. It is a VALUE, not a highlight, so it
+         sits on the sheet from the first frame. Placed where the pink plate's slip leaves
+         it: optically centred in its cell, riding 2 units high. -->
+    <text x="55.1" y="73.8" fill="#FA4E96" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14" font-weight="700" letter-spacing="0" text-anchor="middle">NA</text>
+
+    <!-- THE OVERPRINT. The same three plates, reprinted in their overprint colours wherever
+         the ink now has pink underneath it. It develops immediately behind the roller,
+         because it is gated by the roller's own edge: #op-row and #op-col are wiped by the
+         same keyframes as the pink rects. p, a, i, n, t darken one at a time as the paint
+         reaches them. -->
+    <g class="op-over">
+      <g clip-path="url(#op-row)">
+        <use xlink:href="#op-rules" href="#op-rules" color="#541A39"></use>
+        <use xlink:href="#op-frame" href="#op-frame" color="#3B1229"></use>
+        <use xlink:href="#op-ink" href="#op-ink" color="#22101C"></use>
+      </g>
+      <g clip-path="url(#op-col)">
+        <use xlink:href="#op-rules" href="#op-rules" color="#541A39"></use>
+        <use xlink:href="#op-frame" href="#op-frame" color="#3B1229"></use>
+        <use xlink:href="#op-ink" href="#op-ink" color="#22101C"></use>
+      </g>
+    </g>
+
+    <!-- THE SIGNATURE. The r takes no ink at all, in the one cell that takes 100% of both.
+         Static: knocked out of the solid cell whether the paint is down or not, so the last
+         element of row 2 is never missing either. -->
+    <text x="139.1" y="106.2" fill="#F3EDE0" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="0" text-anchor="middle">r</text>
+
+    <!-- The die line. Stroke centred on a path inset by half its own width, so the outer
+         edge of the ink lands exactly on the cut. Not printed: cut. -->
+    <path d="M86.6025 4.6188 L169.205 52.3094 L169.205 147.6906 L86.6025 195.3812 L4 147.6906 L4 52.3094 Z" fill="none" stroke="#22101C" stroke-width="8"></path>
+  </g></svg>

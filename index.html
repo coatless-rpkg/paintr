@@ -6,19 +6,26 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Create Graphics of R Data Structures • paintr</title>
-<script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.4.2/css/all.min.css" rel="stylesheet">
-<link href="deps/font-awesome-6.4.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Create Graphics of R Data Structures">
-<meta name="description" content="Visualize the contents of different R data structures.">
-<meta property="og:description" content="Visualize the contents of different R data structures.">
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="icon" sizes="any" href="favicon.ico">
+<link rel="manifest" href="site.webmanifest">
+<script src="lightswitch.js"></script><script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
+<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><link href="extra.css" rel="stylesheet">
+<meta property="og:title" content="Create Graphics of R Data Structures">
+<meta name="description" content="Draws teaching diagrams of the contents of common R data structures -- vectors, matrices, data frames, lists, and arrays -- so their shape and values can be read at a glance. Two backends render the same picture: base R graphics through the paint_*() functions and ggplot2 through the gpaint_*() functions. The label under each cell is the expression you would type to reach that cell, so every diagram doubles as a lesson in how to subset and index the object it draws.">
+<meta property="og:description" content="Draws teaching diagrams of the contents of common R data structures -- vectors, matrices, data frames, lists, and arrays -- so their shape and values can be read at a glance. Two backends render the same picture: base R graphics through the paint_*() functions and ggplot2 through the gpaint_*() functions. The label under each cell is the expression you would type to reach that cell, so every diagram doubles as a lesson in how to subset and index the object it draws.">
+<meta property="og:image" content="https://r-pkg.thecoatlessprofessor.com/paintr/logo.svg">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
-    <nav class="navbar navbar-expand-lg fixed-top bg-light" data-bs-theme="light" aria-label="Site navigation"><div class="container">
+    <nav class="navbar navbar-expand-lg fixed-top " aria-label="Site navigation"><div class="container">
 
     <a class="navbar-brand me-2" href="index.html">paintr</a>
 
@@ -31,7 +38,16 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
+<li class="nav-item"><a class="nav-link" href="articles/paintr.html">Get started</a></li>
 <li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
+<li><a class="dropdown-item" href="articles/base-vs-ggplot2.html">Base graphics and ggplot2</a></li>
+    <li><a class="dropdown-item" href="articles/highlighting.html">Highlighting cells</a></li>
+    <li><a class="dropdown-item" href="articles/teaching.html">Teaching with paintr</a></li>
+  </ul>
+</li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
@@ -39,6 +55,14 @@
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="search.json">
 </form></li>
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/coatless-rpkg/paintr/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
+  <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch">
+<li><button class="dropdown-item" data-bs-theme-value="light"><span class="fa fa-sun"></span> Light</button></li>
+    <li><button class="dropdown-item" data-bs-theme-value="dark"><span class="fa fa-moon"></span> Dark</button></li>
+    <li><button class="dropdown-item" data-bs-theme-value="auto"><span class="fa fa-adjust"></span> Auto</button></li>
+  </ul>
+</li>
       </ul>
 </div>
 
@@ -47,11 +71,14 @@
 </nav><div class="container template-home">
 <div class="row">
   <main id="main" class="col-md-9"><div class="section level1">
-<div class="page-header"><h1 id="paintr">paintr<a class="anchor" aria-label="anchor" href="#paintr"></a>
-</h1></div>
+<div class="page-header">
+<img src="logo.svg" class="logo" alt=""><h1 id="paintr-">paintr <a href="https://r-pkg.thecoatlessprofessor.com/paintr/" alt="paintr"><picture><source media="(prefers-color-scheme: dark)" srcset="reference/figures/paintr-logo-dark-animated.svg"><img src="reference/figures/paintr-logo-light-animated.svg" width="170" align="right" alt="A hexagonal logo for paintr: a matrix of values whose second row spells 'paintr', one letter to a cell, with a fluorescent pink highlight rolled over that row and the last column."></source></picture></a>
+<a class="anchor" aria-label="anchor" href="#paintr-"></a>
+</h1>
+</div>
 <!-- badges: start -->
 
-<p>The goal of <code>paintr</code> is to draw different <em>R</em> data structures on graphs.</p>
+<p>The goal of <code>paintr</code> is to draw different <em>R</em> data structures as pictures. Each value sits in its own cell, and under each cell <code>paintr</code> writes <strong>the expression you would type to reach it</strong> – so the drawing and the code are the same object. It is built for teaching, where the hard part is helping someone <em>see</em> the shape of the thing they are working with.</p>
 <blockquote>
 <p>[!NOTE]</p>
 <p>A previous version of the package was called <code>drawr</code>; however, another package with the same name was published on CRAN. As a result, the package was renamed to <code>paintr</code>.</p>
@@ -59,7 +86,7 @@
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>You can install the development version of drawr from <a href="https://github.com/" class="external-link">GitHub</a> with:</p>
+<p>You can install the development version of <code>paintr</code> from <a href="https://github.com/" class="external-link">GitHub</a> with:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
 <span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"coatless-rpkg/paintr"</span><span class="op">)</span></span></code></pre></div>
@@ -67,24 +94,34 @@
 <div class="section level2">
 <h2 id="design">Design<a class="anchor" aria-label="anchor" href="#design"></a>
 </h2>
-<p>The package is designed to take advantage of base R graphics alongside <code>ggplot2</code>. We’re providing two different implementations for each system under the naming scheme of:</p>
+<p>The package takes advantage of base R graphics alongside <code>ggplot2</code>. Every structure has two painters, under the naming scheme:</p>
 <ul>
 <li>
-<code>paint_*()</code>: base R graphics</li>
+<code>paint_*()</code>: base R graphics, drawn straight to the device.</li>
 <li>
-<code>gpaint_*()</code>: <code>ggplot2</code>
-</li>
+<code>gpaint_*()</code>: <code>ggplot2</code>, returning a ggplot object you can print or save.</li>
 </ul>
+<p><code>paintr</code> draws five structures: <strong>vectors</strong>, <strong>matrices</strong>, <strong>data frames</strong>, <strong>lists</strong>, and <strong>arrays</strong>.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/coatless-rpkg/paintr" class="external-link">paintr</a></span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="example">Example<a class="anchor" aria-label="anchor" href="#example"></a>
+<h2 id="vectors">Vectors<a class="anchor" aria-label="anchor" href="#vectors"></a>
 </h2>
-<p>Take for instance we have a matrix that looks like so:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<p>A vector is a one-dimensional run of values, and that is how it draws. Under each cell is the expression you would type to reach it: <code>[3]</code> for the third value. Give the vector names and the label becomes the named accessor, <code>["mon"]</code>, because <code>x["mon"]</code> is now how you reach that value.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/paint-vector.html">paint_vector</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>mon <span class="op">=</span> <span class="fl">12</span>, tue <span class="op">=</span> <span class="fl">19</span>, wed <span class="op">=</span> <span class="fl">3</span>, thu <span class="op">=</span> <span class="fl">8</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><img src="reference/figures/README-vector-example-1.png" alt="A named numeric vector shown as one horizontal row of four cells holding 12, 19, 3, and 8, with the named accessor label for each day written under its cell: mon, tue, wed, and thu." width="100%"></p>
+</div>
+<div class="section level2">
+<h2 id="matrices">Matrices<a class="anchor" aria-label="anchor" href="#matrices"></a>
+</h2>
+<p>A matrix is a grid, so it draws as one. Take a matrix with a few awkward values:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mat_3x5</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>   <span class="fl">1</span>, <span class="cn">NA</span>,    <span class="fl">3</span>,   <span class="fl">4</span>,  <span class="cn">NaN</span>, </span>
-<span>  <span class="cn">NA</span>,  <span class="fl">7</span>,    <span class="fl">8</span>,  <span class="op">-</span><span class="fl">9</span>,  <span class="fl">10</span>, </span>
+<span>   <span class="fl">1</span>, <span class="cn">NA</span>,    <span class="fl">3</span>,   <span class="fl">4</span>,  <span class="cn">NaN</span>,</span>
+<span>  <span class="cn">NA</span>,  <span class="fl">7</span>,    <span class="fl">8</span>,  <span class="op">-</span><span class="fl">9</span>,  <span class="fl">10</span>,</span>
 <span> <span class="op">-</span><span class="fl">11</span>, <span class="fl">12</span>, <span class="op">-</span><span class="cn">Inf</span>, <span class="op">-</span><span class="fl">14</span>,  <span class="cn">NA</span></span>
 <span> <span class="op">)</span>,</span>
 <span> ncol <span class="op">=</span> <span class="fl">5</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
@@ -94,37 +131,63 @@
 <span><span class="co">#&gt; [1,]    1   NA    3    4  NaN</span></span>
 <span><span class="co">#&gt; [2,]   NA    7    8   -9   10</span></span>
 <span><span class="co">#&gt; [3,]  -11   12 -Inf  -14   NA</span></span></code></pre></div>
-<p>What if we wanted to see the contents laid out with their indices or specific cells highlighted?</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Load the library</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/coatless-rpkg/paintr" class="external-link">paintr</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Graphic of matrix data structure using base R graphics</span></span>
-<span><span class="fu"><a href="reference/paint-matrix.html">paint_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span><span class="op">)</span></span></code></pre></div>
-<p><img src="reference/figures/README-base-example-1.png" width="100%"></p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<p>We can lay out its contents, label the cells with their <code>[row, column]</code> subscript, or highlight the cells that meet a condition – a comparison <em>is</em> a highlight mask.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Show the cell indices</span></span>
 <span><span class="fu"><a href="reference/paint-matrix.html">paint_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>, show_indices <span class="op">=</span> <span class="st">"cell"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="reference/figures/README-base-example-2.png" width="100%"></p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Show all indices</span></span>
-<span><span class="fu"><a href="reference/paint-matrix.html">paint_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>, show_indices <span class="op">=</span> <span class="st">"all"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="reference/figures/README-base-example-3.png" width="100%"></p>
+<p><img src="reference/figures/README-base-example-1.png" alt="A 3 by 5 matrix shown as a grid of cells holding its values, including NA, NaN, and -Inf, with each cell labeled below by its [row, column] subscript." width="100%"></p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Highlight cells over a specific value</span></span>
 <span><span class="fu"><a href="reference/paint-matrix.html">paint_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>, highlight_area <span class="op">=</span> <span class="va">mat_3x5</span> <span class="op">&gt;</span> <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
-<p><img src="reference/figures/README-base-example-4.png" width="100%"></p>
-<p>We can achieve similar results with the <code>ggplot2</code> function.</p>
+<p><img src="reference/figures/README-base-example-2.png" alt="The same 3 by 5 matrix grid with the cells whose value exceeds 4 highlighted, using the comparison mat_3x5 greater than 4 as a highlight mask." width="100%"></p>
+<p>The same picture is available with <code>ggplot2</code>:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Graphic of matrix data structure using base R graphics</span></span>
-<span><span class="fu"><a href="reference/paint-matrix.html">gpaint_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span><span class="op">)</span></span></code></pre></div>
-<p><img src="reference/figures/README-ggplot2-example-1.png" width="100%"></p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Highlight cells in specific columns</span></span>
-<span><span class="fu"><a href="reference/paint-matrix.html">gpaint_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>, </span>
+<code class="sourceCode R"><span><span class="fu"><a href="reference/paint-matrix.html">gpaint_matrix</a></span><span class="op">(</span><span class="va">mat_3x5</span>,</span>
 <span>             show_indices <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"row"</span>, <span class="st">"column"</span><span class="op">)</span>,</span>
 <span>             highlight_area <span class="op">=</span> <span class="fu"><a href="reference/highlight-data.html">highlight_columns</a></span><span class="op">(</span><span class="va">mat_3x5</span>, columns <span class="op">=</span> <span class="fl">2</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p><img src="reference/figures/README-ggplot2-example-2.png" width="100%"></p>
+<p><img src="reference/figures/README-ggplot2-example-1.png" alt="A ggplot2 rendering of the same 3 by 5 matrix, with row indices in a left gutter and column indices along the top, and columns 2 through 4 highlighted." width="100%"></p>
+</div>
+<div class="section level2">
+<h2 id="data-frames">Data frames<a class="anchor" aria-label="anchor" href="#data-frames"></a>
+</h2>
+<p>A data frame gets the richest default picture: a header of column names, the type of each column beneath it, and a row-name gutter when the row names are meaningful. Numbers show three significant figures, with trailing digits in grey.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/paint-data-frame.html">paint_data_frame</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">mtcars</span><span class="op">[</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><img src="reference/figures/README-data-frame-example-1.png" alt="The first six rows of the first five columns of mtcars drawn as a data frame: a header of column names, the type of each column beneath it, a row-name gutter, and numeric values shown to three significant figures." width="100%"></p>
+</div>
+<div class="section level2">
+<h2 id="lists">Lists<a class="anchor" aria-label="anchor" href="#lists"></a>
+</h2>
+<p>A list is the flexible container: its elements can differ in length and type, so <code>paintr</code> draws each element as a column. A data frame is just a list whose elements share a length – break one length and the rectangle breaks with it.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/paint-list.html">paint_list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, tags <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"a"</span>, <span class="st">"b"</span><span class="op">)</span>, ok <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">TRUE</span>, <span class="cn">FALSE</span>, <span class="cn">NA</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><img src="reference/figures/README-list-example-1.png" alt="A list drawn with each element as its own column: id holding 1, 2, and 3; tags holding the strings a and b; and ok holding TRUE, FALSE, and NA, so the columns differ in length and type." width="100%"></p>
+</div>
+<div class="section level2">
+<h2 id="arrays">Arrays<a class="anchor" aria-label="anchor" href="#arrays"></a>
+</h2>
+<p>An array of three or more dimensions is a stack of matrices, and <code><a href="reference/paint-array.html">paint_array()</a></code> lays that stack out as a row of blocks sharing one font size. The label under a cell is its full subscript, a genuine n-dimensional index.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/paint-array.html">paint_array</a></span><span class="op">(</span><span class="va">HairEyeColor</span><span class="op">)</span></span></code></pre></div>
+<p><img src="reference/figures/README-array-example-1.png" alt="The HairEyeColor array drawn as a row of matrix blocks sharing one font size, one block per layer of the third dimension, with each cell labeled below by its full n-dimensional subscript." width="100%"></p>
+</div>
+<div class="section level2">
+<h2 id="learn-more">Learn more<a class="anchor" aria-label="anchor" href="#learn-more"></a>
+</h2>
+<p>Four vignettes go deeper:</p>
+<ul>
+<li>
+<strong>Getting started with paintr</strong> – the full tour of all five structures.</li>
+<li>
+<strong>Highlighting cells</strong> – spotlight rows, columns, and individual cells.</li>
+<li>
+<strong>Base graphics and ggplot2</strong> – the <code>paint_</code> and <code>gpaint_</code> split, and when each backend pays off.</li>
+<li>
+<strong>Teaching with paintr</strong> – putting these pictures to work in lessons.</li>
+</ul>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/browseVignettes.html" class="external-link">browseVignettes</a></span><span class="op">(</span><span class="st">"paintr"</span><span class="op">)</span></span></code></pre></div>
+<p>Full documentation lives at <a href="https://r-pkg.thecoatlessprofessor.com/paintr/" class="uri">https://r-pkg.thecoatlessprofessor.com/paintr/</a>.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">
@@ -153,7 +216,7 @@
 <div class="developers">
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
-<li>James Joseph Balamuta <br><small class="roles"> Author, maintainer </small> <a href="https://orcid.org/0000-0003-2826-8458" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a> </li>
+<li>James Joseph Balamuta <br><small class="roles"> Author, maintainer </small> <a href="https://orcid.org/0000-0003-2826-8458" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
 </ul>
 </div>
 
@@ -173,7 +236,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

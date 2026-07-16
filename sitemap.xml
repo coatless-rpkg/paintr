@@ -1,12 +1,22 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
-<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/404.html</loc></url>
-<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/authors.html</loc></url>
-<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/index.html</loc></url>
-<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/news/index.html</loc></url>
-<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/highlight-data.html</loc></url>
-<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/index.html</loc></url>
-<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/paint-matrix.html</loc></url>
-<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/paint-vector.html</loc></url>
-<url><loc>http://r-pkg.thecoatlessprofessor.com/drawr/reference/paintr-package.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/404.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/articles/base-vs-ggplot2.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/articles/highlighting.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/articles/index.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/articles/paintr.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/articles/teaching.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/authors.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/index.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/news/index.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/reference/highlight-data.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/reference/index.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/reference/paint-array.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/reference/paint-data-frame.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/reference/paint-list.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/reference/paint-matrix.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/reference/paint-vector.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/reference/paint_format.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/reference/paint_size.html</loc></url>
+<url><loc>https://r-pkg.thecoatlessprofessor.com/paintr/reference/paintr-package.html</loc></url>
 </urlset>
 

@@ -1,0 +1,22 @@
+/* The hex on the pkgdown home page.
+ *
+ * pkgdown injects its own <img class="logo"> (from man/figures/logo.svg) ahead of the
+ * H1, and the README already carries a <picture> that is both animated and theme-aware.
+ * Two hexes is one hex too many, so the injected one is hidden and the README's is the
+ * mark you see. logo.svg still earns its keep: it is the og:image for social cards and
+ * the source for pkgdown::build_favicons(), neither of which needs a visible element.
+ */
+.template-home .page-header img.logo {
+  display: none;
+}
+
+/* The README's <picture> follows the OS colour scheme. The light switch in the navbar
+ * is a manual override, which Bootstrap signals with data-bs-theme — so follow that
+ * too, and flipping the switch swaps the sticker for its dark-stock cut.
+ *
+ * If a browser ignores `content` on a replaced element, the light sticker simply stays,
+ * and a cream hex still reads perfectly well on a dark page. It degrades to "fine".
+ */
+[data-bs-theme="dark"] img[src$="paintr-logo-light-animated.svg"] {
+  content: url("reference/figures/paintr-logo-dark-animated.svg");
+}

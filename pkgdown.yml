@@ -1,8 +1,12 @@
-pandoc: 3.1.11
-pkgdown: 2.1.0
+pandoc: 3.8.3
+pkgdown: 2.2.1
 pkgdown_sha: ~
-articles: {}
-last_built: 2024-09-13T06:14Z
+articles:
+  base-vs-ggplot2: base-vs-ggplot2.html
+  highlighting: highlighting.html
+  paintr: paintr.html
+  teaching: teaching.html
+last_built: 2026-07-16T02:29Z
 urls:
-  reference: http://r-pkg.thecoatlessprofessor.com/drawr/reference
-  article: http://r-pkg.thecoatlessprofessor.com/drawr/articles
+  reference: https://r-pkg.thecoatlessprofessor.com/paintr/reference
+  article: https://r-pkg.thecoatlessprofessor.com/paintr/articles
