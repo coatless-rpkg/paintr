@@ -72,7 +72,8 @@ test_that("resolve_palette() accepts a custom list and defaults header/rule", {
   )
   got <- resolve_palette(custom)
   expect_identical(got$value, "#111111")
-  # header/rule are for a later change; they default to grid/outline here.
+  # A custom list need not carry `header`/`rule`: the band falls back to the grid
+  # tint and `rule` to the outline, so neither role forces every list to grow.
   expect_identical(got$rule, custom$outline)
   expect_identical(got$header, custom$grid)
 

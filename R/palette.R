@@ -22,9 +22,9 @@
 #' token it replaces, so a palette never has to know that "black" was the token --
 #' it only has to say what a value should look like.
 #'
-#' `header` and `rule` are carried but unused by this change; they are the roles a
-#' later banded-header layer will need, and defaulting them here keeps that change
-#' from having to touch every palette definition.
+#' `header` is the tint of the refined header band; `rule` is carried but unused,
+#' a role a later change will need, and defaulting it here keeps that change from
+#' having to touch every palette definition.
 #'
 #' @keywords internal
 #' @noRd
@@ -85,8 +85,9 @@ resolve_palette <- function(palette = NULL) {
         paste(missing, collapse = ", "), "."
       )
     }
-    # `header` and `rule` are for a later change; default them so a custom list
-    # need not carry a colour for a role nothing yet draws.
+    # `header` tints the refined band; `rule` is for a later change. Default them
+    # so a custom list need not carry a colour for either -- a band falls back to
+    # the grid tint, which is a safe, quiet default.
     if (is.null(palette$rule)) {
       palette$rule <- palette$outline
     }
@@ -129,7 +130,7 @@ resolve_palette <- function(palette = NULL) {
 #'   * `border`: `"black"` at `lwd >= 1.5` is the heavy block OUTLINE; `"black"`
 #'     at `lwd < 1.5` is the inner cell GRID; `NA` is no border.
 #'   * `fill`: `"white"` is the cell background; `"lemonchiffon"` the highlight;
-#'     `NA` is none.
+#'     `"headerband"` the refined header tint (styled tables only); `NA` is none.
 #'
 #' `%in%` for the ink comparisons so an `NA` ink -- there is none today, but the
 #' column is nullable -- can never poison a mask; `!is.na` guards `border` and
@@ -176,6 +177,10 @@ apply_palette <- function(cells, pal) {
   new_fill <- fill
   new_fill[!is.na(fill) & fill == "white"] <- pal$bg
   new_fill[!is.na(fill) & fill == "lemonchiffon"] <- pal$highlight
+  # The refined header band. Only a styled palette's cell table carries this token
+  # (`paint_cells(styled = TRUE)` emits it, and classic reaches here with a NULL
+  # `pal` and returns early), so there is nothing to map on a classic picture.
+  new_fill[!is.na(fill) & fill == "headerband"] <- pal$header
   cells$fill <- new_fill
 
   cells

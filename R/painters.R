@@ -88,6 +88,12 @@ painter_prep <- function(data,
 
   opts <- paint_opts(family = family, fontsize = fontsize, palette = palette)
 
+  # The refined header structure (bold names, a unified header card, a tinted
+  # band) is the look of a non-classic palette. `paint_opts()` resolves `classic`
+  # to a NULL palette, so a NULL palette IS classic -- and classic takes none of
+  # the refinement, leaving its cell table byte-identical to the original.
+  styled <- !is.null(opts$palette)
+
   cells <- paint_cells(
     data = data,
     highlight_area = highlight_area,
@@ -111,6 +117,7 @@ painter_prep <- function(data,
     slices_per_row = slices_per_row,
     show_all = show_all,
     gap = gap,
+    styled = styled,
     ellipsis = ellipsis
   )
 

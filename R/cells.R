@@ -347,6 +347,9 @@ grid_lanes <- function(data, show_dimnames, idx_row, idx_col) {
 #'   Negative is downwards. `0` -- dead centre -- for every kind but
 #'   `"cellindex"`, which shares its `(row, col)` with a value and has to sit
 #'   under it.
+#' @param fontface grid's gpar vocabulary -- `"plain"` (the default, and every
+#'   existing cell) or `"bold"`. The renderers map it to base's font 1/2. Only the
+#'   refined header (the bold column names of a styled palette) sets `"bold"`.
 #'
 #' @return A bare data frame.
 #'
@@ -359,7 +362,8 @@ cell_rows <- function(kind, row, col,
                       sig = "", insig = "", head = NULL, tail = "",
                       ink = "black", fill = NA_character_, border = NA_character_,
                       lwd = 1,
-                      align = "center", size_rel = 1, dy_rel = 0, fit = TRUE) {
+                      align = "center", fontface = "plain",
+                      size_rel = 1, dy_rel = 0, fit = TRUE) {
   n <- max(length(row), length(col))
   if (is.null(head)) {
     head <- sig
@@ -390,6 +394,7 @@ cell_rows <- function(kind, row, col,
     border = rep_len(as.character(border), n),
     lwd = rep_len(as.double(lwd), n),
     align = rep_len(as.character(align), n),
+    fontface = rep_len(as.character(fontface), n),
     size_rel = rep_len(as.double(size_rel), n),
     dy_rel = rep_len(as.double(dy_rel), n),
     fit = rep_len(as.logical(fit), n),
@@ -944,10 +949,17 @@ list_header <- function(nms, j, max_chars = 12L, ellipsis = "...") {
 #'   grid; a positive whole number wraps them that many blocks to a row. See
 #'   [block_layout()].
 #' @param show_all Skip elision entirely.
+#' @param styled The refined header structure of a non-classic palette: the
+#'   column-name cells draw in bold, the block outline rises to enclose the header
+#'   (names + type) rows as one card, and a single `"headerband"` cell tints that
+#'   region. `FALSE` (the default, and classic) takes none of it, so its cell table
+#'   is byte-identical to before this layer existed. Meaningful only where a header
+#'   and a block outline are drawn -- data frames and rectangular, un-gapped lists;
+#'   a matrix, vector or array has no header and is untouched.
 #'
 #' @return A bare data frame with one row per drawn cell and the columns `i`, `j`,
 #'   `row`, `col`, `fmt_group`, `sig`, `insig`, `head`, `tail`, `ink`, `fill`,
-#'   `border`, `lwd`, `align`, `size_rel`, `dy_rel`, `fit`, `kind`; plus the
+#'   `border`, `lwd`, `align`, `fontface`, `size_rel`, `dy_rel`, `fit`, `kind`; plus the
 #'   attributes `n_row`, `n_col` (the drawn extent, in cells), `note` (the
 #'   "# 18 more rows" string, or `NA`), `hidden_rows` and `hidden_cols`.
 #'
@@ -976,6 +988,7 @@ paint_cells <- function(data,
                         slices_per_row = NULL,
                         show_all = FALSE,
                         gap = 0,
+                        styled = FALSE,
                         ellipsis = "...") {
   layout <- match.arg(layout)
   subtle_digits <- match.arg(subtle_digits)
@@ -1419,13 +1432,47 @@ paint_cells <- function(data,
   # bag of independent columns, each in its own box -- and the block outline is
   # withheld. `gap == 0` leaves this untouched: the rectangle still closes when every
   # column is the same depth, exactly as before.
-  outline <- if (all(col_len == col_len[[1L]]) && !list_gap) {
+  #
+  # THE REFINED HEADER CARD is a styled-palette flourish, and `classic` passes
+  # `styled = FALSE` so every branch below collapses to the original outline with
+  # no band -- byte for byte. When a header is drawn (`header_on`), the outline
+  # rises from the first value row up to `header_row`, so the card encloses the
+  # header (names + type) rows and the body as ONE rectangle; the row-label gutter
+  # stays outside it (its column is `lab_cols`, and the card starts at
+  # `lab_cols + 1`). `header_row` is the topmost header/type lane -- it sits above
+  # `type_row` whenever both are on -- and `lab_rows` is the lane just above the
+  # first value row, so the header region is exactly `header_row..lab_rows`.
+  #
+  # A matrix, vector or array has no header (`header_on` is FALSE), so it keeps the
+  # original outline and gets no band. A ragged or gapped list draws no outline at
+  # all (`rect_block` is FALSE), so it gets no band either: the band hangs off the
+  # SAME condition as the outline it fills.
+  header_card <- styled && header_on
+  rect_block <- all(col_len == col_len[[1L]]) && !list_gap
+  outline <- if (rect_block) {
     cell_rows(
       kind = "outline",
-      row = lab_rows + 1L, col = lab_cols + 1L,
+      row = if (header_card) header_row else lab_rows + 1L,
+      col = lab_cols + 1L,
       row_end = n_row, col_end = n_col,
       border = "black", lwd = outline_lwd, align = "center",
       fit = FALSE
+    )
+  } else {
+    NULL
+  }
+
+  # The tinted header band: one filled cell behind the header region, spanning the
+  # card's columns. Purely additive (classic never emits it) and empty of text, so
+  # `inked_cells()` draws nothing for it and `boxed_cells()` draws it as a rect.
+  # `lwd = 0` sorts it FIRST, so the outline and the header text land on top.
+  headerband <- if (header_card && rect_block) {
+    cell_rows(
+      kind = "headerband",
+      row = header_row, col = lab_cols + 1L,
+      row_end = lab_rows, col_end = n_col,
+      fill = "headerband", border = NA_character_, lwd = 0,
+      align = "center", fit = FALSE
     )
   } else {
     NULL
@@ -1499,7 +1546,10 @@ paint_cells <- function(data,
       } else {
         truncate_chr(names(data)[kj], max_chars, ellipsis)
       },
-      ink = "black", align = name_align, size_rel = 0.9
+      ink = "black", align = name_align,
+      # The refined header draws its column names in bold; classic stays plain.
+      fontface = if (styled) "bold" else "plain",
+      size_rel = 0.9
     )
   }
 
@@ -1652,7 +1702,7 @@ paint_cells <- function(data,
     gap_chunk <- gap_cells(grd$row, grd$col, ellipsis)
   }
 
-  out <- rbind(outline, collabel, header, type, rowlabel, value, cellindex, gap_chunk)
+  out <- rbind(outline, headerband, collabel, header, type, rowlabel, value, cellindex, gap_chunk)
   rownames(out) <- NULL
 
   # What is hidden DOWN the drawing. A rectangle hides the same rows in every

@@ -319,8 +319,8 @@ test_that("paint_cells() returns a BARE data frame with the exact columns", {
     names(cells),
     c(
       "i", "j", "row", "col", "row_end", "col_end", "fmt_group", "sig", "insig",
-      "head", "tail", "ink", "fill", "border", "lwd", "align", "size_rel", "dy_rel",
-      "fit", "kind"
+      "head", "tail", "ink", "fill", "border", "lwd", "align", "fontface",
+      "size_rel", "dy_rel", "fit", "kind"
     )
   )
   expect_type(cells$i, "integer")
@@ -335,7 +335,7 @@ test_that("paint_cells() returns a BARE data frame with the exact columns", {
   expect_type(cells$kind, "character")
   expect_true(all(cells$kind %in% c(
     "value", "outline", "rowlabel", "collabel",
-    "header", "type", "cellindex", "ellipsis"
+    "header", "type", "cellindex", "ellipsis", "headerband"
   )))
 })
 

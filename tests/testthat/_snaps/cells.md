@@ -22,25 +22,25 @@
       16  1  2   2   3       2       3        NA [1, 2]       [1, 2]      grey50
       17  2  2   3   3       3       3        NA [2, 2]       [2, 2]      grey50
       18  3  2   4   3       4       3        NA [3, 2]       [3, 2]      grey50
-          fill border lwd   align size_rel dy_rel   fit      kind
-      1   <NA>  black   2  center      1.0    0.0 FALSE   outline
-      2   <NA>   <NA>   1  center      0.8    0.0  TRUE  collabel
-      3   <NA>   <NA>   1  center      0.8    0.0  TRUE  collabel
-      4   <NA>   <NA>   1   right      0.8    0.0  TRUE  rowlabel
-      5   <NA>   <NA>   1   right      0.8    0.0  TRUE  rowlabel
-      6   <NA>   <NA>   1   right      0.8    0.0  TRUE  rowlabel
-      7  white  black   1 decimal      1.0    0.0  TRUE     value
-      8  white  black   1 decimal      1.0    0.0  TRUE     value
-      9  white  black   1 decimal      1.0    0.0  TRUE     value
-      10 white  black   1 decimal      1.0    0.0  TRUE     value
-      11 white  black   1 decimal      1.0    0.0  TRUE     value
-      12 white  black   1 decimal      1.0    0.0  TRUE     value
-      13  <NA>   <NA>   1  center      0.7   -0.3  TRUE cellindex
-      14  <NA>   <NA>   1  center      0.7   -0.3  TRUE cellindex
-      15  <NA>   <NA>   1  center      0.7   -0.3  TRUE cellindex
-      16  <NA>   <NA>   1  center      0.7   -0.3  TRUE cellindex
-      17  <NA>   <NA>   1  center      0.7   -0.3  TRUE cellindex
-      18  <NA>   <NA>   1  center      0.7   -0.3  TRUE cellindex
+          fill border lwd   align fontface size_rel dy_rel   fit      kind
+      1   <NA>  black   2  center    plain      1.0    0.0 FALSE   outline
+      2   <NA>   <NA>   1  center    plain      0.8    0.0  TRUE  collabel
+      3   <NA>   <NA>   1  center    plain      0.8    0.0  TRUE  collabel
+      4   <NA>   <NA>   1   right    plain      0.8    0.0  TRUE  rowlabel
+      5   <NA>   <NA>   1   right    plain      0.8    0.0  TRUE  rowlabel
+      6   <NA>   <NA>   1   right    plain      0.8    0.0  TRUE  rowlabel
+      7  white  black   1 decimal    plain      1.0    0.0  TRUE     value
+      8  white  black   1 decimal    plain      1.0    0.0  TRUE     value
+      9  white  black   1 decimal    plain      1.0    0.0  TRUE     value
+      10 white  black   1 decimal    plain      1.0    0.0  TRUE     value
+      11 white  black   1 decimal    plain      1.0    0.0  TRUE     value
+      12 white  black   1 decimal    plain      1.0    0.0  TRUE     value
+      13  <NA>   <NA>   1  center    plain      0.7   -0.3  TRUE cellindex
+      14  <NA>   <NA>   1  center    plain      0.7   -0.3  TRUE cellindex
+      15  <NA>   <NA>   1  center    plain      0.7   -0.3  TRUE cellindex
+      16  <NA>   <NA>   1  center    plain      0.7   -0.3  TRUE cellindex
+      17  <NA>   <NA>   1  center    plain      0.7   -0.3  TRUE cellindex
+      18  <NA>   <NA>   1  center    plain      0.7   -0.3  TRUE cellindex
 
 # the cell table snapshots: a data frame with names and types
 
@@ -61,20 +61,20 @@
       11  2  2   4   2       4       2         2    bb          bb       black white
       12  1  3   3   3       3       3         3  TRUE        TRUE       black white
       13  2  3   4   3       4       3         3    NA          NA         red white
-         border lwd   align size_rel dy_rel   fit    kind
-      1   black   2  center      1.0      0 FALSE outline
-      2    <NA>   1  center      0.9      0  TRUE  header
-      3    <NA>   1  center      0.9      0  TRUE  header
-      4    <NA>   1  center      0.9      0  TRUE  header
-      5    <NA>   1  center      0.8      0  TRUE    type
-      6    <NA>   1  center      0.8      0  TRUE    type
-      7    <NA>   1  center      0.8      0  TRUE    type
-      8   black   1 decimal      1.0      0  TRUE   value
-      9   black   1 decimal      1.0      0  TRUE   value
-      10  black   1    left      1.0      0  TRUE   value
-      11  black   1    left      1.0      0  TRUE   value
-      12  black   1   right      1.0      0  TRUE   value
-      13  black   1   right      1.0      0  TRUE   value
+         border lwd   align fontface size_rel dy_rel   fit    kind
+      1   black   2  center    plain      1.0      0 FALSE outline
+      2    <NA>   1  center    plain      0.9      0  TRUE  header
+      3    <NA>   1  center    plain      0.9      0  TRUE  header
+      4    <NA>   1  center    plain      0.9      0  TRUE  header
+      5    <NA>   1  center    plain      0.8      0  TRUE    type
+      6    <NA>   1  center    plain      0.8      0  TRUE    type
+      7    <NA>   1  center    plain      0.8      0  TRUE    type
+      8   black   1 decimal    plain      1.0      0  TRUE   value
+      9   black   1 decimal    plain      1.0      0  TRUE   value
+      10  black   1    left    plain      1.0      0  TRUE   value
+      11  black   1    left    plain      1.0      0  TRUE   value
+      12  black   1   right    plain      1.0      0  TRUE   value
+      13  black   1   right    plain      1.0      0  TRUE   value
 
 # the cell table snapshots: an elided matrix
 
@@ -99,24 +99,24 @@
       15 NA NA   3   3       3       3        NA ...        ...      grey50  <NA>
       16 NA NA   4   3       4       3        NA ...        ...      grey50  <NA>
       17 NA NA   3   4       3       4        NA ...        ...      grey50  <NA>
-         border lwd   align size_rel dy_rel   fit     kind
-      1   black   2  center        1      0 FALSE  outline
-      2   black   1 decimal        1      0  TRUE    value
-      3   black   1 decimal        1      0  TRUE    value
-      4   black   1 decimal        1      0  TRUE    value
-      5   black   1 decimal        1      0  TRUE    value
-      6   black   1 decimal        1      0  TRUE    value
-      7   black   1 decimal        1      0  TRUE    value
-      8   black   1 decimal        1      0  TRUE    value
-      9   black   1 decimal        1      0  TRUE    value
-      10  black   1 decimal        1      0  TRUE    value
-      11   <NA>   1  center        1      0 FALSE ellipsis
-      12   <NA>   1  center        1      0 FALSE ellipsis
-      13   <NA>   1  center        1      0 FALSE ellipsis
-      14   <NA>   1  center        1      0 FALSE ellipsis
-      15   <NA>   1  center        1      0 FALSE ellipsis
-      16   <NA>   1  center        1      0 FALSE ellipsis
-      17   <NA>   1  center        1      0 FALSE ellipsis
+         border lwd   align fontface size_rel dy_rel   fit     kind
+      1   black   2  center    plain        1      0 FALSE  outline
+      2   black   1 decimal    plain        1      0  TRUE    value
+      3   black   1 decimal    plain        1      0  TRUE    value
+      4   black   1 decimal    plain        1      0  TRUE    value
+      5   black   1 decimal    plain        1      0  TRUE    value
+      6   black   1 decimal    plain        1      0  TRUE    value
+      7   black   1 decimal    plain        1      0  TRUE    value
+      8   black   1 decimal    plain        1      0  TRUE    value
+      9   black   1 decimal    plain        1      0  TRUE    value
+      10  black   1 decimal    plain        1      0  TRUE    value
+      11   <NA>   1  center    plain        1      0 FALSE ellipsis
+      12   <NA>   1  center    plain        1      0 FALSE ellipsis
+      13   <NA>   1  center    plain        1      0 FALSE ellipsis
+      14   <NA>   1  center    plain        1      0 FALSE ellipsis
+      15   <NA>   1  center    plain        1      0 FALSE ellipsis
+      16   <NA>   1  center    plain        1      0 FALSE ellipsis
+      17   <NA>   1  center    plain        1      0 FALSE ellipsis
 
 ---
 
@@ -143,16 +143,16 @@
       9   3  1   3   2       3       2         1  -1         -1       black
       10  4  1   4   2       4       2         1 NaN        NaN        blue
       11  5  1   5   2       5       2         1 Inf        Inf        blue
-                 fill border lwd   align size_rel dy_rel   fit     kind
-      1          <NA>  black   2  center      1.0      0 FALSE  outline
-      2          <NA>   <NA>   1   right      0.8      0  TRUE rowlabel
-      3          <NA>   <NA>   1   right      0.8      0  TRUE rowlabel
-      4          <NA>   <NA>   1   right      0.8      0  TRUE rowlabel
-      5          <NA>   <NA>   1   right      0.8      0  TRUE rowlabel
-      6          <NA>   <NA>   1   right      0.8      0  TRUE rowlabel
-      7         white  black   1 decimal      1.0      0  TRUE    value
-      8  lemonchiffon  black   1 decimal      1.0      0  TRUE    value
-      9         white  black   1 decimal      1.0      0  TRUE    value
-      10 lemonchiffon  black   1 decimal      1.0      0  TRUE    value
-      11        white  black   1 decimal      1.0      0  TRUE    value
+                 fill border lwd   align fontface size_rel dy_rel   fit     kind
+      1          <NA>  black   2  center    plain      1.0      0 FALSE  outline
+      2          <NA>   <NA>   1   right    plain      0.8      0  TRUE rowlabel
+      3          <NA>   <NA>   1   right    plain      0.8      0  TRUE rowlabel
+      4          <NA>   <NA>   1   right    plain      0.8      0  TRUE rowlabel
+      5          <NA>   <NA>   1   right    plain      0.8      0  TRUE rowlabel
+      6          <NA>   <NA>   1   right    plain      0.8      0  TRUE rowlabel
+      7         white  black   1 decimal    plain      1.0      0  TRUE    value
+      8  lemonchiffon  black   1 decimal    plain      1.0      0  TRUE    value
+      9         white  black   1 decimal    plain      1.0      0  TRUE    value
+      10 lemonchiffon  black   1 decimal    plain      1.0      0  TRUE    value
+      11        white  black   1 decimal    plain      1.0      0  TRUE    value
 

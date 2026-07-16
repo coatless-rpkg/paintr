@@ -625,17 +625,22 @@ draw_base <- function(resolved, opts) {
   # the day a renderer starts asking what a cell IS is the day the two backends
   # start drawing different pictures.
 
+  # `font = 2` is bold, `font = 1` plain -- base's mapping of the cell's `fontface`,
+  # which is `"bold"` only on a refined header's column names and `"plain"`
+  # everywhere else. Vectorised over the drawn cells, so a plain picture passes a
+  # vector of 1s and looks exactly as it did.
+  face <- ifelse(ink$fontface == "bold", 2L, 1L)
   graphics::text(
     x = ux(ink$x + ink$dx_sig), y = uy(ink$y),
     labels = ink$sig, col = ink$ink,
-    adj = c(0, 0.5), cex = cex, family = opts$family
+    adj = c(0, 0.5), cex = cex, family = opts$family, font = face
   )
   # The grey span. Empty `insig` strings draw nothing, which is why this can be
   # one call over every cell rather than a subset.
   graphics::text(
     x = ux(ink$x + ink$dx_insig), y = uy(ink$y),
     labels = ink$insig, col = grey,
-    adj = c(0, 0.5), cex = cex, family = opts$family
+    adj = c(0, 0.5), cex = cex, family = opts$family, font = face
   )
 
   invisible(NULL)

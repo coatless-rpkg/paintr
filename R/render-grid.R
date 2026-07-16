@@ -203,7 +203,10 @@ paintr_children <- function(res, opts) {
       gp = grid::gpar(
         col = sig$ink,
         fontsize = sig$fontsize,
-        fontfamily = family
+        fontfamily = family,
+        # `"plain"`/`"bold"` is grid's own gpar vocabulary, so the cell's column
+        # rides straight in: bold only on a refined header's names, plain else.
+        fontface = sig$fontface
       ),
       name = "paintr.sig"
     )
@@ -221,7 +224,8 @@ paintr_children <- function(res, opts) {
       gp = grid::gpar(
         col = grey,
         fontsize = insig$fontsize,
-        fontfamily = family
+        fontfamily = family,
+        fontface = insig$fontface
       ),
       name = "paintr.insig"
     )
