@@ -2,7 +2,7 @@
 
 ## Authors
 
-- **James Joseph Balamuta**. Author, maintainer.
+- **James Joseph Balamuta**. Author, maintainer, copyright holder.
   [](https://orcid.org/0000-0003-2826-8458)
 
 ## Citation
