@@ -1,10 +1,10 @@
-/* The hex on the pkgdown home page.
- *
- * pkgdown injects its own <img class="logo"> (from man/figures/logo.svg) ahead of the
- * H1, and the README already carries a <picture> that is both animated and theme-aware.
- * Two hexes is one hex too many, so the injected one is hidden and the README's is the
- * mark you see. logo.svg still earns its keep: it is the og:image for social cards and
- * the source for pkgdown::build_favicons(), neither of which needs a visible element.
+/* The hex on the pkgdown home page is the README's <picture> -- animated and
+ * theme-aware. There is deliberately no man/figures/logo.svg: it was a byte-for-byte
+ * duplicate of paintr-logo-light-static.svg, and its two non-visible jobs are served
+ * from the variants instead -- the og:image is set to the light-static cut in
+ * _pkgdown.yml, and the favicons are pre-built in pkgdown/favicon/. This rule stays as
+ * a guard: should a logo file return, pkgdown would inject an <img class="logo"> ahead
+ * of the H1, and one hex is enough.
  */
 .template-home .page-header img.logo {
   display: none;

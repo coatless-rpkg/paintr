@@ -2,6 +2,10 @@ url: https://r-pkg.thecoatlessprofessor.com/paintr/
 template:
   bootstrap: 5
   light-switch: true
+  opengraph:
+    image:
+      src: man/figures/paintr-logo-light-static.svg
+      alt: The paintr hex logo, a matrix whose second row spells paintr with a pink highlight.
 
 reference:
 - title: Painters
