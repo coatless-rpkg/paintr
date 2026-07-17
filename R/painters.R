@@ -165,6 +165,12 @@ painter_prep <- function(data,
 #' @keywords internal
 #' @noRd
 gpaint_skin <- function(prep, graph_title = NULL, graph_subtitle = NULL) {
+  # DELIBERATE DIVERGENCE FROM THE BASE BACKEND. `draw_bands()` fits the base
+  # title/subtitle/note to the device width (`fit_band()`); here they are drawn by
+  # `ggplot2::labs()`, so their size is the theme's to set and their overflow is
+  # ggplot2's to handle. paintr does not fit them, on purpose -- the chrome font is
+  # not part of the cell diagram, and only the cell diagram must be pixel-identical
+  # across backends.
   ggplot2::ggplot() +
     ggplot2::annotation_custom(
       paintr_grob(

@@ -916,3 +916,142 @@ test_that("render_base() draws every structure without error, character included
     expect_equal(graphics::par(no.readonly = TRUE), before)
   }
 })
+
+# ---------------------------------------------------------------------------
+# the chrome is fitted to the width -- title, subtitle and note
+# ---------------------------------------------------------------------------
+#
+# `draw_bands()` used to draw each band at a FIXED point size, so a title wider
+# than the device ran off the right edge and clipped. It now shrinks each band to
+# the drawable width and, at the legibility floor, truncates it with an ellipsis.
+#
+# `base_mtext()` is `base_text()`'s sibling from test-grob.R: it mocks
+# `graphics::mtext` and catches every band call at the one moment it exists. Each
+# capture also records the drawable width, the device `ps`, and the string's width
+# AT THE DRAWN cex -- all measured on the draw device, inside the deferred
+# expression, because after `render_base()` returns the device is gone and `par()`
+# is restored to something else entirely.
+
+base_mtext <- function(f, ..., opts = paint_opts(), width = 7, height = 7) {
+  got <- list()
+  testthat::local_mocked_bindings(
+    mtext = function(text, side, cex, family, ...) {
+      got[[length(got) + 1L]] <<- list(
+        text = text, side = side, cex = cex,
+        avail = graphics::grconvertX(1, "ndc", "user") - graphics::par("usr")[[1L]],
+        ps = graphics::par("ps"),
+        w = graphics::strwidth(text, cex = cex, family = family)
+      )
+      invisible(NULL)
+    },
+    .package = "graphics"
+  )
+  grDevices::pdf(NULL, width = width, height = height)
+  on.exit(grDevices::dev.off(), add = TRUE)
+  render_base(f$cells, f$col_w, f$n_row, opts = opts, warn_floor = FALSE, ...)
+  got
+}
+
+mt_get <- function(got, pattern) {
+  hit <- Filter(function(c) grepl(pattern, c$text), got)
+  if (length(hit) == 0L) NULL else hit[[1L]]
+}
+
+test_that("fit_band() keeps, shrinks, then truncates a string to the width", {
+  local_null_pdf(width = 3.2, height = 3.2)
+  graphics::par(cex = 1) # render_base() pins this; pt / ps is a size in points only here
+  graphics::plot.new()
+  graphics::plot.window(xlim = c(0, 10), ylim = c(0, 10), asp = 1, xaxs = "i", yaxs = "i")
+  usr <- graphics::par("usr")
+  ps <- graphics::par("ps")
+  avail <- graphics::grconvertX(1, "ndc", "user") - usr[[1L]]
+  w <- function(s, p) graphics::strwidth(s, cex = p / ps, family = "mono")
+
+  # Fits already: pt and text are handed back untouched, never enlarged.
+  short <- fit_band("ab", 12, avail, ps, "mono", min_pt = 5)
+  expect_equal(short$pt, 12)
+  expect_equal(short$text, "ab")
+
+  # Too wide: shrinks below the design size, stays above the floor, and the
+  # SHRUNK string still fits -- it is not truncated.
+  long <- "Data Object: data.frame(a = 1:3, b = 4:6)"
+  fit <- fit_band(long, 12, avail, ps, "mono", min_pt = 5)
+  expect_lt(fit$pt, 12)
+  expect_gte(fit$pt, 5)
+  expect_equal(fit$text, long)
+  expect_lte(w(fit$text, fit$pt), avail + 1e-9)
+
+  # Far too wide even for the floor: drawn at min_pt, truncated with the ellipsis,
+  # still fits, and never emptied.
+  huge <- paste(rep(long, 20), collapse = " ")
+  cut <- fit_band(huge, 12, avail, ps, "mono", min_pt = 5)
+  expect_equal(cut$pt, 5)
+  expect_match(cut$text, "\\.\\.\\.$")
+  expect_lte(w(cut$text, cut$pt), avail + 1e-9)
+  expect_gt(nchar(cut$text), nchar("..."))
+})
+
+test_that("a title too wide for the device is shrunk to fit, not clipped", {
+  # The reported reproduction: this exact title clipped off a 3.2 x 2.6in device.
+  f <- fx(data.frame(a = 1:3, b = 4:6))
+  title <- "Data Object: data.frame(a = 1:3, b = 4:6)"
+  got <- base_mtext(f, graph_title = title, width = 3.2, height = 2.6)
+
+  ttl <- mt_get(got, "^Data Object")
+  expect_false(is.null(ttl))
+  # Strictly smaller than the design size...
+  expect_lt(ttl$cex, 12 / ttl$ps)
+  # ...and the drawn string fits inside the drawable width.
+  expect_lte(ttl$w, ttl$avail + 1e-9)
+  # Shrunk, not truncated -- the whole title is still there.
+  expect_equal(ttl$text, title)
+})
+
+test_that("a title that already fits is drawn unchanged at its design size", {
+  f <- fx(matrix(1:4, nrow = 2))
+  got <- base_mtext(f, graph_title = "Title", width = 7, height = 7)
+
+  ttl <- mt_get(got, "^Title$")
+  expect_false(is.null(ttl))
+  # Exactly the design size, to the bit: a fitting band is never touched.
+  expect_equal(ttl$cex, 12 / ttl$ps)
+  expect_equal(ttl$text, "Title")
+})
+
+test_that("an extremely long title at a tiny device is truncated with an ellipsis", {
+  f <- fx(matrix(1:4, nrow = 2))
+  title <- paste(rep("Data Object: data.frame(a = 1:3, b = 4:6)", 8), collapse = " ")
+  got <- base_mtext(f, graph_title = title, width = 1.8, height = 1.8)
+
+  ttl <- mt_get(got, "^Data Object")
+  expect_false(is.null(ttl))
+  # Drawn at the floor, ending in the ellipsis, and it fits.
+  expect_equal(ttl$cex, 5 / ttl$ps)
+  expect_match(ttl$text, "\\.\\.\\.$")
+  expect_lte(ttl$w, ttl$avail + 1e-9)
+  # Not emptied: real characters survive ahead of the ellipsis.
+  expect_gt(nchar(ttl$text), nchar("..."))
+})
+
+test_that("the subtitle is fitted to the width exactly like the title", {
+  f <- fx(data.frame(a = 1:3, b = 4:6))
+  sub <- "Dimensions: 3 rows x 2 columns | Data Type: data.frame"
+  got <- base_mtext(f, graph_subtitle = sub, width = 3.2, height = 2.6)
+
+  s <- mt_get(got, "^Dimensions")
+  expect_false(is.null(s))
+  expect_lt(s$cex, 9 / s$ps) # smaller than the design subtitle size
+  expect_lte(s$w, s$avail + 1e-9)
+})
+
+test_that("the note band is fitted to the width like the title and subtitle", {
+  f <- fx(matrix(1:4, nrow = 2))
+  note <- paste(rep("# 12345 more rows", 6), collapse = " ")
+  got <- base_mtext(f, note = note, width = 2.4, height = 2.4)
+
+  n <- mt_get(got, "more rows")
+  expect_false(is.null(n))
+  expect_equal(n$side, 1) # drawn below the panel
+  expect_lt(n$cex, 8 / n$ps)
+  expect_lte(n$w, n$avail + 1e-9)
+})

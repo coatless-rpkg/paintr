@@ -663,6 +663,119 @@ draw_base <- function(resolved, opts) {
   invisible(NULL)
 }
 
+#' Shrink -- then, at the floor, truncate -- a chrome band to fit its width
+#'
+#' The cell text is fitted to the panel (see [fit_fontsize()]); the title,
+#' subtitle and note were not fitted to ANYTHING, so a deparsed expression wider
+#' than the device ran straight off the right edge and clipped. This is the
+#' band's own `fit_fontsize()`: the same two-stage answer the cells get -- shrink
+#' the size, and only when shrinking hits the legibility floor, drop glyphs.
+#'
+#' The band is drawn left-anchored (`mtext(adj = 0)`) at `usr[1]` and runs to the
+#' device's right edge, so `avail` is exactly that span in user units; the caller
+#' measures it once and passes it in. `strwidth(cex = pt / ps, family =)` measures
+#' the string in the SAME user units -- verified that `strwidth` honours `family`,
+#' so no `par(family =)` is set and this reads device state only, which keeps
+#' `render_base()`'s par contract intact.
+#'
+#' Three outcomes, and only the middle one changes the size:
+#'
+#'   * **fits already** -- return `pt` untouched. A band that fits is never
+#'     enlarged, so a normal title draws at its exact design size.
+#'   * **shrinks to fit** -- `pt * avail / measured` is the size at which THIS
+#'     string spans `avail` when metrics scale linearly with size. It is the
+#'     estimate, and it is VERIFIED against the real measure and corrected
+#'     downward if need be: `pdf()` -- the `R CMD check` device -- quantises the
+#'     point size to whole points, so the estimate can round UP past `avail`. The
+#'     returned size always genuinely fits, and never drops below `min_pt`.
+#'   * **truncates at the floor** -- when even `min_pt` overflows, the size stops
+#'     there and characters come off the end instead, `ellipsis` appended, longest
+#'     leading run that fits (binary search, because a deparse can be long). Never
+#'     emptied: at least a couple of characters survive even if the ellipsis then
+#'     overruns.
+#'
+#' `min_pt` defaults to `opts$min_pt` at the call site rather than a chrome-only
+#' constant: the title shares the reader's eyes with the values, and there is no
+#' size at which a title should be legible but the numbers it captions should not.
+#' It is the package's one legibility floor, the same threshold the fit warning
+#' quotes.
+#'
+#' @param text The band's string. Coerced to a single element.
+#' @param pt Its design point size.
+#' @param avail Drawable width to the right of the anchor, in USER units.
+#' @param ps `par("ps")`, the device point size `cex` is a multiple of.
+#' @param family The font family, passed to `strwidth` and drawn with.
+#' @param min_pt The legibility floor, in points. Shrinking stops here and
+#'   truncation takes over.
+#' @param ellipsis The truncation mark. ASCII `"..."` by default -- `pdf()`, the
+#'   `R CMD check` device, cannot encode U+2026.
+#'
+#' @return A list of `text` (possibly truncated) and `pt` (possibly shrunk).
+#'
+#' @keywords internal
+#' @noRd
+fit_band <- function(text, pt, avail, ps, family,
+                     min_pt = 5, ellipsis = getOption("paintr.ellipsis", "...")) {
+  text <- as.character(text)[[1L]]
+
+  # Width of `s` at point size `p`, in user units. `cex = p / ps` is a size in
+  # points only while `par("cex")` is 1, which `render_base()` has pinned.
+  w_at <- function(s, p) graphics::strwidth(s, cex = p / ps, family = family)
+
+  # Nothing to fit: no string, or no room to fit it into.
+  if (is.na(text) || !nzchar(text) || !is.finite(avail) || avail <= 0) {
+    return(list(text = text, pt = pt))
+  }
+
+  measured <- w_at(text, pt)
+  # Already fits at the design size (or is unmeasurable): keep `pt` EXACTLY. A
+  # string that fits is never enlarged.
+  if (!is.finite(measured) || measured <= 0 || measured <= avail) {
+    return(list(text = text, pt = pt))
+  }
+
+  # SHRINK, when the floor still leaves room. `est` is the proportional estimate;
+  # if it really fits it is used verbatim (exact on a device whose metrics scale
+  # linearly), and if a quantising device rounded it up past `avail`, the largest
+  # size in `[min_pt, est]` that fits is found by bisection -- `w_at` is monotone
+  # in the size, so the search is well posed and always returns a fitting value.
+  if (w_at(text, min_pt) <= avail) {
+    est <- pt * avail / measured
+    hi <- min(max(est, min_pt), pt)
+    if (w_at(text, hi) <= avail) {
+      return(list(text = text, pt = hi))
+    }
+    lo <- min_pt
+    for (i in seq_len(60L)) {
+      if (hi - lo <= 1e-4) break
+      mid <- (lo + hi) / 2
+      if (w_at(text, mid) <= avail) lo <- mid else hi <- mid
+    }
+    return(list(text = text, pt = lo))
+  }
+
+  # It will not fit even at the floor, so draw at the floor and cut characters
+  # from the end. Binary search for the longest leading run that still fits with
+  # the ellipsis -- the predicate is monotone (a longer prefix is wider).
+  n <- nchar(text)
+  lo <- 1L
+  hi <- n - 1L
+  best <- 0L
+  while (lo <= hi) {
+    mid <- (lo + hi) %/% 2L
+    if (w_at(paste0(substr(text, 1L, mid), ellipsis), min_pt) <= avail) {
+      best <- mid
+      lo <- mid + 1L
+    } else {
+      hi <- mid - 1L
+    }
+  }
+  # Never empty: keep at least a couple of characters, even if the ellipsis then
+  # overruns, so the band still says SOMETHING.
+  keep <- max(best, min(2L, n))
+  list(text = paste0(substr(text, 1L, keep), ellipsis), pt = min_pt)
+}
+
 #' Draw the title, subtitle and note into the reserved bands
 #'
 #' @inheritParams base_mai
@@ -688,24 +801,44 @@ draw_bands <- function(graph_title, graph_subtitle, note, opts,
   # letterbox centred a narrow block, which is exactly where the title belongs.
   at <- usr[[1L]]
 
+  # The drawable width to the RIGHT of the anchor, in user units: every band runs
+  # from `at == usr[1]` to the device's right edge, which is `grconvertX(1, "ndc",
+  # "user")`. `fit_band()` shrinks each band's size to this width, and only if
+  # even `min_pt` will not fit does it truncate the string -- so the chrome can no
+  # longer clip off the device. `grconvertX`/`strwidth` READ device state only; no
+  # `par()` is set, so `render_base()`'s restoration contract is untouched.
+  avail <- graphics::grconvertX(1, "ndc", "user") - usr[[1L]]
+  ellipsis <- getOption("paintr.ellipsis", "...")
+  fit <- function(text, pt) {
+    fit_band(text, pt, avail, ps, opts$family, min_pt = opts$min_pt, ellipsis = ellipsis)
+  }
+
+  # The vertical lead deliberately tracks the DESIGN subtitle size, not the fitted
+  # one: fitting shrinks a band's WIDTH, and a narrower band is not a shorter line,
+  # so its height is unchanged for spacing purposes -- and `base_mai()` reserved
+  # the top band against these same design sizes. Tracking the fitted size here
+  # would put the reservation and the draw on different grids.
   sub_lines <- if (has_text(graph_subtitle)) lead(subtitle_pt) / line_in else 0
 
   if (has_text(graph_subtitle)) {
+    b <- fit(as.character(graph_subtitle)[[1L]], subtitle_pt)
     graphics::mtext(
-      text = as.character(graph_subtitle)[[1L]], side = 3, line = 0.25,
-      at = at, adj = 0, cex = subtitle_pt / ps, family = opts$family
+      text = b$text, side = 3, line = 0.25,
+      at = at, adj = 0, cex = b$pt / ps, family = opts$family
     )
   }
   if (has_text(graph_title)) {
+    b <- fit(as.character(graph_title)[[1L]], title_pt)
     graphics::mtext(
-      text = as.character(graph_title)[[1L]], side = 3, line = 0.25 + sub_lines,
-      at = at, adj = 0, cex = title_pt / ps, family = opts$family
+      text = b$text, side = 3, line = 0.25 + sub_lines,
+      at = at, adj = 0, cex = b$pt / ps, family = opts$family
     )
   }
   if (has_text(note)) {
+    b <- fit(as.character(note)[[1L]], note_pt)
     graphics::mtext(
-      text = as.character(note)[[1L]], side = 1, line = note_line,
-      at = at, adj = 0, cex = note_pt / ps, col = note_ink,
+      text = b$text, side = 1, line = note_line,
+      at = at, adj = 0, cex = b$pt / ps, col = note_ink,
       family = opts$family
     )
   }
