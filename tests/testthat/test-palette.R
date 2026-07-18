@@ -145,8 +145,8 @@ test_that("mint remaps ink, border and fill to its hexes", {
   expect_identical(unique(val$ink[val$sig == "Inf"]), "#2563EB")
 
   # border: the heavy outline and the inner grid part on lwd.
-  expect_identical(unique(cells$border[cells$kind == "outline"]), "#C9CDD3")
-  expect_identical(unique(val$border), "#E7E9EC")
+  expect_identical(unique(cells$border[cells$kind == "outline"]), "#AEB5BE")
+  expect_identical(unique(val$border), "#CBD1D8")
 
   # fill: white -> bg, lemonchiffon -> highlight.
   expect_identical(unique(val$fill[val$fill != "#CFF0E2"]), "#FFFFFF")

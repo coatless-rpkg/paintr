@@ -32,7 +32,7 @@
   mint = list(
     value = "#1A1A1E", na = "#DC2626", special = "#2563EB",
     insig = "#C2C2C9", label = "#6B7178", label2 = "#9BA1A9",
-    grid = "#E7E9EC", outline = "#C9CDD3", rule = "#D3D8DF",
+    grid = "#CBD1D8", outline = "#AEB5BE", rule = "#D3D8DF",
     bg = "#FFFFFF", highlight = "#CFF0E2", header = "#F4F7F8"
   ),
   slate = list(
