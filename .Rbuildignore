@@ -12,3 +12,4 @@
 \.quarto$
 vignettes/\.quarto$
 ^vignettes/\.gitignore$
+^data-raw$
