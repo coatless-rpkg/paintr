@@ -17,19 +17,20 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height
 ```
 
 ```{r}
+#| include: false
 library(paintr)
 ```
 
 When you draw a structure to teach with it, you almost always want to point at
-one part of it: *this* row, *that* column, the cells that pass a test. Every
+one part of it, whether *this* row, *that* column, or the cells that pass a test. Every
 paintr painter takes a `highlight_area` argument for exactly this, and every
 picture in this article is the same drawing twice, once plain and once with a
 patch of colour laid over the cells that matter.
 
 ## A highlight is a logical mask
 
-`highlight_area` wants a logical structure the same shape as your data: `TRUE`
-wherever a cell should light up, `FALSE` everywhere else. Nothing more. Here is a
+`highlight_area` wants a logical structure the same shape as your data, with
+`TRUE` wherever a cell should light up and `FALSE` everywhere else. Nothing more. Here is a
 small matrix and a mask that turns on its second row by hand.
 
 ```{r}
@@ -55,7 +56,7 @@ family of functions that build the mask for you.
 the common cases. Each one returns a mask of the right shape that you hand
 straight to `highlight_area`.
 
-`highlight_rows()` takes a row selection: integer positions, or a logical
+`highlight_rows()` takes a row selection as integer positions, a logical
 vector, or names when the data has them.
 
 ```{r}
@@ -112,8 +113,8 @@ m > 4
 paint_matrix(m, highlight_area = m > 4)
 ```
 
-This is the quickest way to show a class what a vectorised comparison *is*: the
-red-and-white grid of `m > 4` and the highlighted picture are the same object.
+The red-and-white grid of `m > 4` and the highlighted picture are the same
+object, the vectorised comparison made visible.
 `which()`, `is.na()`, and friends all produce masks you can drop straight in.
 
 ## A different colour
@@ -129,7 +130,7 @@ paint_matrix(m, highlight_area = m > 4, highlight_color = "lightpink")
 
 ## Highlighting works on every structure
 
-Here is the invariant, stated plainly: **if a painter can draw a structure,
+The invariant is simple. **If a painter can draw a structure,
 `highlight_data()` can mask it.** The builders take the same arguments whatever
 you point them at, and `highlight_columns()` in particular will name a column by
 its name for the structures that have names.
@@ -164,7 +165,7 @@ mask, the same call reads the same way across the whole family. See
 
 Highlighting is a property of the drawing, not of the backend, so the mask you
 build feeds a base picture and a ggplot2 picture without change. The matrices
-above were base graphics; here is the identical highlight through `gpaint_*`:
+above were base graphics, and here is the identical highlight through `gpaint_*`:
 
 ```{r}
 #| fig-alt: "The 3 by 4 grid of 1 through 12 with every cell greater than 4 shaded, drawn through

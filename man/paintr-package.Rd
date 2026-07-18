@@ -21,15 +21,14 @@ The package vignettes:
 \item \code{vignette("paintr", package = "paintr")}
 \item \code{vignette("highlighting", package = "paintr")}
 \item \code{vignette("base-vs-ggplot2", package = "paintr")}
-\item \code{vignette("teaching", package = "paintr")}
 }
 }
 \author{
-\strong{Maintainer}: James Joseph Balamuta \email{james.balamuta@gmail.com} (\href{https://orcid.org/0000-0003-2826-8458}{ORCID})
+\strong{Maintainer}: James Joseph Balamuta \email{james.balamuta@gmail.com} (\href{https://orcid.org/0000-0003-2826-8458}{ORCID}) [copyright holder]
 
 Authors:
 \itemize{
-  \item James Joseph Balamuta \email{james.balamuta@gmail.com} (\href{https://orcid.org/0000-0003-2826-8458}{ORCID})
+  \item James Joseph Balamuta \email{james.balamuta@gmail.com} (\href{https://orcid.org/0000-0003-2826-8458}{ORCID}) [copyright holder]
 }
 
 }

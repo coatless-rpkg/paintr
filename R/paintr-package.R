@@ -14,7 +14,6 @@
 #'   \item \code{vignette("paintr", package = "paintr")}
 #'   \item \code{vignette("highlighting", package = "paintr")}
 #'   \item \code{vignette("base-vs-ggplot2", package = "paintr")}
-#'   \item \code{vignette("teaching", package = "paintr")}
 #' }
 #'
 #' @keywords internal
