@@ -20,3 +20,94 @@
 [data-bs-theme="dark"] img[src$="paintr-logo-light-animated.svg"] {
   content: url("reference/figures/paintr-logo-dark-animated.svg");
 }
+
+/* ============================================================================
+ * paintr brand theme. Every colour is lifted from the hex logo: a raspberry
+ * pink highlight over a cream field of plum-inked cells. Light and dark are
+ * driven by Bootstrap 5.3's colour-mode custom properties, so a single set of
+ * variables re-skins the whole site per mode.
+ * ========================================================================== */
+
+/* -- Light: cream paper, plum ink, raspberry accent ------------------------ */
+:root,
+[data-bs-theme="light"] {
+  --bs-body-bg: #fbf8f2;
+  --bs-body-color: #2a1622;
+  --bs-emphasis-color: #22101c;
+  --bs-secondary-color: rgba(42, 22, 34, 0.68);
+  --bs-tertiary-bg: #f3ede0;
+  --bs-border-color: #e6ddcf;
+  --bs-link-color: #b01e60;
+  --bs-link-color-rgb: 176, 30, 96;
+  --bs-link-hover-color: #fa4e96;
+  --bs-link-hover-color-rgb: 250, 78, 150;
+  --bs-primary: #b01e60;
+  --bs-primary-rgb: 176, 30, 96;
+  --bs-code-color: #b01e60;
+}
+
+/* -- Dark: plum-black field, warm cream ink, light-pink accent ------------- */
+[data-bs-theme="dark"] {
+  --bs-body-bg: #17151c;
+  --bs-body-color: #ece3d6;
+  --bs-emphasis-color: #fff0f6;
+  --bs-secondary-color: rgba(236, 227, 214, 0.68);
+  --bs-tertiary-bg: #201b27;
+  --bs-border-color: #322c39;
+  --bs-link-color: #f09bc4;
+  --bs-link-color-rgb: 240, 155, 196;
+  --bs-link-hover-color: #f7c0da;
+  --bs-link-hover-color-rgb: 247, 192, 218;
+  --bs-primary: #e5478f;
+  --bs-primary-rgb: 229, 71, 143;
+  --bs-code-color: #f2a9cc;
+}
+
+/* -- Navbar: sits a shade off the paper, brand pink on hover/active -------- */
+[data-bs-theme="light"] .navbar {
+  --bs-navbar-color: rgba(42, 22, 34, 0.72);
+  --bs-navbar-hover-color: #b01e60;
+  --bs-navbar-active-color: #b01e60;
+  --bs-navbar-brand-color: #22101c;
+  --bs-navbar-brand-hover-color: #b01e60;
+  background-color: #f6efe3;
+  border-bottom: 1px solid #e6ddcf;
+}
+[data-bs-theme="dark"] .navbar {
+  --bs-navbar-color: rgba(236, 227, 214, 0.72);
+  --bs-navbar-hover-color: #f7c0da;
+  --bs-navbar-active-color: #f7c0da;
+  --bs-navbar-brand-color: #fff0f6;
+  --bs-navbar-brand-hover-color: #f7c0da;
+  background-color: #1d1a23;
+  border-bottom: 1px solid #322c39;
+}
+
+/* -- Code surfaces tint toward the cream/plum, tokens keep their contrast -- */
+[data-bs-theme="light"] pre {
+  background-color: #f3ede0;
+  border: 1px solid #e6ddcf;
+}
+[data-bs-theme="dark"] pre {
+  background-color: #201b27;
+  border: 1px solid #322c39;
+}
+
+/* -- Signature 1: the pink highlight under every page title ---------------- */
+.page-header {
+  border-bottom: 2px solid var(--bs-primary);
+}
+
+/* -- Signature 2: plot figures become framed plates. A paintr drawing is an
+ *    opaque white sheet, so on the dark field it needs a card to belong; the
+ *    frame also separates it from the cream paper in light mode. ----------- */
+main img[src*="figure-html"] {
+  background-color: #ffffff;
+  padding: 0.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--bs-border-color);
+}
+[data-bs-theme="dark"] main img[src*="figure-html"] {
+  border-color: #3a3340;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
+}
