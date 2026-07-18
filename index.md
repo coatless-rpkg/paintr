@@ -50,7 +50,7 @@ accessor, `["mon"]`, because `x["mon"]` is now how you reach that value.
 
 ``` r
 
-paint_vector(c(mon = 12, tue = 19, wed = 3, thu = 8))
+paint_vector(c(mon = 12, tue = 19, wed = 3, thu = 8), layout = "horizontal")
 ```
 
 ![A named numeric vector shown as one horizontal row of four cells

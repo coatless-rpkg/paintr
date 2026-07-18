@@ -46,7 +46,6 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/base-vs-ggplot2.html">Base graphics and ggplot2</a></li>
     <li><a class="dropdown-item" href="../articles/highlighting.html">Highlighting cells</a></li>
-    <li><a class="dropdown-item" href="../articles/teaching.html">Teaching with paintr</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -87,16 +86,12 @@
 
 
 
-    <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/coatless-rpkg/paintr" class="external-link">paintr</a></span><span class="op">)</span></span></code></pre></div>
-</div>
-<p>When you draw a structure to teach with it, you almost always want to point at one part of it: <em>this</em> row, <em>that</em> column, the cells that pass a test. Every paintr painter takes a <code>highlight_area</code> argument for exactly this, and every picture in this article is the same drawing twice, once plain and once with a patch of colour laid over the cells that matter.</p>
+    <p>When you draw a structure to teach with it, you almost always want to point at one part of it, whether <em>this</em> row, <em>that</em> column, or the cells that pass a test. Every paintr painter takes a <code>highlight_area</code> argument for exactly this, and every picture in this article is the same drawing twice, once plain and once with a patch of colour laid over the cells that matter.</p>
 <section class="level2"><h2 id="a-highlight-is-a-logical-mask">A highlight is a logical mask<a class="anchor" aria-label="anchor" href="#a-highlight-is-a-logical-mask"></a>
 </h2>
-<p><code>highlight_area</code> wants a logical structure the same shape as your data: <code>TRUE</code> wherever a cell should light up, <code>FALSE</code> everywhere else. Nothing more. Here is a small matrix and a mask that turns on its second row by hand.</p>
+<p><code>highlight_area</code> wants a logical structure the same shape as your data, with <code>TRUE</code> wherever a cell should light up and <code>FALSE</code> everywhere else. Nothing more. Here is a small matrix and a mask that turns on its second row by hand.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">12</span>, nrow <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="va">mask</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="cn">FALSE</span>, nrow <span class="op">=</span> <span class="fl">3</span>, ncol <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="va">mask</span><span class="op">[</span><span class="fl">2</span>, <span class="op">]</span> <span class="op">&lt;-</span> <span class="cn">TRUE</span></span>
@@ -107,7 +102,7 @@
 <span><span class="co">#&gt; [3,] FALSE FALSE FALSE FALSE</span></span></code></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-matrix.html">paint_matrix</a></span><span class="op">(</span><span class="va">m</span>, highlight_area <span class="op">=</span> <span class="va">mask</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>
@@ -120,9 +115,9 @@
 </section><section class="level2"><h2 id="the-three-builders">The three builders<a class="anchor" aria-label="anchor" href="#the-three-builders"></a>
 </h2>
 <p><code><a href="../reference/highlight-data.html">highlight_data()</a></code> is the general builder, and three convenience wrappers cover the common cases. Each one returns a mask of the right shape that you hand straight to <code>highlight_area</code>.</p>
-<p><code><a href="../reference/highlight-data.html">highlight_rows()</a></code> takes a row selection: integer positions, or a logical vector, or names when the data has them.</p>
+<p><code><a href="../reference/highlight-data.html">highlight_rows()</a></code> takes a row selection as integer positions, a logical vector, or names when the data has them.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-matrix.html">paint_matrix</a></span><span class="op">(</span><span class="va">m</span>, highlight_area <span class="op">=</span> <span class="fu"><a href="../reference/highlight-data.html">highlight_rows</a></span><span class="op">(</span><span class="va">m</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>
@@ -133,7 +128,7 @@
 </div>
 <p><code><a href="../reference/highlight-data.html">highlight_columns()</a></code> takes a column selection the same way.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-matrix.html">paint_matrix</a></span><span class="op">(</span><span class="va">m</span>, highlight_area <span class="op">=</span> <span class="fu"><a href="../reference/highlight-data.html">highlight_columns</a></span><span class="op">(</span><span class="va">m</span>, <span class="fl">2</span><span class="op">:</span><span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>
@@ -144,7 +139,7 @@
 </div>
 <p><code><a href="../reference/highlight-data.html">highlight_locations()</a></code> reaches individual cells. For a two dimensional structure it takes a two column matrix of row/column pairs, one point per row.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">points</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span>,</span>
@@ -160,7 +155,7 @@
 </div>
 <p>All three are thin wrappers over <code><a href="../reference/highlight-data.html">highlight_data()</a></code>, so you can also ask for rows and columns at once and get their union:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-matrix.html">paint_matrix</a></span><span class="op">(</span><span class="va">m</span>, highlight_area <span class="op">=</span> <span class="fu"><a href="../reference/highlight-data.html">highlight_data</a></span><span class="op">(</span><span class="va">m</span>, rows <span class="op">=</span> <span class="fl">1</span>, columns <span class="op">=</span> <span class="fl">4</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>
@@ -173,7 +168,7 @@
 </h2>
 <p>A mask is just a logical the shape of the data, and that is exactly what an R comparison hands back. So you can skip the builders entirely and pass a test:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m</span> <span class="op">&gt;</span> <span class="fl">4</span></span>
 <span><span class="co">#&gt;       [,1]  [,2] [,3] [,4]</span></span>
 <span><span class="co">#&gt; [1,] FALSE FALSE TRUE TRUE</span></span>
@@ -181,7 +176,7 @@
 <span><span class="co">#&gt; [3,] FALSE  TRUE TRUE TRUE</span></span></code></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-matrix.html">paint_matrix</a></span><span class="op">(</span><span class="va">m</span>, highlight_area <span class="op">=</span> <span class="va">m</span> <span class="op">&gt;</span> <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>
@@ -190,12 +185,12 @@
 </div>
 </div>
 </div>
-<p>This is the quickest way to show a class what a vectorised comparison <em>is</em>: the red-and-white grid of <code>m &gt; 4</code> and the highlighted picture are the same object. <code><a href="https://rdrr.io/r/base/which.html" class="external-link">which()</a></code>, <code><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na()</a></code>, and friends all produce masks you can drop straight in.</p>
+<p>The red-and-white grid of <code>m &gt; 4</code> and the highlighted picture are the same object, the vectorised comparison made visible. <code><a href="https://rdrr.io/r/base/which.html" class="external-link">which()</a></code>, <code><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na()</a></code>, and friends all produce masks you can drop straight in.</p>
 </section><section class="level2"><h2 id="a-different-colour">A different colour<a class="anchor" aria-label="anchor" href="#a-different-colour"></a>
 </h2>
 <p>The default highlight is a soft <code>"lemonchiffon"</code>. Any R colour works through <code>highlight_color</code>:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-matrix.html">paint_matrix</a></span><span class="op">(</span><span class="va">m</span>, highlight_area <span class="op">=</span> <span class="va">m</span> <span class="op">&gt;</span> <span class="fl">4</span>, highlight_color <span class="op">=</span> <span class="st">"lightpink"</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>
@@ -206,10 +201,10 @@
 </div>
 </section><section class="level2"><h2 id="highlighting-works-on-every-structure">Highlighting works on every structure<a class="anchor" aria-label="anchor" href="#highlighting-works-on-every-structure"></a>
 </h2>
-<p>Here is the invariant, stated plainly: <strong>if a painter can draw a structure, <code><a href="../reference/highlight-data.html">highlight_data()</a></code> can mask it.</strong> The builders take the same arguments whatever you point them at, and <code><a href="../reference/highlight-data.html">highlight_columns()</a></code> in particular will name a column by its name for the structures that have names.</p>
+<p>The invariant is simple. <strong>If a painter can draw a structure, <code><a href="../reference/highlight-data.html">highlight_data()</a></code> can mask it.</strong> The builders take the same arguments whatever you point them at, and <code><a href="../reference/highlight-data.html">highlight_columns()</a></code> in particular will name a column by its name for the structures that have names.</p>
 <p>A data frame column, selected by name:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">iris</span>, <span class="fl">6</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/paint-data-frame.html">paint_data_frame</a></span><span class="op">(</span><span class="va">df</span>, highlight_area <span class="op">=</span> <span class="fu"><a href="../reference/highlight-data.html">highlight_columns</a></span><span class="op">(</span><span class="va">df</span>, <span class="st">"Sepal.Width"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
@@ -221,7 +216,7 @@
 </div>
 <p>A list is drawn as its elements side by side, so its elements <em>are</em> its columns. <code><a href="../reference/highlight-data.html">highlight_columns()</a></code> names one the same way it named a data frame column:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">l</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>counts <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">1</span>, <span class="fl">4</span>, <span class="fl">1</span><span class="op">)</span>, tags <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"a"</span>, <span class="st">"b"</span>, <span class="st">"c"</span><span class="op">)</span>, ok <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">TRUE</span>, <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/paint-list.html">paint_list</a></span><span class="op">(</span><span class="va">l</span>, highlight_area <span class="op">=</span> <span class="fu"><a href="../reference/highlight-data.html">highlight_columns</a></span><span class="op">(</span><span class="va">l</span>, <span class="st">"tags"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
@@ -234,9 +229,9 @@
 <p>Because a data frame is a list whose elements share a length, and a mask is a mask, the same call reads the same way across the whole family. See <code><a href="../articles/paintr.html">vignette("paintr", package = "paintr")</a></code> for the full tour of the five structures.</p>
 </section><section class="level2"><h2 id="base-and-ggplot2-the-same-mask">Base and ggplot2, the same mask<a class="anchor" aria-label="anchor" href="#base-and-ggplot2-the-same-mask"></a>
 </h2>
-<p>Highlighting is a property of the drawing, not of the backend, so the mask you build feeds a base picture and a ggplot2 picture without change. The matrices above were base graphics; here is the identical highlight through <code>gpaint_*</code>:</p>
+<p>Highlighting is a property of the drawing, not of the backend, so the mask you build feeds a base picture and a ggplot2 picture without change. The matrices above were base graphics, and here is the identical highlight through <code>gpaint_*</code>:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-matrix.html">gpaint_matrix</a></span><span class="op">(</span><span class="va">m</span>, highlight_area <span class="op">=</span> <span class="va">m</span> <span class="op">&gt;</span> <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>

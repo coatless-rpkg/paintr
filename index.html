@@ -46,7 +46,6 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="articles/base-vs-ggplot2.html">Base graphics and ggplot2</a></li>
     <li><a class="dropdown-item" href="articles/highlighting.html">Highlighting cells</a></li>
-    <li><a class="dropdown-item" href="articles/teaching.html">Teaching with paintr</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
@@ -109,7 +108,7 @@
 </h2>
 <p>A vector is a one-dimensional run of values, and that is how it draws. Under each cell is the expression you would type to reach it: <code>[3]</code> for the third value. Give the vector names and the label becomes the named accessor, <code>["mon"]</code>, because <code>x["mon"]</code> is now how you reach that value.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="reference/paint-vector.html">paint_vector</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>mon <span class="op">=</span> <span class="fl">12</span>, tue <span class="op">=</span> <span class="fl">19</span>, wed <span class="op">=</span> <span class="fl">3</span>, thu <span class="op">=</span> <span class="fl">8</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="reference/paint-vector.html">paint_vector</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>mon <span class="op">=</span> <span class="fl">12</span>, tue <span class="op">=</span> <span class="fl">19</span>, wed <span class="op">=</span> <span class="fl">3</span>, thu <span class="op">=</span> <span class="fl">8</span><span class="op">)</span>, layout <span class="op">=</span> <span class="st">"horizontal"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="reference/figures/README-vector-example-1.png" alt="A named numeric vector shown as one horizontal row of four cells holding 12, 19, 3, and 8, with the named accessor label for each day written under its cell: mon, tue, wed, and thu." width="100%"></p>
 </div>
 <div class="section level2">

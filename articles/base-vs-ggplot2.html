@@ -46,7 +46,6 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/base-vs-ggplot2.html">Base graphics and ggplot2</a></li>
     <li><a class="dropdown-item" href="../articles/highlighting.html">Highlighting cells</a></li>
-    <li><a class="dropdown-item" href="../articles/teaching.html">Teaching with paintr</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -87,16 +86,12 @@
 
 
 
-    <div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/coatless-rpkg/paintr" class="external-link">paintr</a></span><span class="op">)</span></span></code></pre></div>
-</div>
-<p>Every structure paintr can draw comes in two flavours. The <code>paint_*()</code> family draws with base graphics; the <code>gpaint_*()</code> family returns a ggplot2 object. This article is about which one to reach for, and about one honest difference between them that is worth understanding before you lean on the ggplot side too hard.</p>
+    <p>Every structure paintr can draw comes in two flavours. The <code>paint_*()</code> family draws with base graphics, while the <code>gpaint_*()</code> family returns a ggplot2 object. This article is about which one to reach for, and about one real difference between them that is easy to trip over if you lean on the ggplot side too hard.</p>
 <section class="level2"><h2 id="the-same-picture-twice">The same picture, twice<a class="anchor" aria-label="anchor" href="#the-same-picture-twice"></a>
 </h2>
 <p>The two families draw the <em>same</em> picture. Here is a small matrix in base graphics:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">200</span>, <span class="op">-</span><span class="fl">30</span>, <span class="fl">40</span>, <span class="fl">500</span>, <span class="fl">30</span>, <span class="fl">90</span>, <span class="op">-</span><span class="fl">55</span>, <span class="fl">10</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/paint-matrix.html">paint_matrix</a></span><span class="op">(</span><span class="va">mat</span>, show_indices <span class="op">=</span> <span class="st">"cell"</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
@@ -108,7 +103,7 @@
 </div>
 <p>And here is the identical call in the ggplot2 family:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-matrix.html">gpaint_matrix</a></span><span class="op">(</span><span class="va">mat</span>, show_indices <span class="op">=</span> <span class="st">"cell"</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>
@@ -117,13 +112,13 @@
 </div>
 </div>
 </div>
-<p>Same cells, same accessors under each value, same two-tone digits. The arguments are the same too: everything you learned for <code><a href="../reference/paint-matrix.html">paint_matrix()</a></code> in <code><a href="../articles/paintr.html">vignette("paintr", package = "paintr")</a></code> – <code>show_indices</code>, <code>highlight_area</code>, <code>sigfig</code>, and the rest – carries over to <code><a href="../reference/paint-matrix.html">gpaint_matrix()</a></code> unchanged. Whichever family a structure has a <code>paint_*()</code> for, it has a matching <code>gpaint_*()</code>.</p>
+<p>Same cells, same accessors under each value, same two-tone digits. The arguments are the same too. Everything you learned for <code><a href="../reference/paint-matrix.html">paint_matrix()</a></code> in <code><a href="../articles/paintr.html">vignette("paintr", package = "paintr")</a></code> carries over to <code><a href="../reference/paint-matrix.html">gpaint_matrix()</a></code> unchanged, including <code>show_indices</code>, <code>highlight_area</code>, <code>sigfig</code>, and the rest. Whichever family a structure has a <code>paint_*()</code> for, it has a matching <code>gpaint_*()</code>.</p>
 </section><section class="level2"><h2 id="so-which-do-you-reach-for">So which do you reach for?<a class="anchor" aria-label="anchor" href="#so-which-do-you-reach-for"></a>
 </h2>
 <p>The difference is what you get <em>back</em>, and that decides the tool.</p>
-<p><code>paint_*()</code> draws immediately on the current base device and returns its cell table invisibly. That is exactly what you want at a live R console, in a plain <code>.R</code> script, or in a knitr chunk where the picture is the output. There is nothing to print and nothing to keep; you call it and the drawing appears.</p>
+<p><code>paint_*()</code> draws immediately on the current base device and returns its cell table invisibly. That is exactly what you want at a live R console, in a plain <code>.R</code> script, or in a knitr chunk where the picture is the output. There is nothing to print and nothing to keep, so you call it and the drawing appears.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-vector.html">paint_vector</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>a <span class="op">=</span> <span class="fl">1</span>, b <span class="op">=</span> <span class="fl">2</span>, c <span class="op">=</span> <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>
@@ -134,7 +129,7 @@
 </div>
 <p><code>gpaint_*()</code> returns a ggplot object. Nothing is drawn until that object is printed, which means you can hold onto it, print it when you like, save it with <code>ggsave()</code>, or arrange several of them in a layout package such as patchwork. Reach for the ggplot family when the drawing is a <em>value</em> you want to move around rather than an action you take.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/paint-vector.html">gpaint_vector</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>a <span class="op">=</span> <span class="fl">1</span>, b <span class="op">=</span> <span class="fl">2</span>, c <span class="op">=</span> <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">class</a></span><span class="op">(</span><span class="va">p</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "ggplot2::ggplot" "ggplot"          "ggplot2::gg"     "S7_object"      </span></span>
@@ -142,7 +137,7 @@
 </div>
 <p><code>p</code> is an ordinary ggplot object. Printing it draws the picture:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">p</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>
@@ -153,26 +148,26 @@
 </div>
 <p>To save it to a file you would use <code>ggsave()</code> exactly as with any ggplot:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">ggsave</span><span class="op">(</span><span class="st">"vector.png"</span>, <span class="va">p</span>, width <span class="op">=</span> <span class="fl">7</span>, height <span class="op">=</span> <span class="fl">3</span>, dpi <span class="op">=</span> <span class="fl">96</span><span class="op">)</span></span></code></pre></div>
 </div>
 <p>And to sit two paintr pictures side by side, a layout package composes the objects the ordinary way, for example <code><a href="https://patchwork.data-imaginist.com" class="external-link">library(patchwork); p1 + p2</a></code>. That composability is the whole reason to prefer <code>gpaint_*()</code>.</p>
-</section><section class="level2"><h2 id="the-honest-caveat-the-ggplot-is-a-shell">The honest caveat: the ggplot is a shell<a class="anchor" aria-label="anchor" href="#the-honest-caveat-the-ggplot-is-a-shell"></a>
+</section><section class="level2"><h2 id="the-ggplot-is-a-shell">The ggplot is a shell<a class="anchor" aria-label="anchor" href="#the-ggplot-is-a-shell"></a>
 </h2>
-<p>Here is the part worth being clear-eyed about. A <code>gpaint_*()</code> object is a real ggplot object, but its entire panel is drawn by a custom grid grob, dropped in as a single annotation over a meaningless <code>0..1</code> coordinate system. There is no <code>aes()</code> mapping, no geom, and no scale carrying any of the meaning you see.</p>
+<p>A <code>gpaint_*()</code> object is a real ggplot object, but its entire panel is drawn by a custom grid grob, dropped in as a single annotation over a meaningless <code>0..1</code> coordinate system. There is no <code>aes()</code> mapping, no geom, and no scale carrying any of the meaning you see.</p>
 <p>The practical consequence is that the object does <strong>not</strong> compose the way a normal ggplot does:</p>
 <ul>
 <li>
-<code>ggplot_build()</code> sees an empty layer – there is no data behind the panel to build.</li>
+<code>ggplot_build()</code> sees an empty layer, because there is no data behind the panel to build.</li>
 <li>
 <code>+ scale_fill_*()</code> has no effect on the cell colours. To fill cells, use the <code>highlight_area</code> and <code>highlight_color</code> arguments (see <code><a href="../articles/highlighting.html">vignette("highlighting", package = "paintr")</a></code>).</li>
 <li>
 <code>+ geom_point()</code> and friends would draw onto the hidden <code>0..1</code> system, not onto the cells, so they will not land where you expect.</li>
 </ul>
-<p>Why build it this way? Not to be clever, and not as a shortcut around ggplot2. Two things paintr does are simply impossible with a geom. First, the cell text is fitted to the device at <em>draw</em> time – ggplot2 builds a layer long before it knows how big the device is, so it cannot measure text and size it to fit the way paintr needs to. Second, every number is drawn as two coloured spans, black for the significant digits and grey for the rest, and <code>geom_text()</code> draws a label in one colour only. A custom grob is the one mechanism that can do either, so that is what the panel is.</p>
+<p>Why build it this way? Not to be clever, and not as a shortcut around ggplot2. Two things paintr does are simply impossible with a geom. First, the cell text is fitted to the device at <em>draw</em> time, but ggplot2 builds a layer long before it knows how big the device is, so it cannot measure text and size it to fit the way paintr needs to. Second, every number is drawn as two coloured spans, black for the significant digits and grey for the rest, and <code>geom_text()</code> draws a label in one colour only. A custom grob is the one mechanism that can do either, so that is what the panel is.</p>
 <p>What you <em>can</em> still do is everything that operates on the ggplot chrome rather than the panel contents. <code>+ labs()</code> retitles it, <code>+ theme()</code> restyles the surrounding plot, <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> and knitr chunks draw it, and <code>ggsave()</code> writes it out:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-matrix.html">gpaint_matrix</a></span><span class="op">(</span><span class="va">mat</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>title <span class="op">=</span> <span class="st">"A relabelled matrix"</span>,</span>
 <span>                caption <span class="op">=</span> <span class="st">"drawn by paintr, retitled by ggplot2"</span><span class="op">)</span></span></code></pre></div>
@@ -183,10 +178,10 @@
 </div>
 </div>
 </div>
-<p>The title and caption compose because they are ordinary ggplot labels; the cells compose because they were never ggplot layers to begin with.</p>
+<p>The title and caption compose because they are ordinary ggplot labels, and the cells compose because they were never ggplot layers to begin with.</p>
 </section><section class="level2"><h2 id="the-short-version">The short version<a class="anchor" aria-label="anchor" href="#the-short-version"></a>
 </h2>
-<p>Use <code>paint_*()</code> when you want a picture drawn now: at the console, in a script, in a chunk. Use <code>gpaint_*()</code> when you want a ggplot object to print, save, or lay out with other plots – just remember that it is a drawing wearing a ggplot coat, so reach for paintr’s own arguments rather than <code>+ scale_*()</code> to change what the cells look like. For the tour of every structure both families can draw, see <code><a href="../articles/paintr.html">vignette("paintr", package = "paintr")</a></code>.</p>
+<p>Use <code>paint_*()</code> when you want a picture drawn now, at the console, in a script, or in a chunk. Use <code>gpaint_*()</code> when you want a ggplot object to print, save, or lay out with other plots. Just remember that it is a drawing wearing a ggplot coat, so reach for paintr’s own arguments rather than <code>+ scale_*()</code> to change what the cells look like. For the tour of every structure both families can draw, see <code><a href="../articles/paintr.html">vignette("paintr", package = "paintr")</a></code>.</p>
 </section><script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);

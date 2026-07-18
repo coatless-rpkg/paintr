@@ -46,7 +46,6 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/base-vs-ggplot2.html">Base graphics and ggplot2</a></li>
     <li><a class="dropdown-item" href="../articles/highlighting.html">Highlighting cells</a></li>
-    <li><a class="dropdown-item" href="../articles/teaching.html">Teaching with paintr</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -87,13 +86,14 @@
 
 
 
-    <div class="cell">
+    <p><code>paintr</code> draws R’s data structures as teaching diagrams. This guide tours the five structures it can draw, the two backends it draws them with, and the arguments that shape each picture. Load the package to follow along.</p>
+<div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/coatless-rpkg/paintr" class="external-link">paintr</a></span><span class="op">)</span></span></code></pre></div>
 </div>
 <section class="level2"><h2 id="what-paintr-draws">What paintr draws<a class="anchor" aria-label="anchor" href="#what-paintr-draws"></a>
 </h2>
-<p>When you teach R, the hard part is rarely the arithmetic. It is helping someone <em>see</em> the shape of the thing they are working with: that a vector is a row of boxes, that a data frame is a stack of columns that happen to line up, that an array is a pile of matrices. paintr draws exactly those pictures.</p>
+<p>When you teach R, the hard part is rarely the arithmetic. It is helping someone <em>see</em> the shape of the thing they are working with, so they picture a vector as a row of boxes, a data frame as a stack of columns that happen to line up, and an array as a pile of matrices. paintr draws exactly those pictures.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-vector.html">paint_vector</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4</span>, <span class="fl">8</span>, <span class="fl">15</span>, <span class="fl">16</span>, <span class="fl">23</span>, <span class="fl">42</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
@@ -119,7 +119,7 @@
 </div>
 </div>
 </div>
-<p>The two draw the same picture. One honest caveat about the ggplot version: its panel is a single custom grob, not a layer of geoms. That is what lets paintr defer text fitting to draw time and paint the grey trailing digits you will see below, but it also means <code>ggplot_build()</code> sees an empty layer, and adding <code>+ scale_fill_*()</code> has no effect. Reach for <code>gpaint_*()</code> when you want a ggplot in your hand, and <code>paint_*()</code> otherwise. The rest of this tour uses <code>paint_*()</code>.</p>
+<p>The two draw the same picture, with one difference in the ggplot version. Its panel is a single custom grob, not a layer of geoms. That is what lets paintr defer text fitting to draw time and paint the grey trailing digits you will see below, but it also means <code>ggplot_build()</code> sees an empty layer, and adding <code>+ scale_fill_*()</code> has no effect. Reach for <code>gpaint_*()</code> when you want a ggplot in your hand, and <code>paint_*()</code> otherwise. The rest of this tour uses <code>paint_*()</code>.</p>
 </section><section class="level2"><h2 id="vectors">Vectors<a class="anchor" aria-label="anchor" href="#vectors"></a>
 </h2>
 <p>A vector is a one-dimensional run of values, and that is how it draws.</p>
@@ -179,10 +179,10 @@
 </div>
 </div>
 </div>
-<p>If the matrix has dimnames, they draw in the margins; <code>show_dimnames</code> takes a character vector over <code>"none"</code>, <code>"row"</code>, <code>"column"</code>, and <code>"all"</code> to choose which.</p>
+<p>If the matrix has dimnames, they draw in the margins, and <code>show_dimnames</code> chooses which by taking a character vector over <code>"none"</code>, <code>"row"</code>, <code>"column"</code>, and <code>"all"</code>.</p>
 </section><section class="level2"><h2 id="data-frames">Data frames<a class="anchor" aria-label="anchor" href="#data-frames"></a>
 </h2>
-<p>A data frame is the workhorse, and it gets the richest default picture: a header row of column names, the type of each column beneath it, and a row-name gutter whenever the row names are meaningful.</p>
+<p>A data frame is the workhorse, and it gets the richest default picture, with a header row of column names, the type of each column beneath it, and a row-name gutter whenever the row names are meaningful.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-data-frame.html">paint_data_frame</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">mtcars</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
@@ -193,10 +193,10 @@
 </div>
 </div>
 </div>
-<p>Notice the numbers. paintr shows three significant figures by default, and draws any trailing insignificant digits in <strong>grey</strong>, so a reader can see the true value without being distracted by noise. <code>mtcars</code> has real row names, so the gutter appears; a fresh <code>iris</code> would not draw one. Toggle the extra rows with <code>show_names</code>, <code>show_types</code>, and <code>show_rownames</code>. <code><a href="../reference/paint-data-frame.html">paint_df()</a></code> is a shorter alias.</p>
+<p>Notice the numbers. paintr shows three significant figures by default, and draws any trailing insignificant digits in <strong>grey</strong>, so a reader can see the true value without being distracted by noise. <code>mtcars</code> has real row names, so the gutter appears, while a fresh <code>iris</code> would not draw one. Toggle the extra rows with <code>show_names</code>, <code>show_types</code>, and <code>show_rownames</code>. <code><a href="../reference/paint-data-frame.html">paint_df()</a></code> is a shorter alias.</p>
 </section><section class="level2"><h2 id="lists">Lists<a class="anchor" aria-label="anchor" href="#lists"></a>
 </h2>
-<p>A list is the flexible container: its elements can have different lengths and different types. paintr draws each element as a column.</p>
+<p>A list is the flexible container, and its elements can have different lengths and different types. paintr draws each element as a column.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-list.html">paint_list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, tags <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"a"</span>, <span class="st">"b"</span><span class="op">)</span>, ok <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">TRUE</span>, <span class="cn">FALSE</span>, <span class="cn">NA</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
@@ -207,29 +207,87 @@
 </div>
 </div>
 </div>
-<p>Here is the idea worth pausing on. A data frame is just a list whose elements all share a length, so when the elements <em>do</em> line up, the list draws as a clean rectangle. Break one length and the rectangle breaks with it, ragged edge and all. That ragged edge is the difference between a list and a data frame, drawn literally.</p>
-<p>paintr does not draw nesting: a list inside a list collapses to a grey <code>&lt;list [2]&gt;</code> token rather than recursing. Use <code>show_indices = "cell"</code> to label each cell with its <code>[[j]][i]</code> accessor.</p>
-</section><section class="level2"><h2 id="arrays">Arrays<a class="anchor" aria-label="anchor" href="#arrays"></a>
-</h2>
-<p>An array of three or more dimensions is a stack of matrices, and <code><a href="../reference/paint-array.html">paint_array()</a></code> lays that stack out as a row of blocks sharing one font size. (A 2-D array is just a matrix, and draws like one.)</p>
+<p>A data frame is just a list whose elements all share a length. Here is a small data frame, and here it is again as a bare list after <code><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list()</a></code> strips the class.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-array.html">paint_array</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/array.html" class="external-link">array</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">24</span>, dim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span>, show_indices <span class="op">=</span> <span class="st">"cell"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.5</span>, <span class="fl">2.5</span>, <span class="fl">3.5</span><span class="op">)</span>, grp <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"a"</span>, <span class="st">"b"</span>, <span class="st">"c"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/paint-data-frame.html">paint_data_frame</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>
-<figure><p><img src="paintr_files/figure-html/unnamed-chunk-12-1.png" style="width:100.0%" alt="The numbers 1 through 24 drawn as a 2 by 3 by 4 array: four side-by-side blocks, each a 2 by 3 matrix slice sharing one font size and titled , , 1 through , , 4. Every cell is labelled with its full three-number subscript, from [1, 1, 1] to [2, 3, 4]."></p>
+<figure><p><img src="paintr_files/figure-html/unnamed-chunk-12-1.png" style="width:100.0%" alt="A small data frame drawn as a table with two columns, x holding 1.5, 2.5, 3.5 and grp holding a, b, c, each headed by its bare column name with the column type beneath; the elements share a length, so the table is a clean rectangle."></p>
 </figure>
 </div>
 </div>
 </div>
-<p>Each block is one slice; the label under a cell is its full subscript, <code>[2, 3, 4]</code>, a genuine 3-D index into the array. <code>show_dimnames</code> works as it does for a matrix, with an added <code>"slice"</code> lane. A genuinely huge array elides its middle, the same way the other structures do once they pass their size caps.</p>
-<p>When a stack has more slices than sit comfortably in one row, <code>slices_per_row</code> wraps the blocks onto a grid – the same array, laid out to stay readable. Each block keeps its own honest slice title, so wrapping is just reading order.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-list.html">paint_list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure><p><img src="paintr_files/figure-html/unnamed-chunk-13-1.png" style="width:100.0%" alt="The same data drawn as a bare list after as.list(): two columns headed $x and $grp holding the same values 1.5, 2.5, 3.5 and a, b, c. Because the two elements share a length, the list draws the same clean rectangle a data frame does."></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The two pictures are identical, the same columns and the same clean rectangle. The list draws that outline <em>only because</em> its elements share a length, and that shared length is exactly what makes a list a data frame. Shorten one element and the outline breaks with it, the ragged edge marking an object that is no longer a data frame.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">broken</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span></span>
+<span><span class="va">broken</span><span class="op">$</span><span class="va">x</span> <span class="op">&lt;-</span> <span class="va">broken</span><span class="op">$</span><span class="va">x</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span></span>
+<span><span class="fu"><a href="../reference/paint-list.html">paint_list</a></span><span class="op">(</span><span class="va">broken</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure><p><img src="paintr_files/figure-html/unnamed-chunk-14-1.png" style="width:100.0%" alt="The same list after shortening x to two values, 1.5 and 2.5, while grp keeps three, a, b, c; the elements no longer line up, so the outline is gone and the bottom edge is ragged, the picture of an object that is no longer a data frame."></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The rectangle is a convenience, though, not the truth of the object. A list is a bag of independent vectors that happen, here, to line up. Set <code>gap</code> and the columns move apart to say so, dropping the outline that marked them as a table.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-list.html">paint_list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span>, gap <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure><p><img src="paintr_files/figure-html/unnamed-chunk-15-1.png" style="width:100.0%" alt="The same equal-length list drawn with gap = 0.5, which pushes the two columns x and grp apart into separate boxed vectors with clear space between them and no enclosing outline; the values are unchanged, but the picture now reads as two independent columns rather than one table."></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The label under each cell is an accessor you can type. <code>show_indices = "cell"</code> writes the <code>[[j]][i]</code> subscript under every value, which settles the single-versus-double-bracket question by putting the working expression under the number it returns.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">l</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>a <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">10</span>, <span class="fl">20</span>, <span class="fl">30</span><span class="op">)</span>, b <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.5</span>, <span class="fl">2.5</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/paint-list.html">paint_list</a></span><span class="op">(</span><span class="va">l</span>, show_indices <span class="op">=</span> <span class="st">"cell"</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure><p><img src="paintr_files/figure-html/unnamed-chunk-16-1.png" style="width:100.0%" alt="A list of two elements headed $a and $b, holding 10, 20, 30 and 1.5, 2.5, drawn with each cell labelled by its list accessor, double brackets to reach the element then a single bracket to pick the value, so [[2]][2] sits under 2.5 and [[1]][1] under 10."></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Under the <code>2.5</code> it prints <code>l[[2]][2]</code>, double brackets to reach into the list and a single bracket to pick the element.</p>
+<p>paintr does not draw nesting, so a list inside a list collapses to a grey <code>&lt;list [2]&gt;</code> token rather than recursing.</p>
+</section><section class="level2"><h2 id="arrays">Arrays<a class="anchor" aria-label="anchor" href="#arrays"></a>
+</h2>
+<p>An array of three or more dimensions is a stack of matrices, and <code><a href="../reference/paint-array.html">paint_array()</a></code> lays that stack out as a row of blocks sharing one font size. (A 2-D array is just a matrix, and draws like one.)</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-array.html">paint_array</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/array.html" class="external-link">array</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">24</span>, dim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span>, show_indices <span class="op">=</span> <span class="st">"cell"</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure><p><img src="paintr_files/figure-html/unnamed-chunk-17-1.png" style="width:100.0%" alt="The numbers 1 through 24 drawn as a 2 by 3 by 4 array: four side-by-side blocks, each a 2 by 3 matrix slice sharing one font size and titled , , 1 through , , 4. Every cell is labelled with its full three-number subscript, from [1, 1, 1] to [2, 3, 4]."></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Each block is one slice, and the label under a cell is its full subscript, <code>[2, 3, 4]</code>, a genuine 3-D index into the array. <code>show_dimnames</code> works as it does for a matrix, with an added <code>"slice"</code> lane. A genuinely huge array elides its middle, the same way the other structures do once they pass their size caps.</p>
+<p>When a stack has more slices than sit comfortably in one row, <code>slices_per_row</code> wraps the blocks onto a grid, the same array laid out to stay readable. Each block keeps its own slice title, so wrapping only changes the reading order.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint-array.html">paint_array</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/array.html" class="external-link">array</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">24</span>, dim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span>, slices_per_row <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>
-<figure><p><img src="paintr_files/figure-html/unnamed-chunk-13-1.png" style="width:100.0%" alt="The same 2 by 3 by 4 array, now with slices_per_row = 2, so the four slice blocks are laid out in a two-by-two grid instead of a single row. The blocks are titled , , 1 through , , 4 in left-to-right, top-to-bottom reading order, and are larger and easier to read than in one cramped row."></p>
+<figure><p><img src="paintr_files/figure-html/unnamed-chunk-18-1.png" style="width:100.0%" alt="The same 2 by 3 by 4 array, now with slices_per_row = 2, so the four slice blocks are laid out in a two-by-two grid instead of a single row. The blocks are titled , , 1 through , , 4 in left-to-right, top-to-bottom reading order, and are larger and easier to read than in one cramped row."></p>
 </figure>
 </div>
 </div>
@@ -238,22 +296,20 @@
 </h2>
 <p>Most defaults fit a normal plot window, but a large structure drawn in full can shrink its text below the point where it is readable. <code><a href="../reference/paint_size.html">paint_size()</a></code> tells you the device size that keeps everything legible, in a form you can paste straight into a <code><a href="https://rdrr.io/r/grDevices/png.html" class="external-link">png()</a></code> call or a knitr chunk header.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/paint_size.html">paint_size</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">mtcars</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;  width height </span></span>
 <span><span class="co">#&gt;    4.4    1.8</span></span></code></pre></div>
 </div>
-<p>The answer is in inches by default; pass <code>units = "px"</code> for a <code><a href="https://rdrr.io/r/grDevices/png.html" class="external-link">png()</a></code> at a given <code>dpi</code>. When a picture would be too small, paintr warns and quotes you these exact numbers.</p>
+<p>The answer is in inches by default. Pass <code>units = "px"</code> for a <code><a href="https://rdrr.io/r/grDevices/png.html" class="external-link">png()</a></code> at a given <code>dpi</code>. When a picture would be too small, paintr warns and quotes you these exact numbers.</p>
 </section><section class="level2"><h2 id="where-next">Where next<a class="anchor" aria-label="anchor" href="#where-next"></a>
 </h2>
-<p>That is the whole tour: five structures, two backends, one consistent picture. From here:</p>
+<p>That is the whole tour, five structures, two backends, one consistent picture. From here:</p>
 <ul>
 <li>
 <code><a href="../articles/highlighting.html">vignette("highlighting", package = "paintr")</a></code> shows how to spotlight rows, columns, and individual cells to draw the eye where a lesson needs it.</li>
 <li>
 <code><a href="../articles/base-vs-ggplot2.html">vignette("base-vs-ggplot2", package = "paintr")</a></code> digs into the <code>paint_</code> and <code>gpaint_</code> split and when each backend pays off.</li>
-<li>
-<code><a href="../articles/teaching.html">vignette("teaching", package = "paintr")</a></code> puts these pictures to work in actual lesson material.</li>
 </ul></section><script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);

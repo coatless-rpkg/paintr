@@ -1,23 +1,18 @@
 # Highlighting cells
 
-``` r
-
-library(paintr)
-```
-
 When you draw a structure to teach with it, you almost always want to
-point at one part of it: *this* row, *that* column, the cells that pass
-a test. Every paintr painter takes a `highlight_area` argument for
-exactly this, and every picture in this article is the same drawing
+point at one part of it, whether *this* row, *that* column, or the cells
+that pass a test. Every paintr painter takes a `highlight_area` argument
+for exactly this, and every picture in this article is the same drawing
 twice, once plain and once with a patch of colour laid over the cells
 that matter.
 
 ## A highlight is a logical mask
 
-`highlight_area` wants a logical structure the same shape as your data:
-`TRUE` wherever a cell should light up, `FALSE` everywhere else. Nothing
-more. Here is a small matrix and a mask that turns on its second row by
-hand.
+`highlight_area` wants a logical structure the same shape as your data,
+with `TRUE` wherever a cell should light up and `FALSE` everywhere else.
+Nothing more. Here is a small matrix and a mask that turns on its second
+row by hand.
 
 ``` r
 
@@ -52,7 +47,7 @@ cases. Each one returns a mask of the right shape that you hand straight
 to `highlight_area`.
 
 [`highlight_rows()`](https://r-pkg.thecoatlessprofessor.com/paintr/reference/highlight-data.md)
-takes a row selection: integer positions, or a logical vector, or names
+takes a row selection as integer positions, a logical vector, or names
 when the data has them.
 
 ``` r
@@ -135,9 +130,9 @@ highlighting the values 5 through 12 while 1, 2, 3, and 4 stay plain;
 the shaded pattern is exactly the TRUE entries of the comparison m \>
 4.](highlighting_files/figure-html/unnamed-chunk-10-1.png)
 
-This is the quickest way to show a class what a vectorised comparison
-*is*: the red-and-white grid of `m > 4` and the highlighted picture are
-the same object. [`which()`](https://rdrr.io/r/base/which.html),
+The red-and-white grid of `m > 4` and the highlighted picture are the
+same object, the vectorised comparison made visible.
+[`which()`](https://rdrr.io/r/base/which.html),
 [`is.na()`](https://rdrr.io/r/base/NA.html), and friends all produce
 masks you can drop straight in.
 
@@ -158,8 +153,7 @@ cells.](highlighting_files/figure-html/unnamed-chunk-11-1.png)
 
 ## Highlighting works on every structure
 
-Here is the invariant, stated plainly: **if a painter can draw a
-structure,
+The invariant is simple. **If a painter can draw a structure,
 [`highlight_data()`](https://r-pkg.thecoatlessprofessor.com/paintr/reference/highlight-data.md)
 can mask it.** The builders take the same arguments whatever you point
 them at, and
@@ -206,7 +200,7 @@ for the full tour of the five structures.
 
 Highlighting is a property of the drawing, not of the backend, so the
 mask you build feeds a base picture and a ggplot2 picture without
-change. The matrices above were base graphics; here is the identical
+change. The matrices above were base graphics, and here is the identical
 highlight through `gpaint_*`:
 
 ``` r

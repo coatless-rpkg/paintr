@@ -21,14 +21,12 @@ The package vignettes:
 
 - [`vignette("base-vs-ggplot2", package = "paintr")`](https://r-pkg.thecoatlessprofessor.com/paintr/articles/base-vs-ggplot2.md)
 
-- [`vignette("teaching", package = "paintr")`](https://r-pkg.thecoatlessprofessor.com/paintr/articles/teaching.md)
-
 ## Author
 
 **Maintainer**: James Joseph Balamuta <james.balamuta@gmail.com>
-([ORCID](https://orcid.org/0000-0003-2826-8458))
+([ORCID](https://orcid.org/0000-0003-2826-8458)) \[copyright holder\]
 
 Authors:
 
 - James Joseph Balamuta <james.balamuta@gmail.com>
-  ([ORCID](https://orcid.org/0000-0003-2826-8458))
+  ([ORCID](https://orcid.org/0000-0003-2826-8458)) \[copyright holder\]
