@@ -56,7 +56,7 @@ the third value. Give the vector names and the label becomes the named
 accessor, `["mon"]`, because `x["mon"]` is now how you reach that value.
 
 ``` r
-paint_vector(c(mon = 12, tue = 19, wed = 3, thu = 8))
+paint_vector(c(mon = 12, tue = 19, wed = 3, thu = 8), layout = "horizontal")
 ```
 
 <img src="man/figures/README-vector-example-1.png" alt="A named numeric vector shown as one horizontal row of four cells holding 12, 19, 3, and 8, with the named accessor label for each day written under its cell: mon, tue, wed, and thu." width="100%" />
