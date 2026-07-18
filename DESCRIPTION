@@ -9,12 +9,12 @@ Authors@R: c(
                    )
             )
 Description: Draws teaching diagrams of the contents of common 'R' data
-    structures -- vectors, matrices, data frames, lists, and arrays -- so their
+    structures (vectors, matrices, data frames, lists, and arrays) so their
     shape and values can be read at a glance. Two backends render the same
-    picture: base 'R' graphics through the paint_*() functions and 'ggplot2'
-    through the gpaint_*() functions. The label under each cell is the
-    expression you would type to reach that cell, so every diagram doubles as a
-    lesson in how to subset and index the object it draws.
+    picture, with base 'R' graphics through the paint_*() functions and
+    'ggplot2' through the gpaint_*() functions. The label under each cell is
+    the expression you would type to reach that cell, so every diagram doubles
+    as a lesson in how to subset and index the object it draws.
 URL: https://github.com/coatless-rpkg/paintr, https://r-pkg.thecoatlessprofessor.com/paintr/
 BugReports: https://github.com/coatless-rpkg/paintr/issues
 Depends: R (>= 4.2.0)
