@@ -225,23 +225,6 @@ In scientific mode <code>insig</code> is always <code>""</code>, because every d
 scientific token, exponent included, is significant.</p>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">paintr</span><span class="fu">:::</span><span class="fu">paint_format</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span> <span class="op">/</span> <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     sig insig head tail   ink   align</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1     1          1      black decimal</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 0.333          0 .333 black decimal</span>
-<span class="r-in"><span><span class="fu">paintr</span><span class="fu">:::</span><span class="fu">paint_format</span><span class="op">(</span><span class="fl">123456.789</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   sig insig   head tail   ink   align</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 123  457. 123457    . black decimal</span>
-<span class="r-in"><span><span class="fu">paintr</span><span class="fu">:::</span><span class="fu">paint_format</span><span class="op">(</span><span class="va">letters</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   sig insig head tail   ink align</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1   a          a      black  left</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2   b          b      black  left</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3   c          c      black  left</span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

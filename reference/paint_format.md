@@ -177,20 +177,3 @@ scientific notation. The decision is made on **width**, not magnitude:
 if the widest fixed token would exceed `max_dec_width` characters, the
 unit flips. In scientific mode `insig` is always `""`, because every
 digit of a scientific token, exponent included, is significant.
-
-## Examples
-
-``` r
-paintr:::paint_format(c(1, 1 / 3))
-#>     sig insig head tail   ink   align
-#> 1     1          1      black decimal
-#> 2 0.333          0 .333 black decimal
-paintr:::paint_format(123456.789)
-#>   sig insig   head tail   ink   align
-#> 1 123  457. 123457    . black decimal
-paintr:::paint_format(letters[1:3])
-#>   sig insig head tail   ink align
-#> 1   a          a      black  left
-#> 2   b          b      black  left
-#> 3   c          c      black  left
-```
