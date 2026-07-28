@@ -145,10 +145,4 @@ widest fixed token would exceed \code{max_dec_width} characters, the unit flips.
 In scientific mode \code{insig} is always \code{""}, because every digit of a
 scientific token, exponent included, is significant.
 }
-\examples{
-paintr:::paint_format(c(1, 1 / 3))
-paintr:::paint_format(123456.789)
-paintr:::paint_format(letters[1:3])
-
-}
 \keyword{internal}

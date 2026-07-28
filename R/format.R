@@ -351,11 +351,6 @@ type_tag <- function(x) {
 #'   with attributes `tag` (the type tag) and `sci` (did the unit flip to
 #'   scientific notation?).
 #'
-#' @examples
-#' paintr:::paint_format(c(1, 1 / 3))
-#' paintr:::paint_format(123456.789)
-#' paintr:::paint_format(letters[1:3])
-#'
 #' @keywords internal
 paint_format <- function(x,
                          sigfig = 3L,
