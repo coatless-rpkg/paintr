@@ -1,3 +1,9 @@
+## Resubmission
+
+This is a resubmission. In response to the reviewer, the examples for the
+internal `paint_format()` no longer use `paintr:::`. As an internal helper, its
+illustrative examples were removed rather than exported.
+
 ## Test environments
 
 * local macOS, R release
