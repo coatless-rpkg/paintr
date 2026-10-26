@@ -31,3 +31,11 @@ reference:
     legibility floor.
   contents:
   - paint_size
+
+navbar:
+  structure:
+    left: [intro, reference, articles, tutorials, news, blog]
+  components:
+    blog:
+      text: Blog posts
+      href: https://blog.thecoatlessprofessor.com/projects/paintr/
