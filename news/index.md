@@ -2,6 +2,8 @@
 
 ## paintr 0.0.1
 
+CRAN release: 2026-08-06
+
 Initial CRAN submission. The package was previously developed as
 `drawr`.
 
